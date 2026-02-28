@@ -8,7 +8,7 @@ import { CrmCard, CrmStatus } from '@/lib/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
 const COLUMNS: { id: CrmStatus; label: string; color: string }[] = [
-  { id: 'inquiry', label: 'Zapytanie', color: '#8A92A8' },
+  { id: 'inquiry', label: 'Zapytanie', color: 'var(--text-muted)' },
   { id: 'conversation', label: 'Rozmowa', color: '#3498DB' },
   { id: 'offer', label: 'Oferta', color: '#9B59B6' },
   { id: 'onboarding', label: 'Onboarding', color: '#F39C12' },
@@ -46,7 +46,7 @@ export default function CrmPage() {
               <div
                 key={col.id}
                 className="flex-shrink-0 w-64 rounded-2xl p-3"
-                style={{ background: '#161920', border: '1px solid rgba(255,255,255,0.07)' }}
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
                 onDrop={() => handleDrop(col.id)}
                 onDragOver={handleDragOver}
               >
@@ -56,7 +56,7 @@ export default function CrmPage() {
                     <div className="w-2 h-2 rounded-full" style={{ background: col.color }} />
                     <span className="text-sm font-semibold">{col.label}</span>
                   </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)', color: '#8A92A8' }}>
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
                     {colCards.length}
                   </span>
                 </div>
@@ -70,8 +70,8 @@ export default function CrmPage() {
                       onDragStart={() => handleDragStart(card.id)}
                       className="p-3 rounded-xl cursor-grab active:cursor-grabbing transition-all hover:border-white/15"
                       style={{
-                        background: '#1E2330',
-                        border: '1px solid rgba(255,255,255,0.07)',
+                        background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border)',
                         opacity: dragId === card.id ? 0.5 : 1,
                       }}
                     >
@@ -82,17 +82,17 @@ export default function CrmPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">{card.name}</div>
-                          <div className="text-xs truncate" style={{ color: '#8A92A8' }}>{card.source}</div>
+                          <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{card.source}</div>
                         </div>
                       </div>
-                      <div className="text-xs mb-1.5" style={{ color: '#8A92A8' }}>🎯 {card.interest}</div>
+                      <div className="text-xs mb-1.5" style={{ color: 'var(--text-muted)' }}>🎯 {card.interest}</div>
                       {card.value && (
                         <div className="text-xs font-semibold" style={{ color: '#FF5C1B' }}>{formatCurrency(card.value)}/mies.</div>
                       )}
                       {card.notes && (
-                        <div className="text-xs mt-2 line-clamp-2" style={{ color: '#8A92A8' }}>{card.notes}</div>
+                        <div className="text-xs mt-2 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{card.notes}</div>
                       )}
-                      <div className="text-xs mt-2" style={{ color: '#8A92A8' }}>{formatDate(card.createdAt, { day: 'numeric', month: 'short' })}</div>
+                      <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{formatDate(card.createdAt, { day: 'numeric', month: 'short' })}</div>
                     </div>
                   ))}
 

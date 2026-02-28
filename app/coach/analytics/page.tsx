@@ -25,7 +25,7 @@ export default function AnalyticsPage() {
             { label: 'Zaległości', value: formatCurrency(businessKpis.overdueAmount), trend: '2 faktury', up: false },
           ].map(kpi => (
             <Card key={kpi.label} className="p-5">
-              <div className="text-xs mb-1" style={{ color: '#8A92A8' }}>{kpi.label}</div>
+              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{kpi.label}</div>
               <div className="text-2xl font-bold mb-1">{kpi.value}</div>
               {kpi.trend && <div className="text-xs" style={{ color: kpi.up ? '#2ECC71' : '#E74C3C' }}>{kpi.trend}</div>}
             </Card>
@@ -41,15 +41,15 @@ export default function AnalyticsPage() {
               const isLast = i === revenueHistory.length - 1
               return (
                 <div key={rev.month} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="text-xs font-semibold" style={{ color: isLast ? '#FF5C1B' : '#8A92A8' }}>
+                  <div className="text-xs font-semibold" style={{ color: isLast ? '#FF5C1B' : 'var(--text-muted)' }}>
                     {formatCurrency(rev.amount)}
                   </div>
                   <div className="w-full rounded-t-xl transition-all" style={{
                     height: `${height}%`,
-                    background: isLast ? 'linear-gradient(180deg, #FF5C1B, #FF7A42)' : 'rgba(255,255,255,0.1)',
+                    background: isLast ? 'linear-gradient(180deg, #FF5C1B, #FF7A42)' : 'var(--border-mid)',
                     minHeight: '4px',
                   }} />
-                  <div className="text-xs text-center" style={{ color: '#8A92A8' }}>
+                  <div className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
                     {rev.month.split(' ')[0].slice(0, 3)}
                   </div>
                 </div>
@@ -90,7 +90,7 @@ export default function AnalyticsPage() {
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-2xl font-bold">{athletes.length}</div>
-                  <div className="text-xs" style={{ color: '#8A92A8' }}>łącznie</div>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>łącznie</div>
                 </div>
               </div>
             </div>
@@ -102,7 +102,7 @@ export default function AnalyticsPage() {
               ].map(item => (
                 <div key={item.label} className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full" style={{ background: item.color }} />
-                  <span className="text-sm" style={{ color: '#8A92A8' }}>{item.label}</span>
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{item.label}</span>
                   <span className="font-bold text-sm ml-auto">{item.count}</span>
                 </div>
               ))}
@@ -116,24 +116,24 @@ export default function AnalyticsPage() {
           {retentionAlerts.length === 0 ? (
             <div className="text-sm text-green-400">✓ Brak aktywnych alertów retencji</div>
           ) : (
-            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                    <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#8A92A8' }}>Zawodnik</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#8A92A8' }}>Ostatni kontakt</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#8A92A8' }}>Alert</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: '#8A92A8' }}>Ryzyko</th>
+                  <tr style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border)' }}>
+                    <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Zawodnik</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Ostatni kontakt</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Alert</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Ryzyko</th>
                   </tr>
                 </thead>
                 <tbody>
                   {retentionAlerts.map((athlete, i) => (
-                    <tr key={athlete.id} style={{ borderBottom: i < retentionAlerts.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                    <tr key={athlete.id} style={{ borderBottom: i < retentionAlerts.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
                       <td className="px-4 py-3 font-medium text-xs">{athlete.name}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: '#8A92A8' }}>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                         {athlete.lastContact === 0 ? 'dziś' : `${athlete.lastContact} dni temu`}
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: '#8A92A8' }}>{athlete.alertMessage || '—'}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{athlete.alertMessage || '—'}</td>
                       <td className="px-4 py-3">
                         <span className="text-xs px-2 py-0.5 rounded-full" style={{
                           background: athlete.status === 'alert' ? 'rgba(231,76,60,0.15)' : 'rgba(241,196,15,0.15)',

@@ -60,9 +60,9 @@ export default function FeedbackPage() {
               onClick={() => setFilter(f.id)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer ${filter === f.id ? 'text-white' : 'hover:text-white'}`}
               style={{
-                background: filter === f.id ? 'rgba(255,92,27,0.15)' : 'rgba(255,255,255,0.05)',
-                color: filter === f.id ? '#FF5C1B' : '#8A92A8',
-                border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid rgba(255,255,255,0.07)',
+                background: filter === f.id ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                color: filter === f.id ? '#FF5C1B' : 'var(--text-muted)',
+                border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
               }}
             >
               {f.label}
@@ -74,7 +74,7 @@ export default function FeedbackPage() {
         {/* Feedback list */}
         <div className="space-y-3">
           {filtered.length === 0 && (
-            <div className="text-center py-12" style={{ color: '#8A92A8' }}>Brak feedbacków w tej kategorii</div>
+            <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>Brak feedbacków w tej kategorii</div>
           )}
           {filtered.map(fb => {
             const athlete = athletes.find(a => a.id === fb.athleteId)
@@ -91,13 +91,13 @@ export default function FeedbackPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="font-semibold text-sm">{athlete?.name}</span>
-                        <span className="text-xs" style={{ color: '#8A92A8' }}>{sourceIcon[fb.source]} {sourceLabel[fb.source]}</span>
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{sourceIcon[fb.source]} {sourceLabel[fb.source]}</span>
                         {!fb.read && <Badge variant="orange">Nowy</Badge>}
                         <span className={`text-xs px-2 py-0.5 rounded-full ${signalBg(fb.signal)}`}>
                           {fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'} {fb.aiSummary}
                         </span>
                       </div>
-                      {session && <div className="text-xs" style={{ color: '#8A92A8' }}>{session.title} · {formatDate(fb.date, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' } as any)}</div>}
+                      {session && <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{session.title} · {formatDate(fb.date, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' } as any)}</div>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Button
@@ -117,21 +117,21 @@ export default function FeedbackPage() {
                   {isExpanded && (
                     <div className="mt-4 space-y-3">
                       {/* Transcript */}
-                      <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                        <div className="text-xs font-semibold mb-2" style={{ color: '#8A92A8' }}>Transkrypcja zawodnika</div>
-                        <p className="text-sm italic" style={{ color: '#E8EAF0' }}>"{fb.transcript}"</p>
+                      <div className="p-3 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
+                        <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Transkrypcja zawodnika</div>
+                        <p className="text-sm italic" style={{ color: 'var(--text-primary)' }}>"{fb.transcript}"</p>
                       </div>
 
                       {/* AI Analysis */}
                       <div className="p-3 rounded-xl" style={{ background: 'rgba(255,92,27,0.06)', border: '1px solid rgba(255,92,27,0.15)' }}>
                         <div className="text-xs font-semibold mb-2" style={{ color: '#FF5C1B' }}>🤖 Analiza AI</div>
-                        <p className="text-sm" style={{ color: '#E8EAF0' }}>{fb.aiAnalysis}</p>
+                        <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{fb.aiAnalysis}</p>
                       </div>
 
                       {/* Watch data */}
                       {fb.watchData && (
-                        <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                          <div className="text-xs font-semibold mb-2" style={{ color: '#8A92A8' }}>⌚ Dane z zegarka</div>
+                        <div className="p-3 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
+                          <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>⌚ Dane z zegarka</div>
                           <div className="grid grid-cols-3 gap-2">
                             {([
                               fb.watchData.avgHR ? [`Tętno śr.`, `${fb.watchData.avgHR} bpm`] : null,
@@ -141,8 +141,8 @@ export default function FeedbackPage() {
                               fb.watchData.cadence ? [`Kadencja`, `${fb.watchData.cadence} spm`] : null,
                               fb.watchData.hrv ? [`HRV`, `${fb.watchData.hrv} ms`] : null,
                             ] as Array<[string, string] | null>).filter((x): x is [string, string] => x !== null).map(([k, v]) => (
-                              <div key={k} className="text-center p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                                <div className="text-xs" style={{ color: '#8A92A8' }}>{k}</div>
+                              <div key={k} className="text-center p-2 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
+                                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{k}</div>
                                 <div className="text-sm font-semibold">{v}</div>
                               </div>
                             ))}
@@ -167,7 +167,7 @@ export default function FeedbackPage() {
                             placeholder="Napisz odpowiedź do zawodnika..."
                             rows={3}
                             className="w-full px-3 py-2 rounded-xl text-sm resize-none"
-                            style={{ background: '#1E2330', border: '1px solid rgba(255,255,255,0.1)', color: '#E8EAF0' }}
+                            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
                             autoFocus
                           />
                           <div className="flex gap-2">

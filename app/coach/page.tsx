@@ -24,7 +24,7 @@ export default function DashboardPage() {
             { label: 'Rate feedbacku', value: `${businessKpis.feedbackRate}%`, trend: 'Ostatnie 7 dni', up: true },
           ].map(kpi => (
             <Card key={kpi.label} className="p-5">
-              <div className="text-sm mb-1" style={{ color: '#8A92A8' }}>{kpi.label}</div>
+              <div className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>{kpi.label}</div>
               <div className="text-2xl font-bold mb-1">{kpi.value}</div>
               <div className="text-xs" style={{ color: kpi.up ? '#2ECC71' : '#E74C3C' }}>{kpi.trend}</div>
             </Card>
@@ -37,11 +37,11 @@ export default function DashboardPage() {
             <div className="text-sm font-semibold mb-3" style={{ color: '#FF5C1B' }}>⚠️ Alerty priorytetowe</div>
             <div className="space-y-2">
               {alertAthletes.map(a => (
-                <Link key={a.id} href={`/coach/athletes/${a.id}`} className="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-white/5">
+                <Link key={a.id} href={`/coach/athletes/${a.id}`} className="flex items-center gap-3 p-3 rounded-xl transition-colors hover:opacity-80">
                   <Avatar initials={a.avatar} size="sm" />
                   <div className="flex-1">
                     <div className="text-sm font-medium">{a.name}</div>
-                    <div className="text-xs" style={{ color: '#8A92A8' }}>{a.alertMessage}</div>
+                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{a.alertMessage}</div>
                   </div>
                   <Badge variant={a.status === 'alert' ? 'red' : 'yellow'}>{a.status === 'alert' ? 'Alert' : 'Uwaga'}</Badge>
                 </Link>
@@ -60,7 +60,7 @@ export default function DashboardPage() {
                   <Badge variant="orange">{unreadFeedbacks} nowych feedbacków</Badge>
                 </Link>
               )}
-              <Link href="/coach/athletes" className="text-sm transition-colors hover:text-white" style={{ color: '#8A92A8' }}>
+              <Link href="/coach/athletes" className="text-sm transition-colors hover:text-white" style={{ color: 'var(--text-muted)' }}>
                 Zobacz wszystkich →
               </Link>
             </div>
@@ -79,17 +79,17 @@ export default function DashboardPage() {
                         <Avatar initials={athlete.avatar} />
                         <div>
                           <div className="font-medium text-sm group-hover:text-orange-400 transition-colors">{athlete.name}</div>
-                          <div className="text-xs" style={{ color: '#8A92A8' }}>{athlete.package}</div>
+                          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{athlete.package}</div>
                         </div>
                       </div>
                       <div className={`w-2.5 h-2.5 rounded-full mt-1 ${statusColor(athlete.status)}`} />
                     </div>
 
-                    <div className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', color: '#8A92A8' }}>
+                    <div className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
                       🎯 {athlete.goal}
                     </div>
 
-                    <div className="space-y-1.5 text-xs" style={{ color: '#8A92A8' }}>
+                    <div className="space-y-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
                       {lastSession && (
                         <div className="flex items-center justify-between">
                           <span>Ostatni trening</span>
@@ -115,7 +115,7 @@ export default function DashboardPage() {
                     )}
 
                     {recentFeedbacks.length > 0 && (
-                      <div className="mt-3 text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', color: '#8A92A8' }}>
+                      <div className="mt-3 text-xs px-3 py-2 rounded-lg" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
                         💬 {recentFeedbacks[0].aiSummary}
                       </div>
                     )}

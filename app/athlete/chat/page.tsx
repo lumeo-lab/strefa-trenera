@@ -26,9 +26,9 @@ export default function AthleteChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen" style={{ color: '#E8EAF0' }}>
+    <div className="flex flex-col h-screen" style={{ color: 'var(--text-primary)' }}>
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 pt-12 pb-4" style={{ background: '#1E2330', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+      <div className="flex items-center gap-3 px-5 pt-12 pb-4" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-white">TC</div>
         <div>
           <div className="font-semibold">Tomasz Czajka</div>
@@ -49,14 +49,14 @@ export default function AthleteChatPage() {
                 <div
                   className="px-4 py-3 text-sm"
                   style={{
-                    background: isMe ? '#FF5C1B' : '#1E2330',
-                    color: isMe ? 'white' : '#E8EAF0',
+                    background: isMe ? '#FF5C1B' : 'var(--bg-elevated)',
+                    color: isMe ? 'white' : 'var(--text-primary)',
                     borderRadius: isMe ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
                   }}
                 >
                   {msg.content}
                 </div>
-                <div className="text-xs" style={{ color: '#8A92A8' }}>{formatDateTime(msg.timestamp)}</div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDateTime(msg.timestamp)}</div>
               </div>
             </div>
           )
@@ -64,7 +64,7 @@ export default function AthleteChatPage() {
       </div>
 
       {/* Input - fixed at bottom above nav */}
-      <div className="fixed bottom-20 left-0 right-0 max-w-sm mx-auto px-5 py-3" style={{ background: '#0D0F14' }}>
+      <div className="fixed bottom-20 left-0 right-0 max-w-sm mx-auto px-5 py-3" style={{ background: 'var(--bg-base)' }}>
         <div className="flex items-center gap-2">
           <input
             value={input}
@@ -72,7 +72,7 @@ export default function AthleteChatPage() {
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Napisz do trenera..."
             className="flex-1 px-4 py-3 rounded-2xl text-sm"
-            style={{ background: '#1E2330', border: '1px solid rgba(255,255,255,0.1)', color: '#E8EAF0' }}
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
           />
           <button
             onClick={handleSend}

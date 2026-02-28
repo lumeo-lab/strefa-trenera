@@ -22,18 +22,18 @@ export default function AthletePlanPage() {
   }
 
   return (
-    <div style={{ color: '#E8EAF0' }}>
+    <div style={{ color: 'var(--text-primary)' }}>
       {/* Header */}
-      <div className="px-5 pt-12 pb-4" style={{ background: '#1E2330', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+      <div className="px-5 pt-12 pb-4" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
         <h1 className="text-xl font-bold mb-1">Plan tygodniowy</h1>
         <div className="flex items-center justify-between">
-          <div className="text-sm" style={{ color: '#8A92A8' }}>
+          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
             {formatDate(weekStart, { day: 'numeric', month: 'short' })} — {formatDate(weekEnd, { day: 'numeric', month: 'short' })}
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setWeekOffset(w => w - 1)} className="px-3 py-1 rounded-lg text-sm cursor-pointer" style={{ background: 'rgba(255,255,255,0.08)', color: '#8A92A8' }}>←</button>
-            <button onClick={() => setWeekOffset(0)} className="px-3 py-1 rounded-lg text-xs cursor-pointer" style={{ background: 'rgba(255,255,255,0.08)', color: '#8A92A8' }}>Dziś</button>
-            <button onClick={() => setWeekOffset(w => w + 1)} className="px-3 py-1 rounded-lg text-sm cursor-pointer" style={{ background: 'rgba(255,255,255,0.08)', color: '#8A92A8' }}>→</button>
+            <button onClick={() => setWeekOffset(w => w - 1)} className="px-3 py-1 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>←</button>
+            <button onClick={() => setWeekOffset(0)} className="px-3 py-1 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>Dziś</button>
+            <button onClick={() => setWeekOffset(w => w + 1)} className="px-3 py-1 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>→</button>
           </div>
         </div>
       </div>
@@ -45,9 +45,9 @@ export default function AthletePlanPage() {
           [`${weekStats.completed}/${weekStats.total}`, 'wykonanych'],
           [`${weekStats.totalKm} km`, 'planowo'],
         ].map(([v, l]) => (
-          <div key={l} className="flex-1 p-3 rounded-xl text-center" style={{ background: '#161920', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div key={l} className="flex-1 p-3 rounded-xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
             <div className="font-bold text-sm">{v}</div>
-            <div className="text-xs" style={{ color: '#8A92A8' }}>{l}</div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{l}</div>
           </div>
         ))}
       </div>
@@ -61,22 +61,22 @@ export default function AthletePlanPage() {
           const pastFlag = isPast(dateStr)
 
           return (
-            <div key={dateStr} className="rounded-2xl overflow-hidden" style={{ border: todayFlag ? '1px solid rgba(255,92,27,0.4)' : '1px solid rgba(255,255,255,0.07)', background: '#161920' }}>
+            <div key={dateStr} className="rounded-2xl overflow-hidden" style={{ border: todayFlag ? '1px solid rgba(255,92,27,0.4)' : '1px solid var(--border)', background: 'var(--bg-card)' }}>
               {/* Day header */}
               <div className="flex items-center justify-between px-4 py-3" style={{ background: todayFlag ? 'rgba(255,92,27,0.08)' : undefined }}>
                 <div className="flex items-center gap-3">
                   <div className={`text-xl font-black ${todayFlag ? 'text-orange-400' : ''}`}>{day.getDate()}</div>
                   <div>
-                    <div className="text-sm font-semibold capitalize" style={{ color: todayFlag ? '#FF5C1B' : '#E8EAF0' }}>{dayName(day)}</div>
+                    <div className="text-sm font-semibold capitalize" style={{ color: todayFlag ? '#FF5C1B' : 'var(--text-primary)' }}>{dayName(day)}</div>
                     {todayFlag && <div className="text-xs" style={{ color: '#FF5C1B' }}>Dziś</div>}
                   </div>
                 </div>
-                {daySessions.length === 0 && <div className="text-xs" style={{ color: '#8A92A8' }}>Odpoczynek</div>}
+                {daySessions.length === 0 && <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Odpoczynek</div>}
               </div>
 
               {/* Sessions */}
               {daySessions.map(session => (
-                <div key={session.id} className={`px-4 py-3 border-t ${intensityColor(session.type)}`} style={{ borderTopColor: 'rgba(255,255,255,0.05)' }}>
+                <div key={session.id} className={`px-4 py-3 border-t ${intensityColor(session.type)}`} style={{ borderTopColor: 'var(--bg-subtle)' }}>
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="font-semibold text-sm mb-1">{session.title}</div>

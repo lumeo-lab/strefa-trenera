@@ -40,12 +40,12 @@ export default function AthleteTodayPage() {
   const recentFeedback = allFeedbacks.filter(f => f.athleteId === ATHLETE_ID && f.coachReply).slice(0, 1)[0]
 
   return (
-    <div style={{ color: '#E8EAF0' }}>
+    <div style={{ color: 'var(--text-primary)' }}>
       {/* Header */}
-      <div className="px-5 pt-12 pb-6" style={{ background: 'linear-gradient(180deg, #1E2330 0%, #0D0F14 100%)' }}>
-        <div className="text-xs mb-1" style={{ color: '#8A92A8' }}>Sobota, 28 lutego 2026</div>
+      <div className="px-5 pt-12 pb-6" style={{ background: 'linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-base) 100%)' }}>
+        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Sobota, 28 lutego 2026</div>
         <h1 className="text-2xl font-bold mb-1">Cześć, {athlete.name.split(' ')[0]}! 👋</h1>
-        <p className="text-sm" style={{ color: '#8A92A8' }}>Cel: {athlete.goal}</p>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Cel: {athlete.goal}</p>
       </div>
 
       <div className="px-5 space-y-4">
@@ -80,24 +80,24 @@ export default function AthleteTodayPage() {
             )}
           </div>
         ) : (
-          <div className="p-5 rounded-2xl text-center" style={{ background: '#161920', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="p-5 rounded-2xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
             <div className="text-4xl mb-3">🎉</div>
             <div className="font-semibold mb-1">Dziś wolne!</div>
-            <div className="text-sm" style={{ color: '#8A92A8' }}>Zaplanowany odpoczynek</div>
+            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Zaplanowany odpoczynek</div>
           </div>
         )}
 
         {/* Coach reply */}
         {recentFeedback && (
-          <div className="p-4 rounded-2xl" style={{ background: '#161920', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <div className="text-xs font-semibold mb-2" style={{ color: '#8A92A8' }}>💬 Odpowiedź trenera</div>
+          <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>💬 Odpowiedź trenera</div>
             <p className="text-sm">{recentFeedback.coachReply}</p>
-            <div className="text-xs mt-2" style={{ color: '#8A92A8' }}>do feedbacku z {formatDate(recentFeedback.date, { day: 'numeric', month: 'short' })}</div>
+            <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>do feedbacku z {formatDate(recentFeedback.date, { day: 'numeric', month: 'short' })}</div>
           </div>
         )}
 
         {/* This week preview */}
-        <div className="p-4 rounded-2xl" style={{ background: '#161920', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm font-semibold">Ten tydzień</div>
             <Link href="/athlete/plan" className="text-xs" style={{ color: '#FF5C1B' }}>Zobacz plan →</Link>
@@ -111,12 +111,12 @@ export default function AthleteTodayPage() {
               const isToday = dateStr === '2026-02-28'
 
               return (
-                <div key={day} className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl ${isToday ? 'ring-1 ring-orange-500' : ''}`} style={{ background: 'rgba(255,255,255,0.04)' }}>
-                  <div className="text-xs" style={{ color: isToday ? '#FF5C1B' : '#8A92A8' }}>{day}</div>
+                <div key={day} className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl ${isToday ? 'ring-1 ring-orange-500' : ''}`} style={{ background: 'var(--bg-subtle)' }}>
+                  <div className="text-xs" style={{ color: isToday ? '#FF5C1B' : 'var(--text-muted)' }}>{day}</div>
                   <div className="w-2 h-2 rounded-full" style={{
-                    background: daySession ? (daySession.completed ? '#2ECC71' : isToday ? '#FF5C1B' : '#8A92A8') : 'transparent'
+                    background: daySession ? (daySession.completed ? '#2ECC71' : isToday ? '#FF5C1B' : 'var(--text-muted)') : 'transparent'
                   }} />
-                  <div className="text-xs font-bold" style={{ color: isToday ? '#FF5C1B' : '#E8EAF0' }}>{dayDate.getDate()}</div>
+                  <div className="text-xs font-bold" style={{ color: isToday ? '#FF5C1B' : 'var(--text-primary)' }}>{dayDate.getDate()}</div>
                 </div>
               )
             })}
@@ -130,10 +130,10 @@ export default function AthleteTodayPage() {
             ['📏', 'km łącznie', sessions.filter(s => s.athleteId === ATHLETE_ID && s.actualDistance).reduce((sum, s) => sum + (s.actualDistance || 0), 0).toFixed(0)],
             ['💬', 'Feedbacków', allFeedbacks.filter(f => f.athleteId === ATHLETE_ID).length],
           ].map(([icon, label, value]) => (
-            <div key={label as string} className="p-3 rounded-2xl text-center" style={{ background: '#161920', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div key={label as string} className="p-3 rounded-2xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
               <div className="text-xl mb-1">{icon}</div>
               <div className="text-lg font-bold">{value}</div>
-              <div className="text-xs" style={{ color: '#8A92A8' }}>{label}</div>
+              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</div>
             </div>
           ))}
         </div>
@@ -152,7 +152,7 @@ export default function AthleteTodayPage() {
           <div className="text-center py-6">
             {!recording && !recorded && (
               <>
-                <div className="text-sm mb-6" style={{ color: '#8A92A8' }}>Naciśnij przycisk i mów przez 15–30 sekund o tym jak poszedł trening</div>
+                <div className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Naciśnij przycisk i mów przez 15–30 sekund o tym jak poszedł trening</div>
                 <button
                   onClick={handleRecord}
                   className="w-24 h-24 rounded-full text-4xl mx-auto flex items-center justify-center transition-all active:scale-95 cursor-pointer"
@@ -160,7 +160,7 @@ export default function AthleteTodayPage() {
                 >
                   🎤
                 </button>
-                <div className="text-xs mt-4" style={{ color: '#8A92A8' }}>Naciśnij aby nagrać</div>
+                <div className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>Naciśnij aby nagrać</div>
               </>
             )}
             {recording && (
@@ -177,7 +177,7 @@ export default function AthleteTodayPage() {
                   <span className="text-4xl">✓</span>
                 </div>
                 <div className="text-sm text-green-400">Nagranie gotowe!</div>
-                <div className="p-3 rounded-xl text-sm italic" style={{ background: 'rgba(255,255,255,0.05)', color: '#8A92A8' }}>
+                <div className="p-3 rounded-xl text-sm italic" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
                   "Trening poszedł świetnie, czuję się dobrze, nogi miałam trochę ciężkie na początku ale potem się rozkręciłam..."
                 </div>
                 <Button className="w-full" onClick={handleSubmit}>Wyślij feedback</Button>
@@ -194,7 +194,7 @@ export default function AthleteTodayPage() {
               placeholder="Napisz jak poszedł dzisiejszy trening. Jak się czułeś/aś? Czy były jakieś problemy?"
               rows={5}
               className="w-full px-4 py-3 rounded-xl text-sm resize-none"
-              style={{ background: '#1E2330', border: '1px solid rgba(255,255,255,0.1)', color: '#E8EAF0' }}
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
               autoFocus
             />
             <Button className="w-full" onClick={handleSubmit} disabled={!textFeedback.trim()}>Wyślij feedback</Button>

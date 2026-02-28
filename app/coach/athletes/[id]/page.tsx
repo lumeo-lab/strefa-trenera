@@ -45,7 +45,7 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
         title={athlete.name}
         subtitle={`${athlete.goal} · ${athlete.package}`}
         actions={
-          <Link href="/coach/athletes" className="text-sm hover:text-white transition-colors" style={{ color: '#8A92A8' }}>
+          <Link href="/coach/athletes" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--text-muted)' }}>
             ← Zawodnicy
           </Link>
         }
@@ -61,7 +61,7 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
                 <h2 className="text-xl font-bold">{athlete.name}</h2>
                 <Badge variant={athlete.package === 'Pro' ? 'orange' : athlete.package === 'Standard' ? 'blue' : 'gray'}>{athlete.package} — {formatCurrency(athlete.packagePrice)}/mies.</Badge>
               </div>
-              <div className="flex items-center gap-4 text-sm" style={{ color: '#8A92A8' }}>
+              <div className="flex items-center gap-4 text-sm" style={{ color: 'var(--text-muted)' }}>
                 <span>🎯 {athlete.goal}</span>
                 <span>📍 {athlete.city}</span>
                 <span>🎂 {athlete.age} lat</span>
@@ -70,7 +70,7 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
             </div>
             <div className="flex flex-col items-end gap-2">
               <div className="text-2xl font-bold">{formatCurrency(totalKm)}</div>
-              <div className="text-xs" style={{ color: '#8A92A8' }}>km łącznie</div>
+              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>km łącznie</div>
             </div>
           </div>
         </Card>
@@ -83,7 +83,7 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
             <div>
               <h3 className="font-semibold mb-3">Nadchodzące sesje</h3>
               <div className="space-y-2">
-                {upcomingSessions.length === 0 && <div className="text-sm" style={{ color: '#8A92A8' }}>Brak zaplanowanych sesji</div>}
+                {upcomingSessions.length === 0 && <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Brak zaplanowanych sesji</div>}
                 {upcomingSessions.map(session => (
                   <div key={session.id} className={`p-3 rounded-xl border text-sm ${intensityColor(session.type)}`}>
                     <div className="flex items-center justify-between mb-1">
@@ -102,7 +102,7 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
             <div>
               <h3 className="font-semibold mb-3">Notatki trenera</h3>
               <Card className="p-4">
-                <p className="text-sm" style={{ color: '#8A92A8' }}>{athlete.coachNotes}</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{athlete.coachNotes}</p>
               </Card>
               {athlete.injuries.length > 0 && (
                 <div className="mt-4">
@@ -133,40 +133,40 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
               ].map(stat => (
                 <Card key={stat.label} className="p-4 text-center">
                   <div className="text-xl font-bold mb-1">{stat.value}</div>
-                  <div className="text-xs" style={{ color: '#8A92A8' }}>{stat.label}</div>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{stat.label}</div>
                 </Card>
               ))}
             </div>
 
             {/* Session table */}
-            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ background: '#161920', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: '#8A92A8' }}>Data</th>
-                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: '#8A92A8' }}>Sesja</th>
-                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: '#8A92A8' }}>Typ</th>
-                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: '#8A92A8' }}>Dystans</th>
-                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: '#8A92A8' }}>Tempo</th>
-                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: '#8A92A8' }}>HR</th>
-                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: '#8A92A8' }}>Status</th>
+                  <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
+                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>Data</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>Sesja</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>Typ</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>Dystans</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>Tempo</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>HR</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {athleteSessions.slice(0, 20).map((session, i) => (
-                    <tr key={session.id} style={{ borderBottom: i < athleteSessions.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                      <td className="px-4 py-3 text-xs" style={{ color: '#8A92A8' }}>{formatDate(session.date, { day: 'numeric', month: 'short' })}</td>
+                    <tr key={session.id} style={{ borderBottom: i < athleteSessions.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(session.date, { day: 'numeric', month: 'short' })}</td>
                       <td className="px-4 py-3 font-medium text-xs">{session.title}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${intensityColor(session.type)}`}>{sessionTypeLabel(session.type)}</span>
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: '#8A92A8' }}>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                         {session.actualDistance ? `${session.actualDistance} km` : session.plannedDistance ? `(${session.plannedDistance} km)` : '—'}
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: '#8A92A8' }}>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                         {session.actualPace || session.plannedPace || '—'}
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: '#8A92A8' }}>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                         {session.avgHR ? `${session.avgHR} bpm` : '—'}
                       </td>
                       <td className="px-4 py-3">
@@ -174,7 +174,7 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
                           ? <span className="text-xs text-green-400">✓ Wykonany</span>
                           : session.date < '2026-02-28'
                           ? <span className="text-xs text-red-400">✗ Pominięty</span>
-                          : <span className="text-xs" style={{ color: '#8A92A8' }}>Planowany</span>}
+                          : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Planowany</span>}
                       </td>
                     </tr>
                   ))}
@@ -200,7 +200,7 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
                     ['Dołączył/a', formatDate(athlete.joinDate)],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between">
-                      <span style={{ color: '#8A92A8' }}>{k}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>{k}</span>
                       <span className="font-medium">{v}</span>
                     </div>
                   ))}
@@ -211,13 +211,13 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
                 <h3 className="font-semibold mb-4">Rekordy osobiste</h3>
                 <div className="space-y-2">
                   {Object.entries(athlete.personalBests).map(([dist, time]) => (
-                    <div key={dist} className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                      <span className="text-sm" style={{ color: '#8A92A8' }}>{dist}</span>
+                    <div key={dist} className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
+                      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{dist}</span>
                       <span className="font-semibold text-sm" style={{ color: '#FF5C1B' }}>{time}</span>
                     </div>
                   ))}
                   {Object.keys(athlete.personalBests).length === 0 && (
-                    <div className="text-sm" style={{ color: '#8A92A8' }}>Brak rekordów</div>
+                    <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Brak rekordów</div>
                   )}
                 </div>
               </Card>
@@ -226,7 +226,7 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
             <div className="space-y-4">
               <Card className="p-5">
                 <h3 className="font-semibold mb-3">Notatki trenera</h3>
-                <p className="text-sm" style={{ color: '#8A92A8' }}>{athlete.coachNotes}</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{athlete.coachNotes}</p>
               </Card>
 
               <Card className="p-5">
@@ -248,8 +248,8 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
                 <h3 className="font-semibold mb-3">Ostatnie feedbacki</h3>
                 <div className="space-y-2">
                   {athleteFeedbacks.slice(0, 3).map(fb => (
-                    <div key={fb.id} className={`p-3 rounded-xl border-l-2 text-sm ${signalColor(fb.signal)}`} style={{ background: 'rgba(255,255,255,0.04)' }}>
-                      <div className="text-xs mb-1" style={{ color: '#8A92A8' }}>{formatDate(fb.date, { day: 'numeric', month: 'short' })}</div>
+                    <div key={fb.id} className={`p-3 rounded-xl border-l-2 text-sm ${signalColor(fb.signal)}`} style={{ background: 'var(--bg-subtle)' }}>
+                      <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{formatDate(fb.date, { day: 'numeric', month: 'short' })}</div>
                       <div>{fb.aiSummary}</div>
                     </div>
                   ))}
@@ -269,29 +269,29 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
                 { label: 'Miesięcy aktywny/a', value: monthsActive },
               ].map(kpi => (
                 <Card key={kpi.label} className="p-4">
-                  <div className="text-xs mb-1" style={{ color: '#8A92A8' }}>{kpi.label}</div>
+                  <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{kpi.label}</div>
                   <div className="text-xl font-bold">{kpi.value}</div>
                 </Card>
               ))}
             </div>
 
-            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ background: '#161920', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: '#8A92A8' }}>Nr faktury</th>
-                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: '#8A92A8' }}>Opis</th>
-                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: '#8A92A8' }}>Data</th>
-                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: '#8A92A8' }}>Kwota</th>
-                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: '#8A92A8' }}>Status</th>
+                  <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
+                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>Nr faktury</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>Opis</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>Data</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>Kwota</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {athleteInvoices.map((inv, i) => (
-                    <tr key={inv.id} style={{ borderBottom: i < athleteInvoices.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                      <td className="px-4 py-3 text-xs font-mono" style={{ color: '#8A92A8' }}>{inv.number}</td>
+                    <tr key={inv.id} style={{ borderBottom: i < athleteInvoices.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
+                      <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{inv.number}</td>
                       <td className="px-4 py-3 text-xs">{inv.description}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: '#8A92A8' }}>{formatDate(inv.date, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(inv.date, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                       <td className="px-4 py-3 text-xs font-semibold">{formatCurrency(inv.amount)}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${invoiceStatusColor(inv.status)}`}>{invoiceStatusLabel(inv.status)}</span>

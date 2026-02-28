@@ -87,7 +87,7 @@ export default function PlannerPage() {
             value={selectedAthleteId}
             onChange={e => setSelectedAthleteId(e.target.value)}
             className="text-sm px-3 py-2 rounded-xl cursor-pointer"
-            style={{ background: '#1E2330', border: '1px solid rgba(255,255,255,0.1)', color: '#E8EAF0' }}
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
           >
             {athletes.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
@@ -102,7 +102,7 @@ export default function PlannerPage() {
             <Button variant="secondary" size="sm" onClick={() => setWeekOffset(0)}>Dziś</Button>
             <Button variant="secondary" size="sm" onClick={() => setWeekOffset(w => w + 1)}>Następny →</Button>
           </div>
-          <div className="text-sm font-medium" style={{ color: '#8A92A8' }}>
+          <div className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
             {formatDate(weekStart, { day: 'numeric', month: 'long' })} — {formatDate(weekEnd, { day: 'numeric', month: 'long', year: 'numeric' })}
           </div>
         </div>
@@ -119,7 +119,7 @@ export default function PlannerPage() {
                 {/* Day header */}
                 <div className={`text-center mb-2 py-2 rounded-xl ${todayFlag ? 'text-orange-400' : ''}`}
                   style={{ background: todayFlag ? 'rgba(255,92,27,0.1)' : undefined }}>
-                  <div className="text-xs uppercase font-semibold" style={{ color: todayFlag ? '#FF5C1B' : '#8A92A8' }}>
+                  <div className="text-xs uppercase font-semibold" style={{ color: todayFlag ? '#FF5C1B' : 'var(--text-muted)' }}>
                     {dayName(day, true)}
                   </div>
                   <div className={`text-lg font-bold ${todayFlag ? 'text-orange-400' : ''}`}>{day.getDate()}</div>
@@ -144,7 +144,7 @@ export default function PlannerPage() {
                   <button
                     onClick={() => openCreateModal(dateStr)}
                     className="w-full py-1.5 rounded-xl text-xs border border-dashed transition-colors hover:border-orange-500/50 hover:text-orange-400 cursor-pointer"
-                    style={{ borderColor: 'rgba(255,255,255,0.15)', color: '#8A92A8' }}
+                    style={{ borderColor: 'var(--border-strong)', color: 'var(--text-muted)' }}
                   >
                     +
                   </button>
@@ -173,69 +173,69 @@ export default function PlannerPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs mb-1.5 block" style={{ color: '#8A92A8' }}>Typ sesji</label>
+              <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Typ sesji</label>
               <select
                 value={form.type}
                 onChange={e => setForm(f => ({ ...f, type: e.target.value as SessionType }))}
                 className="w-full px-3 py-2 rounded-xl text-sm"
-                style={{ background: '#1E2330', border: '1px solid rgba(255,255,255,0.1)', color: '#E8EAF0' }}
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
               >
                 {SESSION_TYPES.map(t => <option key={t} value={t}>{sessionTypeLabel(t)}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs mb-1.5 block" style={{ color: '#8A92A8' }}>Tytuł *</label>
+              <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Tytuł *</label>
               <input
                 value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 placeholder="np. Interwały 5x1km"
                 className="w-full px-3 py-2 rounded-xl text-sm"
-                style={{ background: '#1E2330', border: '1px solid rgba(255,255,255,0.1)', color: '#E8EAF0' }}
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
               />
             </div>
           </div>
           <div>
-            <label className="text-xs mb-1.5 block" style={{ color: '#8A92A8' }}>Opis</label>
+            <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Opis</label>
             <textarea
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               rows={3}
               placeholder="Szczegóły sesji..."
               className="w-full px-3 py-2 rounded-xl text-sm resize-none"
-              style={{ background: '#1E2330', border: '1px solid rgba(255,255,255,0.1)', color: '#E8EAF0' }}
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
             />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs mb-1.5 block" style={{ color: '#8A92A8' }}>Dystans (km)</label>
+              <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Dystans (km)</label>
               <input
                 type="number"
                 value={form.plannedDistance}
                 onChange={e => setForm(f => ({ ...f, plannedDistance: e.target.value }))}
                 placeholder="np. 12"
                 className="w-full px-3 py-2 rounded-xl text-sm"
-                style={{ background: '#1E2330', border: '1px solid rgba(255,255,255,0.1)', color: '#E8EAF0' }}
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
               />
             </div>
             <div>
-              <label className="text-xs mb-1.5 block" style={{ color: '#8A92A8' }}>Czas (min)</label>
+              <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Czas (min)</label>
               <input
                 type="number"
                 value={form.plannedDuration}
                 onChange={e => setForm(f => ({ ...f, plannedDuration: e.target.value }))}
                 placeholder="np. 70"
                 className="w-full px-3 py-2 rounded-xl text-sm"
-                style={{ background: '#1E2330', border: '1px solid rgba(255,255,255,0.1)', color: '#E8EAF0' }}
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
               />
             </div>
             <div>
-              <label className="text-xs mb-1.5 block" style={{ color: '#8A92A8' }}>Tempo (min/km)</label>
+              <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Tempo (min/km)</label>
               <input
                 value={form.plannedPace}
                 onChange={e => setForm(f => ({ ...f, plannedPace: e.target.value }))}
                 placeholder="np. 5:00"
                 className="w-full px-3 py-2 rounded-xl text-sm"
-                style={{ background: '#1E2330', border: '1px solid rgba(255,255,255,0.1)', color: '#E8EAF0' }}
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
               />
             </div>
           </div>

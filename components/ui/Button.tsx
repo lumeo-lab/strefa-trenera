@@ -10,17 +10,30 @@ export function Button({ variant = 'primary', size = 'md', className = '', child
   const base = 'inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
   const variants = {
     primary: 'bg-orange-500 hover:bg-orange-400 text-white',
-    secondary: 'bg-white/10 hover:bg-white/15 text-white border border-white/10',
-    ghost: 'hover:bg-white/10 text-[#8A92A8] hover:text-white',
-    danger: 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20',
+    secondary: 'hover:opacity-90',
+    ghost: 'hover:opacity-80',
+    danger: 'text-red-400',
   }
   const sizes = {
     sm: 'px-3 py-1.5 text-sm',
     md: 'px-4 py-2 text-sm',
     lg: 'px-6 py-3 text-base',
   }
+
+  const variantStyle = variant === 'secondary'
+    ? { background: 'var(--bg-hover)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }
+    : variant === 'ghost'
+    ? { color: 'var(--text-muted)' }
+    : variant === 'danger'
+    ? { background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.2)', color: '#E74C3C' }
+    : {}
+
   return (
-    <button className={`${base} ${variants[variant]} ${sizes[size]} ${className}`} {...props}>
+    <button
+      className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
+      style={variantStyle}
+      {...props}
+    >
       {children}
     </button>
   )
