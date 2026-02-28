@@ -22,10 +22,10 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
   const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
-        className={`relative w-full ${sizes[size]} rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col`}
+        className={`relative w-full ${sizes[size]} rounded-2xl shadow-2xl flex flex-col`}
         style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', maxHeight: '90dvh' }}
       >
         {/* Header */}
