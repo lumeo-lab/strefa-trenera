@@ -3,10 +3,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const navItems = [
-  { href: '/coach', icon: '⊞', label: 'Dashboard' },
-  { href: '/coach/planner', icon: '📅', label: 'Planer' },
-  { href: '/coach/feedback', icon: '📥', label: 'Feedback' },
   { href: '/coach/athletes', icon: '👟', label: 'Zawodnicy' },
+  { href: '/coach/feedback', icon: '📥', label: 'Feedback' },
+  { href: '/coach/planner', icon: '📅', label: 'Planer' },
   { href: '/coach/crm', icon: '🗂️', label: 'CRM' },
   { href: '/coach/invoices', icon: '💳', label: 'Faktury' },
   { href: '/coach/analytics', icon: '📊', label: 'Analityka' },
@@ -29,7 +28,7 @@ export function CoachSidebar() {
       <nav className="flex-1 overflow-y-auto py-4 px-3">
         <ul className="space-y-1">
           {navItems.map(item => {
-            const isActive = pathname === item.href || (item.href !== '/coach' && pathname.startsWith(item.href))
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
             return (
               <li key={item.href}>
                 <Link
