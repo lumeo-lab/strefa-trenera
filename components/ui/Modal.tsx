@@ -29,7 +29,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
           <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h2>
           <button onClick={onClose} className="text-xl leading-none transition-colors" style={{ color: 'var(--text-muted)' }}>×</button>
         </div>
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-6 py-4 overflow-y-auto max-h-[75vh]">{children}</div>
       </div>
     </div>
   )
