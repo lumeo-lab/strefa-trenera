@@ -3,16 +3,16 @@ import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Tabs } from '@/components/ui/Tabs'
-import { athletes, sessions } from '@/lib/data'
-import { intensityColor, sessionTypeLabel } from '@/lib/utils'
+import { athletes, sessions, feedbacks as allFeedbacks } from '@/lib/data'
+import { intensityColor, sessionTypeLabel, formatDate, getWeekDays, toISODate } from '@/lib/utils'
 
 const ATHLETE_ID = 'a1'
 const TODAY = '2026-02-28'
 
 function shiftDate(dateStr: string, days: number): string {
   const [y, m, d] = dateStr.split('-').map(Number)
-  const date = new Date(y, m - 1, d + days)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const dt = new Date(y, m - 1, d + days)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
 }
 
 function dayLabel(dateStr: string): string {
@@ -47,52 +47,46 @@ const FEELINGS = [
   { emoji: '🤩', label: 'Świetnie' },
 ]
 const FEELING_LABEL: Record<string, string> = Object.fromEntries(FEELINGS.map(f => [f.emoji, f.label]))
-
 const INTENSITIES = ['Bardzo lekki', 'Lekki', 'Umiarkowany', 'Ciężki', 'Bardzo ciężki', 'Maksymalny']
-
 const TRAINING_TYPES = ['Easy / Rozbieganie', 'Interwały', 'Tempo', 'Long Run', 'Siłownia', 'Crosstraining', 'Inny']
-
 const INPUT_STYLE = { background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }
 
-// ─── Feedback card displayed inside session card ───────────────────────────
 function FeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit: () => void }) {
   return (
-    <div className="mb-4 rounded-xl p-3" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)' }}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold opacity-60">📝 Twój feedback</span>
+    <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-semibold">📝 Twój feedback</span>
         <button
           onClick={onEdit}
-          className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
-          style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.75)' }}
+          className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg cursor-pointer"
+          style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
         >✏️ Edytuj</button>
       </div>
-
       {feedback.source === 'voice' ? (
-        <p className="text-sm italic opacity-80">🎤 "{feedback.voiceTranscript}"</p>
+        <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>🎤 "{feedback.voiceTranscript}"</p>
       ) : (
-        <div className="space-y-1.5">
-          {/* Samopoczucie + intensywność */}
+        <div className="space-y-2">
           {(feedback.feeling || feedback.intensity) && (
-            <div className="flex flex-wrap gap-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
               {feedback.feeling && (
-                <span>{feedback.feeling} <span className="opacity-70">{FEELING_LABEL[feedback.feeling]}</span></span>
+                <span className="text-sm font-medium">{feedback.feeling} {FEELING_LABEL[feedback.feeling]}</span>
               )}
               {feedback.intensity && (
-                <span className="opacity-60">· {feedback.intensity}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
+                  {feedback.intensity}
+                </span>
               )}
             </div>
           )}
-          {/* Dane liczbowe */}
           {(feedback.trainingType || feedback.distanceKm || feedback.durationMin) && (
-            <div className="flex flex-wrap gap-3 text-xs opacity-70">
+            <div className="flex flex-wrap gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
               {feedback.trainingType && <span>🏃 {feedback.trainingType}</span>}
               {feedback.distanceKm && <span>📏 {feedback.distanceKm} km</span>}
               {feedback.durationMin && <span>⏱️ {feedback.durationMin} min</span>}
             </div>
           )}
-          {/* Notatka */}
           {feedback.notes && (
-            <p className="text-xs italic opacity-70">"{feedback.notes}"</p>
+            <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>"{feedback.notes}"</p>
           )}
         </div>
       )}
@@ -100,35 +94,36 @@ function FeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit: ()
   )
 }
 
-// ─── Main page ─────────────────────────────────────────────────────────────
 export default function AthleteTodayPage() {
   const athlete = athletes.find(a => a.id === ATHLETE_ID)!
   const [selectedDate, setSelectedDate] = useState(TODAY)
-
-  // Saved feedback (per day — in a real app this would be per session id)
   const [savedFeedback, setSavedFeedback] = useState<FeedbackData | null>(null)
-
-  // Modal state
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [feedbackTab, setFeedbackTab] = useState('text')
 
-  // Text form draft
+  // Form fields
   const [feeling, setFeeling] = useState('')
   const [trainingType, setTrainingType] = useState('')
   const [distanceKm, setDistanceKm] = useState('')
   const [durationMin, setDurationMin] = useState('')
   const [intensity, setIntensity] = useState('')
   const [notes, setNotes] = useState('')
-
-  // Voice
   const [recording, setRecording] = useState(false)
   const [recorded, setRecorded] = useState(false)
 
   const daySession = sessions.find(s => s.athleteId === ATHLETE_ID && s.date === selectedDate)
   const isPastOrToday = selectedDate <= TODAY
+  const weekDays = getWeekDays(0)
+  const recentFeedback = allFeedbacks.filter(f => f.athleteId === ATHLETE_ID && f.coachReply).slice(0, 1)[0]
 
   function navigate(delta: number) {
     setSelectedDate(d => shiftDate(d, delta))
+    setSavedFeedback(null)
+    setRecorded(false)
+  }
+
+  function selectDay(dateStr: string) {
+    setSelectedDate(dateStr)
     setSavedFeedback(null)
     setRecorded(false)
   }
@@ -146,7 +141,6 @@ export default function AthleteTodayPage() {
       setFeedbackTab('voice')
       setRecorded(true)
     } else {
-      // new feedback — reset form
       setFeeling(''); setTrainingType(''); setDistanceKm('')
       setDurationMin(''); setIntensity(''); setNotes('')
       setRecorded(false)
@@ -160,11 +154,6 @@ export default function AthleteTodayPage() {
     setFeedbackOpen(false)
   }
 
-  function handleRecord() {
-    setRecording(true)
-    setTimeout(() => { setRecording(false); setRecorded(true) }, 3000)
-  }
-
   function submitVoice() {
     setSavedFeedback({
       source: 'voice',
@@ -174,11 +163,29 @@ export default function AthleteTodayPage() {
     setRecorded(false)
   }
 
+  function handleRecord() {
+    setRecording(true)
+    setTimeout(() => { setRecording(false); setRecorded(true) }, 3000)
+  }
+
   const textFormHasData = !!(feeling || trainingType || distanceKm || durationMin || intensity || notes.trim())
+
+  // Always-visible footer button (outside scroll area)
+  const modalFooter =
+    feedbackTab === 'text' ? (
+      <Button className="w-full" onClick={submitText} disabled={!textFormHasData}>
+        Zapisz feedback
+      </Button>
+    ) : feedbackTab === 'voice' && recorded ? (
+      <Button className="w-full" onClick={submitVoice}>
+        Wyślij feedback głosowy
+      </Button>
+    ) : null
 
   return (
     <div style={{ color: 'var(--text-primary)' }}>
-      {/* ── Header z nawigacją dni ── */}
+
+      {/* ── Nagłówek z nawigacją dni ── */}
       <div className="px-5 pt-12 pb-5 lg:px-8 lg:pt-8" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
         <div className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Cześć, {athlete.name.split(' ')[0]}! 👋</div>
         <div className="flex items-center justify-between gap-3">
@@ -196,7 +203,7 @@ export default function AthleteTodayPage() {
             style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>→</button>
         </div>
         {selectedDate !== TODAY && (
-          <button onClick={() => { setSelectedDate(TODAY); setSavedFeedback(null) }}
+          <button onClick={() => selectDay(TODAY)}
             className="mt-3 w-full text-xs py-1.5 rounded-lg cursor-pointer"
             style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
             Wróć do dziś
@@ -204,70 +211,142 @@ export default function AthleteTodayPage() {
         )}
       </div>
 
-      {/* ── Karta treningu ── */}
-      <div className="px-5 pt-5 lg:px-8 lg:pt-6 lg:max-w-2xl">
-        {daySession ? (
-          <div className={`p-5 rounded-2xl border ${intensityColor(daySession.type)}`}>
-            {/* Nagłówek */}
-            <div className="flex items-start justify-between mb-2">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wider mb-1 opacity-60">
-                  {sessionTypeLabel(daySession.type)}
+      {/* ── Treść: 2 kolumny na desktop ── */}
+      <div className="p-5 lg:px-8 lg:py-6 lg:grid lg:grid-cols-[1fr_300px] lg:gap-6 lg:items-start">
+
+        {/* Lewa kolumna: trening + feedback */}
+        <div className="space-y-3">
+          {daySession ? (
+            <div className={`p-5 rounded-2xl border ${intensityColor(daySession.type)}`}>
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider mb-1 opacity-60">
+                    {sessionTypeLabel(daySession.type)}
+                  </div>
+                  <h2 className="text-xl font-bold">{daySession.title}</h2>
                 </div>
-                <h2 className="text-xl font-bold">{daySession.title}</h2>
+                <div className="text-3xl shrink-0 ml-3">🏃</div>
               </div>
-              <div className="text-3xl">🏃</div>
+
+              <p className="text-sm opacity-80 mb-4">{daySession.description}</p>
+
+              {/* Parametry planu */}
+              <div className="flex flex-wrap gap-4 text-sm font-semibold">
+                {daySession.plannedDistance && <span>📏 {daySession.plannedDistance} km</span>}
+                {daySession.plannedDuration && <span>⏱️ {daySession.plannedDuration} min</span>}
+                {daySession.plannedPace && <span>⚡ {daySession.plannedPace}/km</span>}
+              </div>
+
+              {/* Wyniki po wykonaniu */}
+              {daySession.completed && (
+                <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+                  <div className="text-xs font-semibold mb-2 opacity-60">✓ Wyniki</div>
+                  <div className="flex flex-wrap gap-4 text-sm font-medium">
+                    {daySession.actualDistance && <span>📏 {daySession.actualDistance} km</span>}
+                    {daySession.actualDuration && <span>⏱️ {daySession.actualDuration} min</span>}
+                    {daySession.actualPace && <span>⚡ {daySession.actualPace}/km</span>}
+                    {daySession.avgHR && <span>❤️ {daySession.avgHR} bpm</span>}
+                  </div>
+                </div>
+              )}
             </div>
+          ) : (
+            <div className="p-10 rounded-2xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="text-5xl mb-4">🎉</div>
+              <div className="font-semibold text-lg mb-1">Wolny dzień</div>
+              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Brak zaplanowanego treningu</div>
+            </div>
+          )}
 
-            {/* Opis */}
-            <p className="text-sm opacity-80 mb-4">{daySession.description}</p>
+          {/* ── Feedback pod kartą treningu ── */}
+          {isPastOrToday && daySession && !daySession.completed && (
+            savedFeedback ? (
+              <FeedbackCard feedback={savedFeedback} onEdit={() => openModal(true)} />
+            ) : (
+              <button
+                onClick={() => openModal(false)}
+                className="w-full py-3.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: '#FF5C1B' }}
+              >
+                📝 Dodaj feedback po treningu
+              </button>
+            )
+          )}
+        </div>
 
-            {/* ── FEEDBACK (pod opisem) ── */}
-            {isPastOrToday && !daySession.completed && (
-              savedFeedback
-                ? <FeedbackCard feedback={savedFeedback} onEdit={() => openModal(true)} />
-                : (
+        {/* ── Prawa kolumna: tylko desktop ── */}
+        <div className="hidden lg:flex flex-col gap-4">
+
+          {/* Mini-kalendarz tygodnia — klikalny */}
+          <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Ten tydzień</div>
+            <div className="space-y-1">
+              {weekDays.map(day => {
+                const dateStr = toISODate(day)
+                const ws = sessions.find(s => s.athleteId === ATHLETE_ID && s.date === dateStr)
+                const isSelected = dateStr === selectedDate
+                const isTod = dateStr === TODAY
+                return (
                   <button
-                    onClick={() => openModal(false)}
-                    className="w-full py-3 rounded-2xl font-semibold text-white text-sm transition-all active:scale-95 cursor-pointer mb-4"
-                    style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.15)' }}
+                    key={dateStr}
+                    onClick={() => selectDay(dateStr)}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-colors text-left cursor-pointer"
+                    style={{
+                      background: isSelected ? 'rgba(255,92,27,0.1)' : 'transparent',
+                      border: isSelected ? '1px solid rgba(255,92,27,0.3)' : '1px solid transparent',
+                    }}
                   >
-                    📝 Dodaj feedback po treningu
+                    <div className="w-9 shrink-0 text-center">
+                      <div className="text-xs" style={{ color: isSelected ? '#FF5C1B' : 'var(--text-muted)' }}>
+                        {day.toLocaleDateString('pl-PL', { weekday: 'short' })}
+                      </div>
+                      <div className="font-bold text-sm" style={{ color: isSelected ? '#FF5C1B' : 'var(--text-primary)' }}>
+                        {day.getDate()}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {ws ? (
+                        <div className="text-xs truncate" style={{ color: isSelected ? '#FF5C1B' : 'var(--text-primary)' }}>
+                          {ws.title}
+                        </div>
+                      ) : (
+                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Odpoczynek</div>
+                      )}
+                    </div>
+                    <div className="shrink-0 ml-1">
+                      {ws?.completed
+                        ? <span className="text-green-400 text-xs">✓</span>
+                        : ws
+                        ? <div className="w-1.5 h-1.5 rounded-full" style={{ background: isTod ? '#FF5C1B' : 'var(--text-muted)' }} />
+                        : null}
+                    </div>
                   </button>
                 )
-            )}
-
-            {/* Parametry planu */}
-            <div className="flex flex-wrap gap-4 text-sm font-semibold">
-              {daySession.plannedDistance && <span>📏 {daySession.plannedDistance} km</span>}
-              {daySession.plannedDuration && <span>⏱️ {daySession.plannedDuration} min</span>}
-              {daySession.plannedPace && <span>⚡ {daySession.plannedPace}/km</span>}
+              })}
             </div>
+          </div>
 
-            {/* Wyniki wykonanego treningu */}
-            {daySession.completed && (
-              <div className="mt-4 p-3 rounded-xl" style={{ background: 'rgba(0,0,0,0.2)' }}>
-                <div className="text-xs font-semibold mb-2 opacity-60">✓ Wykonany</div>
-                <div className="flex flex-wrap gap-4 text-sm">
-                  {daySession.actualDistance && <span>📏 {daySession.actualDistance} km</span>}
-                  {daySession.actualDuration && <span>⏱️ {daySession.actualDuration} min</span>}
-                  {daySession.actualPace && <span>⚡ {daySession.actualPace}/km</span>}
-                  {daySession.avgHR && <span>❤️ {daySession.avgHR} bpm</span>}
-                </div>
+          {/* Ostatnia odpowiedź trenera */}
+          {recentFeedback && (
+            <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>💬 Odpowiedź trenera</div>
+              <p className="text-sm">{recentFeedback.coachReply}</p>
+              <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                {formatDate(recentFeedback.date, { day: 'numeric', month: 'short' })}
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="p-10 rounded-2xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <div className="text-5xl mb-4">🎉</div>
-            <div className="font-semibold text-lg mb-1">Wolny dzień</div>
-            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Brak zaplanowanego treningu</div>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Modal feedbacku ── */}
-      <Modal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} title="Feedback po treningu" size="sm">
+      <Modal
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        title="Feedback po treningu"
+        size="sm"
+        footer={modalFooter}
+      >
         <Tabs
           tabs={[{ id: 'text', label: '📝 Formularz' }, { id: 'voice', label: '🎤 Głosowy' }]}
           active={feedbackTab}
@@ -275,27 +354,21 @@ export default function AthleteTodayPage() {
           className="mb-5"
         />
 
-        {/* ── Zakładka: Formularz ── */}
+        {/* Formularz */}
         {feedbackTab === 'text' && (
           <div className="space-y-5">
-
-            {/* Samopoczucie */}
             <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
-                Samopoczucie
-              </label>
+              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Samopoczucie</label>
               <div className="flex gap-1.5">
                 {FEELINGS.map(f => (
-                  <button
-                    key={f.emoji}
+                  <button key={f.emoji}
                     onClick={() => setFeeling(feeling === f.emoji ? '' : f.emoji)}
                     className="flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl cursor-pointer transition-all"
                     style={{
                       background: feeling === f.emoji ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
                       border: feeling === f.emoji ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
                       color: feeling === f.emoji ? '#FF5C1B' : 'var(--text-muted)',
-                    }}
-                  >
+                    }}>
                     <span className="text-2xl">{f.emoji}</span>
                     <span style={{ fontSize: '10px' }}>{f.label}</span>
                   </button>
@@ -303,98 +376,55 @@ export default function AthleteTodayPage() {
               </div>
             </div>
 
-            {/* Rodzaj treningu */}
             <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
-                Rodzaj treningu
-              </label>
-              <select
-                value={trainingType}
-                onChange={e => setTrainingType(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm cursor-pointer"
-                style={INPUT_STYLE}
-              >
+              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Rodzaj treningu</label>
+              <select value={trainingType} onChange={e => setTrainingType(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl text-sm cursor-pointer" style={INPUT_STYLE}>
                 <option value="">— wybierz —</option>
                 {TRAINING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
 
-            {/* Dystans + czas */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Dystans (km)
-                </label>
-                <input
-                  type="number"
-                  value={distanceKm}
-                  onChange={e => setDistanceKm(e.target.value)}
-                  placeholder="np. 10.5"
-                  min="0"
-                  step="0.1"
-                  className="w-full px-3 py-2.5 rounded-xl text-sm"
-                  style={INPUT_STYLE}
-                />
+                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Dystans (km)</label>
+                <input type="number" value={distanceKm} onChange={e => setDistanceKm(e.target.value)}
+                  placeholder="np. 10.5" min="0" step="0.1"
+                  className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Czas trwania (min)
-                </label>
-                <input
-                  type="number"
-                  value={durationMin}
-                  onChange={e => setDurationMin(e.target.value)}
-                  placeholder="np. 55"
-                  min="0"
-                  className="w-full px-3 py-2.5 rounded-xl text-sm"
-                  style={INPUT_STYLE}
-                />
+                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Czas (min)</label>
+                <input type="number" value={durationMin} onChange={e => setDurationMin(e.target.value)}
+                  placeholder="np. 55" min="0"
+                  className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
               </div>
             </div>
 
-            {/* Jak ciężki był trening */}
             <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
-                Jak ciężki był trening?
-              </label>
+              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Jak ciężki był trening?</label>
               <div className="grid grid-cols-3 gap-2">
                 {INTENSITIES.map(lvl => (
-                  <button
-                    key={lvl}
-                    onClick={() => setIntensity(intensity === lvl ? '' : lvl)}
+                  <button key={lvl} onClick={() => setIntensity(intensity === lvl ? '' : lvl)}
                     className="py-2 px-1 rounded-xl text-xs font-medium cursor-pointer transition-all text-center"
                     style={{
                       background: intensity === lvl ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
                       border: intensity === lvl ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
                       color: intensity === lvl ? '#FF5C1B' : 'var(--text-muted)',
-                    }}
-                  >{lvl}</button>
+                    }}>{lvl}</button>
                 ))}
               </div>
             </div>
 
-            {/* Własne notatki */}
             <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
-                Własne notatki (opcjonalnie)
-              </label>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Jak poszedł trening? Co czułeś/aś? Cokolwiek chcesz przekazać trenerowi..."
-                rows={3}
-                className="w-full px-3 py-2.5 rounded-xl text-sm resize-none"
-                style={INPUT_STYLE}
-              />
+              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Własne notatki (opcjonalnie)</label>
+              <textarea value={notes} onChange={e => setNotes(e.target.value)}
+                placeholder="Jak poszedł trening? Co czułeś/aś?"
+                rows={3} className="w-full px-3 py-2.5 rounded-xl text-sm resize-none" style={INPUT_STYLE} />
             </div>
-
-            <Button className="w-full" onClick={submitText} disabled={!textFormHasData}>
-              Zapisz feedback
-            </Button>
           </div>
         )}
 
-        {/* ── Zakładka: Głosowy ── */}
+        {/* Głosowy */}
         {feedbackTab === 'voice' && (
           <div className="text-center py-6">
             {!recording && !recorded && (
@@ -402,11 +432,11 @@ export default function AthleteTodayPage() {
                 <div className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
                   Naciśnij przycisk i mów przez 15–30 sekund o tym jak poszedł trening
                 </div>
-                <button
-                  onClick={handleRecord}
+                <button onClick={handleRecord}
                   className="w-24 h-24 rounded-full text-4xl mx-auto flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, #FF5C1B, #FF7A42)', boxShadow: '0 0 40px rgba(255,92,27,0.4)' }}
-                >🎤</button>
+                  style={{ background: 'linear-gradient(135deg, #FF5C1B, #FF7A42)', boxShadow: '0 0 40px rgba(255,92,27,0.4)' }}>
+                  🎤
+                </button>
                 <div className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>Naciśnij aby nagrać</div>
               </>
             )}
@@ -429,7 +459,6 @@ export default function AthleteTodayPage() {
                 <div className="p-3 rounded-xl text-sm italic" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
                   "Trening poszedł świetnie, czuję się dobrze, nogi miałam trochę ciężkie na początku ale potem się rozkręciłam..."
                 </div>
-                <Button className="w-full" onClick={submitVoice}>Wyślij feedback</Button>
               </div>
             )}
           </div>

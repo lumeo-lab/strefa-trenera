@@ -6,10 +6,11 @@ interface ModalProps {
   onClose: () => void
   title: string
   children: React.ReactNode
+  footer?: React.ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
-export function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     if (open) document.addEventListener('keydown', handler)
@@ -21,15 +22,25 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
   const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative w-full ${sizes[size]} rounded-2xl shadow-2xl`}
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+      <div
+        className={`relative w-full ${sizes[size]} rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col`}
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', maxHeight: '90dvh' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--border)' }}>
           <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h2>
-          <button onClick={onClose} className="text-xl leading-none transition-colors" style={{ color: 'var(--text-muted)' }}>×</button>
+          <button onClick={onClose} className="text-xl leading-none cursor-pointer" style={{ color: 'var(--text-muted)' }}>×</button>
         </div>
-        <div className="px-6 py-4 overflow-y-auto max-h-[75vh]">{children}</div>
+        {/* Scrollable content */}
+        <div className="px-6 py-4 overflow-y-auto flex-1">{children}</div>
+        {/* Footer — always visible, outside scroll area */}
+        {footer && (
+          <div className="px-6 pt-3 pb-6 border-t shrink-0" style={{ borderColor: 'var(--border)' }}>
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   )
