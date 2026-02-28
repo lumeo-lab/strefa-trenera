@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { sessions } from '@/lib/data'
 import { getWeekDays, toISODate, dayName, intensityColor, sessionTypeLabel, formatDate, isToday, isPast } from '@/lib/utils'
-import { Button } from '@/components/ui/Button'
 
 const ATHLETE_ID = 'a1'
 
@@ -21,25 +20,29 @@ export default function AthletePlanPage() {
     totalKm: weekSessions.reduce((sum, s) => sum + (s.plannedDistance || 0), 0),
   }
 
+  const navButtons = (
+    <div className="flex gap-2">
+      <button onClick={() => setWeekOffset(w => w - 1)} className="px-3 py-1 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>←</button>
+      <button onClick={() => setWeekOffset(0)} className="px-3 py-1 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>Dziś</button>
+      <button onClick={() => setWeekOffset(w => w + 1)} className="px-3 py-1 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>→</button>
+    </div>
+  )
+
   return (
     <div style={{ color: 'var(--text-primary)' }}>
       {/* Header */}
-      <div className="px-5 pt-12 pb-4" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+      <div className="px-5 pt-12 pb-4 lg:px-8 lg:pt-8" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
         <h1 className="text-xl font-bold mb-1">Plan tygodniowy</h1>
         <div className="flex items-center justify-between">
           <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
             {formatDate(weekStart, { day: 'numeric', month: 'short' })} — {formatDate(weekEnd, { day: 'numeric', month: 'short' })}
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setWeekOffset(w => w - 1)} className="px-3 py-1 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>←</button>
-            <button onClick={() => setWeekOffset(0)} className="px-3 py-1 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>Dziś</button>
-            <button onClick={() => setWeekOffset(w => w + 1)} className="px-3 py-1 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>→</button>
-          </div>
+          {navButtons}
         </div>
       </div>
 
       {/* Week summary */}
-      <div className="flex gap-3 px-5 py-4">
+      <div className="flex gap-3 px-5 py-4 lg:px-8">
         {[
           [`${weekStats.total}`, 'sesji'],
           [`${weekStats.completed}/${weekStats.total}`, 'wykonanych'],
@@ -52,17 +55,15 @@ export default function AthletePlanPage() {
         ))}
       </div>
 
-      {/* Days list */}
-      <div className="px-5 space-y-3">
+      {/* Mobile: stacked list */}
+      <div className="lg:hidden px-5 space-y-3 pb-4">
         {weekDays.map(day => {
           const dateStr = toISODate(day)
           const daySessions = weekSessions.filter(s => s.date === dateStr)
           const todayFlag = isToday(dateStr)
           const pastFlag = isPast(dateStr)
-
           return (
             <div key={dateStr} className="rounded-2xl overflow-hidden" style={{ border: todayFlag ? '1px solid rgba(255,92,27,0.4)' : '1px solid var(--border)', background: 'var(--bg-card)' }}>
-              {/* Day header */}
               <div className="flex items-center justify-between px-4 py-3" style={{ background: todayFlag ? 'rgba(255,92,27,0.08)' : undefined }}>
                 <div className="flex items-center gap-3">
                   <div className={`text-xl font-black ${todayFlag ? 'text-orange-400' : ''}`}>{day.getDate()}</div>
@@ -73,8 +74,6 @@ export default function AthletePlanPage() {
                 </div>
                 {daySessions.length === 0 && <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Odpoczynek</div>}
               </div>
-
-              {/* Sessions */}
               {daySessions.map(session => (
                 <div key={session.id} className={`px-4 py-3 border-t ${intensityColor(session.type)}`} style={{ borderTopColor: 'var(--bg-subtle)' }}>
                   <div className="flex items-start justify-between">
@@ -101,6 +100,54 @@ export default function AthletePlanPage() {
             </div>
           )
         })}
+      </div>
+
+      {/* Desktop: 7-column calendar grid */}
+      <div className="hidden lg:block px-8 pb-8">
+        <div className="grid grid-cols-7 gap-3">
+          {weekDays.map(day => {
+            const dateStr = toISODate(day)
+            const daySessions = weekSessions.filter(s => s.date === dateStr)
+            const todayFlag = isToday(dateStr)
+            const pastFlag = isPast(dateStr)
+            return (
+              <div key={dateStr} className="rounded-2xl overflow-hidden flex flex-col min-h-48"
+                style={{ border: todayFlag ? '1px solid rgba(255,92,27,0.5)' : '1px solid var(--border)', background: 'var(--bg-card)' }}>
+                {/* Day header */}
+                <div className="px-3 py-3 text-center" style={{ background: todayFlag ? 'rgba(255,92,27,0.1)' : 'var(--bg-subtle)', borderBottom: '1px solid var(--border)' }}>
+                  <div className="text-xs font-medium capitalize" style={{ color: todayFlag ? '#FF5C1B' : 'var(--text-muted)' }}>{dayName(day)}</div>
+                  <div className={`text-2xl font-black mt-0.5 ${todayFlag ? 'text-orange-400' : ''}`}>{day.getDate()}</div>
+                  {todayFlag && <div className="text-xs font-medium" style={{ color: '#FF5C1B' }}>Dziś</div>}
+                </div>
+                {/* Sessions */}
+                <div className="flex-1 p-2 space-y-2">
+                  {daySessions.length === 0 && (
+                    <div className="flex items-center justify-center h-full py-4">
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Odpoczynek</span>
+                    </div>
+                  )}
+                  {daySessions.map(session => (
+                    <div key={session.id} className={`p-2 rounded-xl text-xs ${intensityColor(session.type)}`}>
+                      <div className="font-semibold mb-1 leading-tight">{session.title}</div>
+                      <div className="flex flex-wrap gap-1 opacity-70">
+                        {session.plannedDistance && <span>📏 {session.plannedDistance}km</span>}
+                        {session.plannedDuration && <span>⏱️ {session.plannedDuration}min</span>}
+                      </div>
+                      <div className="mt-1">
+                        {session.completed
+                          ? <span className="text-green-400">✓ wykonany</span>
+                          : pastFlag
+                          ? <span className="text-red-400">pominięty</span>
+                          : <span className="opacity-60">{sessionTypeLabel(session.type)}</span>
+                        }
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

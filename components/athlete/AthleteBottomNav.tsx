@@ -15,7 +15,7 @@ export function AthleteBottomNav() {
   const { theme, toggle } = useTheme()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-2 max-w-sm mx-auto"
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-2 max-w-sm mx-auto"
       style={{ background: theme === 'dark' ? 'rgba(22,25,32,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)', borderTop: '1px solid var(--border)', paddingTop: '8px', paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
       {navItems.map(item => {
         const isActive = pathname === item.href

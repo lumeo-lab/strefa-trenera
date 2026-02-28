@@ -1,6 +1,5 @@
 'use client'
 import { useState } from 'react'
-import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { messages as initialMessages } from '@/lib/data'
 import { Message } from '@/lib/types'
@@ -26,10 +25,10 @@ export default function AthleteChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen" style={{ color: 'var(--text-primary)' }}>
+    <div className="flex flex-col" style={{ height: '100dvh', color: 'var(--text-primary)' }}>
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 pt-12 pb-4" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-white">TC</div>
+      <div className="flex items-center gap-3 px-5 pt-12 pb-4 lg:pt-6 shrink-0" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-white shrink-0">TC</div>
         <div>
           <div className="font-semibold">Tomasz Czajka</div>
           <div className="text-xs text-green-400">● Online</div>
@@ -37,7 +36,7 @@ export default function AthleteChatPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 pb-24">
+      <div className="flex-1 overflow-y-auto px-5 lg:px-8 py-4 space-y-4">
         {messages.map(msg => {
           const isMe = msg.senderId === ATHLETE_ID
           return (
@@ -45,7 +44,7 @@ export default function AthleteChatPage() {
               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white shrink-0 ${isMe ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-orange-500 to-orange-600'}`}>
                 {isMe ? 'KW' : 'TC'}
               </div>
-              <div className={`max-w-xs flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
+              <div className={`max-w-xs lg:max-w-lg flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
                 <div
                   className="px-4 py-3 text-sm"
                   style={{
@@ -63,8 +62,9 @@ export default function AthleteChatPage() {
         })}
       </div>
 
-      {/* Input - fixed at bottom above nav */}
-      <div className="fixed bottom-20 left-0 right-0 max-w-sm mx-auto px-5 py-3" style={{ background: 'var(--bg-base)' }}>
+      {/* Input — fixed on mobile (above bottom nav), static in flex column on desktop */}
+      <div className="fixed bottom-20 left-0 right-0 max-w-sm mx-auto lg:static lg:bottom-auto lg:left-auto lg:right-auto lg:max-w-none lg:mx-0 px-5 lg:px-8 py-3 shrink-0"
+        style={{ background: 'var(--bg-base)', borderTop: '1px solid var(--border)' }}>
         <div className="flex items-center gap-2">
           <input
             value={input}

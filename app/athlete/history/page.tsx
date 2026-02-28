@@ -1,6 +1,6 @@
 'use client'
 import { sessions, feedbacks } from '@/lib/data'
-import { formatDate, intensityColor, sessionTypeLabel } from '@/lib/utils'
+import { formatDate, intensityColor } from '@/lib/utils'
 
 const ATHLETE_ID = 'a1'
 
@@ -17,13 +17,13 @@ export default function AthleteHistoryPage() {
   return (
     <div style={{ color: 'var(--text-primary)' }}>
       {/* Header */}
-      <div className="px-5 pt-12 pb-4" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+      <div className="px-5 pt-12 pb-4 lg:px-8 lg:pt-8" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
         <h1 className="text-xl font-bold">Historia treningów</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Ostatnie {completedSessions.length} treningów</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 px-5 py-4">
+      <div className="grid grid-cols-3 gap-3 px-5 py-4 lg:px-8">
         {[
           ['🏃', totalSessions, 'treningów'],
           ['📏', `${totalKm.toFixed(0)} km`, 'łącznie'],
@@ -37,8 +37,8 @@ export default function AthleteHistoryPage() {
         ))}
       </div>
 
-      {/* Progress bar chart — last 6 weeks km */}
-      <div className="mx-5 mb-4 p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+      {/* Bar chart */}
+      <div className="mx-5 mb-4 p-4 rounded-2xl lg:mx-8" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
         <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>km tygodniowo</div>
         <div className="flex items-end gap-2 h-16">
           {['tyg-6', 'tyg-5', 'tyg-4', 'tyg-3', 'tyg-2', 'tyg-1'].map((label, i) => {
@@ -54,8 +54,8 @@ export default function AthleteHistoryPage() {
         </div>
       </div>
 
-      {/* Session list */}
-      <div className="px-5 space-y-3">
+      {/* Session list — 2 columns on desktop */}
+      <div className="px-5 lg:px-8 pb-4 lg:grid lg:grid-cols-2 lg:gap-4 space-y-3 lg:space-y-0">
         {completedSessions.map(session => {
           const fb = feedbacks.find(f => f.sessionId === session.id)
           return (
@@ -72,7 +72,6 @@ export default function AthleteHistoryPage() {
                   {session.avgHR && <span>❤️ {session.avgHR} bpm</span>}
                 </div>
               </div>
-
               {fb && (
                 <div className="px-4 py-3 border-t" style={{ borderColor: 'var(--bg-subtle)' }}>
                   <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
