@@ -28,7 +28,7 @@ export default function LandingPage() {
           </ul>
           <div className="flex items-center gap-3">
             <Link href="/login" className="px-4 py-2 rounded-xl text-sm font-medium transition-all" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}>Logowanie</Link>
-            <Link href="/register" className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: '#FF5C1B' }}>Zacznij za darmo</Link>
+            <Link href="/register" className="px-4 py-2 rounded-xl text-sm font-medium text-white whitespace-nowrap" style={{ background: '#FF5C1B' }}>Zacznij za darmo</Link>
           </div>
         </div>
       </nav>
