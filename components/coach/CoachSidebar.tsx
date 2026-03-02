@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logout } from '@/lib/actions/auth'
+import { useTheme } from '@/lib/theme'
 
 const navItems = [
   { href: '/coach/athletes', icon: '👟', label: 'Zawodnicy' },
@@ -35,6 +36,7 @@ function planLabel(plan: string) {
 
 export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan }: Props) {
   const pathname = usePathname()
+  const { theme, toggle } = useTheme()
   const w = collapsed ? '64px' : '256px'
   const avatarLetters = initials(coachName)
 
@@ -102,6 +104,14 @@ export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan }: Prop
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-sm text-white">
               {avatarLetters}
             </div>
+            <button
+              onClick={toggle}
+              title={theme === 'dark' ? 'Tryb jasny' : 'Tryb ciemny'}
+              className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+              style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: '12px' }}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
             <form action={logout}>
               <button
                 type="submit"
@@ -123,6 +133,14 @@ export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan }: Prop
                 <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{coachName}</div>
                 <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{planLabel(coachPlan)}</div>
               </div>
+              <button
+                onClick={toggle}
+                title={theme === 'dark' ? 'Tryb jasny' : 'Tryb ciemny'}
+                className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors shrink-0"
+                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: '14px' }}
+              >
+                {theme === 'dark' ? '☀️' : '🌙'}
+              </button>
             </div>
             <form action={logout}>
               <button
