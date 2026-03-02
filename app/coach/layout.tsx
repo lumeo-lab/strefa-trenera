@@ -1,21 +1,28 @@
-'use client'
-import { useState } from 'react'
-import { CoachSidebar } from '@/components/coach/CoachSidebar'
-import { ThemeProvider } from '@/lib/theme'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { CoachShell } from './_components/CoachShell'
 
-export default function CoachLayout({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false)
+export default async function CoachLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/login')
+  }
+
+  // Fetch coach profile
+  const { data: coach } = await supabase
+    .from('coaches')
+    .select('name, plan')
+    .eq('id', user.id)
+    .single()
+
+  const coachName = coach?.name || user.email?.split('@')[0] || 'Trener'
+  const coachPlan = coach?.plan || 'starter'
+
   return (
-    <ThemeProvider>
-      <div className="flex min-h-screen">
-        <CoachSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
-        <main
-          className="flex-1 min-h-screen overflow-auto transition-all duration-200"
-          style={{ marginLeft: collapsed ? '64px' : '256px', background: 'var(--bg-base)' }}
-        >
-          {children}
-        </main>
-      </div>
-    </ThemeProvider>
+    <CoachShell coachName={coachName} coachPlan={coachPlan}>
+      {children}
+    </CoachShell>
   )
 }

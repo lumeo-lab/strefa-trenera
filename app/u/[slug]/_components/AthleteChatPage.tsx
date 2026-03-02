@@ -1,0 +1,112 @@
+'use client'
+
+import { useState, useRef, useEffect, startTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { Avatar } from '@/components/ui/Avatar'
+import { Button } from '@/components/ui/Button'
+import { formatDateTime } from '@/lib/utils'
+import { AthleteBottomNav } from './AthleteBottomNav'
+import { AthleteSession } from '@/lib/athlete-auth'
+import { adminClient } from '@/lib/supabase/admin'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DbRow = Record<string, any>
+
+interface Props {
+  athlete: AthleteSession
+  messages: DbRow[]
+  coachName: string
+}
+
+export function AthleteChatPage({ athlete, messages, coachName }: Props) {
+  const router = useRouter()
+  const [input, setInput] = useState('')
+  const [sending, setSending] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length])
+
+  // Get initials for coach
+  const coachInitials = coachName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
+  async function handleSend() {
+    if (!input.trim() || sending) return
+    setSending(true)
+
+    await adminClient.from('messages').insert({
+      coach_id: athlete.coach_id,
+      athlete_id: athlete.id,
+      sender_type: 'athlete',
+      content: input.trim(),
+    })
+
+    setInput('')
+    setSending(false)
+    startTransition(() => router.refresh())
+  }
+
+  return (
+    <div style={{ color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      {/* Header */}
+      <div className="px-5 pt-12 pb-4 border-b shrink-0" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}>
+        <div className="flex items-center gap-3">
+          <Avatar initials={coachInitials} size="sm" />
+          <div>
+            <div className="font-semibold text-sm">{coachName}</div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Twój trener</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4" style={{ paddingBottom: '90px' }}>
+        {messages.length === 0 && (
+          <div className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
+            Brak wiadomości. Napisz do trenera!
+          </div>
+        )}
+        {messages.map(msg => {
+          const isAthlete = msg.sender_type === 'athlete'
+          return (
+            <div key={msg.id} className={`flex gap-3 ${isAthlete ? 'flex-row-reverse' : ''}`}>
+              <Avatar initials={isAthlete ? athlete.avatar : coachInitials} size="sm" />
+              <div className={`max-w-xs flex flex-col gap-1 ${isAthlete ? 'items-end' : 'items-start'}`}>
+                <div className="px-4 py-3 rounded-2xl text-sm"
+                  style={{
+                    background: isAthlete ? '#FF5C1B' : 'var(--bg-elevated)',
+                    color: isAthlete ? 'white' : 'var(--text-primary)',
+                    borderRadius: isAthlete ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                  }}>
+                  {msg.content}
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDateTime(msg.created_at)}</div>
+              </div>
+            </div>
+          )
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input - fixed above bottom nav */}
+      <div className="px-5 py-3 border-t shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-base)', paddingBottom: 'max(12px, env(safe-area-inset-bottom))', marginBottom: '64px' }}>
+        <div className="flex items-center gap-3">
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+            placeholder={`Napisz do ${coachName}...`}
+            className="flex-1 px-4 py-3 rounded-2xl text-sm"
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+          />
+          <Button onClick={handleSend} disabled={!input.trim() || sending}>
+            {sending ? '...' : 'Wyślij'}
+          </Button>
+        </div>
+      </div>
+
+      <AthleteBottomNav slug={athlete.slug} />
+    </div>
+  )
+}

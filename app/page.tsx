@@ -20,15 +20,15 @@ export default function LandingPage() {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all ${navScrolled ? 'py-2.5' : 'py-4'}`}
         style={{ background: 'rgba(13,15,20,0.9)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
-          <a href="#" className="text-xl font-black tracking-tight">Coach<span style={{ color: '#FF5C1B' }}>Biz</span></a>
+          <a href="#" className="text-xl font-black tracking-tight">Strefa<span style={{ color: '#FF5C1B' }}> Trenera</span></a>
           <ul className="hidden md:flex items-center gap-8 text-sm" style={{ color: '#8A92A8' }}>
             {[['#features', 'Funkcje'], ['#comparison', 'Porównanie'], ['#pricing', 'Cennik'], ['#how', 'Jak zacząć']].map(([href, label]) => (
               <li key={href}><a href={href} className="hover:text-white transition-colors">{label}</a></li>
             ))}
           </ul>
           <div className="flex items-center gap-3">
-            <Link href="/coach" className="px-4 py-2 rounded-xl text-sm font-medium transition-all" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}>Panel trenera</Link>
-            <Link href="/athlete" className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: '#FF5C1B' }}>Panel zawodnika</Link>
+            <Link href="/login" className="px-4 py-2 rounded-xl text-sm font-medium transition-all" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}>Logowanie</Link>
+            <Link href="/register" className="px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: '#FF5C1B' }}>Zacznij za darmo</Link>
           </div>
         </div>
       </nav>

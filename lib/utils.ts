@@ -11,7 +11,7 @@ export function formatDateTime(isoDate: string): string {
 }
 
 export function getWeekDays(weekOffset = 0): Date[] {
-  const today = new Date('2026-02-28')
+  const today = new Date()
   const dayOfWeek = today.getDay()
   const monday = new Date(today)
   monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + weekOffset * 7)
@@ -107,9 +107,9 @@ export function dayName(date: Date, short = false): string {
 }
 
 export function isToday(isoDate: string): boolean {
-  return isoDate === '2026-02-28'
+  return isoDate === new Date().toISOString().split('T')[0]
 }
 
 export function isPast(isoDate: string): boolean {
-  return isoDate < '2026-02-28'
+  return isoDate < new Date().toISOString().split('T')[0]
 }

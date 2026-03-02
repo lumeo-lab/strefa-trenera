@@ -1,6 +1,8 @@
 'use client'
+
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { logout } from '@/lib/actions/auth'
 
 const navItems = [
   { href: '/coach/athletes', icon: '👟', label: 'Zawodnicy' },
@@ -13,11 +15,28 @@ const navItems = [
 interface Props {
   collapsed: boolean
   onToggle: () => void
+  coachName: string
+  coachPlan: string
 }
 
-export function CoachSidebar({ collapsed, onToggle }: Props) {
+function initials(name: string) {
+  return name
+    .split(' ')
+    .map(w => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+function planLabel(plan: string) {
+  const map: Record<string, string> = { starter: 'Plan Starter', pro: 'Plan Pro', standard: 'Plan Standard' }
+  return map[plan] ?? plan
+}
+
+export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan }: Props) {
   const pathname = usePathname()
   const w = collapsed ? '64px' : '256px'
+  const avatarLetters = initials(coachName)
 
   return (
     <aside
@@ -79,21 +98,41 @@ export function CoachSidebar({ collapsed, onToggle }: Props) {
       {/* Footer */}
       <div className="p-3 border-t shrink-0" style={{ borderColor: 'var(--border)' }}>
         {collapsed ? (
-          <div className="flex justify-center">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-sm text-white">TC</div>
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-sm text-white">
+              {avatarLetters}
+            </div>
+            <form action={logout}>
+              <button
+                type="submit"
+                title="Wyloguj"
+                className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: '12px' }}
+              >
+                ↩
+              </button>
+            </form>
           </div>
         ) : (
           <>
             <div className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-sm text-white shrink-0">TC</div>
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-sm text-white shrink-0">
+                {avatarLetters}
+              </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>Tomasz Czajka</div>
-                <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>Plan Pro</div>
+                <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{coachName}</div>
+                <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{planLabel(coachPlan)}</div>
               </div>
             </div>
-            <Link href="/" className="flex items-center gap-2 mt-1 px-3 py-2 rounded-xl text-sm transition-colors" style={{ color: 'var(--text-muted)' }}>
-              <span>←</span> Strona główna
-            </Link>
+            <form action={logout}>
+              <button
+                type="submit"
+                className="flex items-center gap-2 mt-1 w-full px-3 py-2 rounded-xl text-sm transition-colors cursor-pointer text-left"
+                style={{ color: 'var(--text-muted)', background: 'none', border: 'none' }}
+              >
+                <span>↩</span> Wyloguj się
+              </button>
+            </form>
           </>
         )}
       </div>
