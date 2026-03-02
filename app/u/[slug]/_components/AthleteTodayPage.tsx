@@ -9,6 +9,7 @@ import { intensityColor, sessionTypeLabel, formatDate, getWeekDays, toISODate } 
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
 import { createFeedback } from '@/lib/actions/feedback'
+import { PWAInstallBanner } from '@/components/ui/PWAInstallBanner'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DbRow = Record<string, any>
@@ -459,6 +460,7 @@ export function AthleteTodayPage({ athlete, sessions, recentFeedback, today }: P
         )}
       </Modal>
 
+      <PWAInstallBanner />
       <AthleteBottomNav slug={athlete.slug} />
     </div>
   )
