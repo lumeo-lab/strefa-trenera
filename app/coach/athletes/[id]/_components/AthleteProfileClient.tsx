@@ -20,6 +20,72 @@ import Link from 'next/link'
 
 const SESSION_TYPES: SessionType[] = ['easy', 'interval', 'tempo', 'long', 'rest', 'gym']
 
+// ── Feedback display helpers ───────────────────────────────────────────────
+
+const FEELING_LABELS: Record<string, string> = {
+  '😫': 'Fatalnie', '😕': 'Słabo', '😐': 'Średnio', '😊': 'Dobrze', '🤩': 'Świetnie',
+}
+
+function parseFeedback(fb: DbRow) {
+  const textSummary = fb.source !== 'voice' ? (fb.transcript ?? '') : ''
+  const voice = fb.ai_analysis || (fb.source === 'voice' ? fb.transcript : '') || ''
+  const r: Record<string, string> = {}
+  for (const part of textSummary.split(' | ')) {
+    if (part.startsWith('Samopoczucie: ')) r.feeling = part.slice(14)
+    else if (part.startsWith('Typ: ')) r.trainingType = part.slice(5)
+    else if (part.startsWith('Dystans: ')) r.distanceKm = part.slice(9).replace(' km', '')
+    else if (part.startsWith('Czas: ')) r.durationMin = part.slice(6).replace(' min', '')
+    else if (part.startsWith('Intensywność: ')) r.intensity = part.slice(14)
+    else if (part.startsWith('Notatka: ')) r.notes = part.slice(9)
+  }
+  return { ...r, voice }
+}
+
+function FeedbackDetail({ fb }: { fb: DbRow }) {
+  const d = parseFeedback(fb)
+  const hasText = !!(d.feeling || d.trainingType || d.distanceKm || d.durationMin || d.intensity || d.notes)
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <span>{fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'}</span>
+        <span className="text-sm font-semibold">{fb.ai_summary}</span>
+        {fb.coach_reply && <span className="text-xs text-green-400 ml-1">✓ Odpowiedziano</span>}
+      </div>
+      {hasText && (
+        <div className="space-y-1.5 text-sm">
+          {d.feeling && (
+            <div className="flex items-center gap-2">
+              <span>{d.feeling}</span>
+              <span style={{ color: 'var(--text-muted)' }}>{FEELING_LABELS[d.feeling]}</span>
+              {d.intensity && <span className="text-xs px-2 py-0.5 rounded-full ml-1" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>{d.intensity}</span>}
+            </div>
+          )}
+          {(d.trainingType || d.distanceKm || d.durationMin) && (
+            <div className="flex flex-wrap gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+              {d.trainingType && <span>🏃 {d.trainingType}</span>}
+              {d.distanceKm && <span>📏 {d.distanceKm} km</span>}
+              {d.durationMin && <span>⏱ {d.durationMin} min</span>}
+            </div>
+          )}
+          {d.notes && <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>"{d.notes}"</p>}
+        </div>
+      )}
+      {d.voice && (
+        <p className="text-sm italic"
+          style={{ color: 'var(--text-muted)', borderTop: hasText ? '1px solid var(--border)' : 'none', paddingTop: hasText ? '10px' : '0', marginTop: hasText ? '4px' : '0' }}>
+          🎤 {d.voice}
+        </p>
+      )}
+      {fb.coach_reply && (
+        <div className="p-3 rounded-xl text-sm" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
+          <div className="text-xs font-semibold mb-1" style={{ color: '#2ECC71' }}>💬 Twoja odpowiedź</div>
+          <p>{fb.coach_reply}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 function shiftMonth(m: string, d: number): string {
@@ -72,10 +138,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [activeTab, setActiveTab] = useState('plan')
   const [saving, setSaving] = useState(false)
 
-  // ── Feedback lookup by sessionId ──
-  const feedbackBySession = Object.fromEntries(
-    athleteFeedbacks.map(f => [f.session_id, f])
-  )
+  // ── Feedback lookup ──
+  const feedbackBySession = Object.fromEntries(athleteFeedbacks.filter(f => f.session_id).map(f => [f.session_id, f]))
+  const feedbackByDate = Object.fromEntries(athleteFeedbacks.map(f => [f.date, f]))
 
   // ── Plan view state ──
   const today = new Date().toISOString().split('T')[0]
@@ -94,7 +159,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   // ── History month navigation ──
   const [historyMonth, setHistoryMonth] = useState(currentMonth)
 
-  // ── Expanded feedback rows ──
+  // ── Expanded feedback rows (history) ──
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   function toggleRow(sessionId: string) {
     setExpandedRows(prev => {
@@ -103,6 +168,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       return next
     })
   }
+
+  // ── Feedback detail modal ──
+  const [feedbackModalData, setFeedbackModalData] = useState<DbRow | null>(null)
 
   // ── Notes state ──
   const [coachNotes, setCoachNotes] = useState(athlete.coach_notes ?? '')
@@ -373,7 +441,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                         <div className="text-xl font-black leading-tight mt-0.5" style={{ color: todayFlag ? '#FF5C1B' : 'var(--text-primary)' }}>
                           {day.getDate()}
                         </div>
-                        {todayFlag && <div className="text-xs font-semibold mt-0.5" style={{ color: '#FF5C1B' }}>Dziś</div>}
                       </div>
                       <div className="flex-1 p-1.5 space-y-1.5 overflow-y-auto">
                         {daySessions.length === 0 && (
@@ -400,6 +467,15 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                           </div>
                         ))}
                       </div>
+                      {feedbackByDate[dateStr] && (
+                        <div className="px-1.5 pb-1 shrink-0">
+                          <button onClick={() => setFeedbackModalData(feedbackByDate[dateStr])}
+                            className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
+                            style={{ background: 'rgba(255,92,27,0.08)', color: '#FF5C1B', border: '1px solid rgba(255,92,27,0.2)' }}>
+                            💬 Feedback
+                          </button>
+                        </div>
+                      )}
                       <div className="p-1.5 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
                         <button onClick={() => openNewSession(dateStr)}
                           className="w-full py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-colors"
@@ -462,6 +538,13 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                               ))}
                               {daySessions.length > 3 && <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>+{daySessions.length - 3} więcej</div>}
                             </div>
+                            {feedbackByDate[dateStr] && (
+                              <button onClick={e => { e.stopPropagation(); setFeedbackModalData(feedbackByDate[dateStr]) }}
+                                className="mt-1 w-full text-center cursor-pointer rounded-lg py-0.5"
+                                style={{ fontSize: '10px', background: 'rgba(255,92,27,0.1)', color: '#FF5C1B', border: 'none' }}>
+                                💬 feedback
+                              </button>
+                            )}
                           </div>
                         )
                       })}
@@ -552,7 +635,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 </thead>
                 <tbody>
                   {[...initialSessions].filter(s => s.date.slice(0, 7) === historyMonth).sort((a, b) => b.date.localeCompare(a.date)).map(session => {
-                    const fb = feedbackBySession[session.id]
+                    const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
                     const isExpanded = expandedRows.has(session.id)
                     return (
                       <>
@@ -588,12 +671,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                           <tr key={`fb-${session.id}`}>
                             <td colSpan={8} className="px-4 pb-3">
                               <div className="p-3 rounded-xl" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className={`w-2 h-2 rounded-full inline-block ${signalColor(fb.signal)}`} style={{ background: fb.signal === 'green' ? '#22c55e' : fb.signal === 'yellow' ? '#facc15' : '#ef4444' }} />
-                                  <span className="text-xs font-semibold">{fb.ai_summary}</span>
-                                  {fb.coach_reply && <span className="text-xs ml-2 text-green-400">✓ Odpowiedziano</span>}
-                                </div>
-                                {fb.transcript && <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>"{fb.transcript}"</p>}
+                                <FeedbackDetail fb={fb} />
                               </div>
                             </td>
                           </tr>
@@ -730,6 +808,16 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           </div>
         )}
       </div>
+
+      {/* ── Feedback detail modal ── */}
+      <Modal
+        open={!!feedbackModalData}
+        onClose={() => setFeedbackModalData(null)}
+        title="Feedback zawodnika"
+        size="sm"
+      >
+        {feedbackModalData && <FeedbackDetail fb={feedbackModalData} />}
+      </Modal>
 
       {/* ── Session Modal ── */}
       <Modal
