@@ -37,15 +37,15 @@ export default function LandingPage() {
       <section id="hero" className="pt-32 pb-24 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255,92,27,0.15) 0%, transparent 60%)' }} />
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
-          <div className="inline-flex px-4 py-2 rounded-full text-sm font-medium mb-8" style={{ background: 'rgba(255,92,27,0.1)', border: '1px solid rgba(255,92,27,0.2)', color: '#FF5C1B' }}>
-            Platforma dla trenerów biegania
+          <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold mb-8 text-base tracking-wide" style={{ background: 'rgba(255,92,27,0.15)', border: '2px solid rgba(255,92,27,0.4)', color: '#FF7A42' }}>
+            🏃 Dla trenerów biegania
           </div>
-          <h1 className="font-black tracking-tight mb-6 leading-tight" style={{ fontSize: 'clamp(2.2rem, 5vw, 4rem)' }}>
-            Miej wszystko pod kontrolą<br />
-            <span style={{ background: 'linear-gradient(135deg, #FF5C1B, #FF9A5C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>w jednym miejscu</span>
+          <h1 className="font-black tracking-tight mb-6 leading-tight" style={{ fontSize: 'clamp(2.4rem, 5.5vw, 4.2rem)' }}>
+            Prowadź swoich biegaczy.<br />
+            <span style={{ background: 'linear-gradient(135deg, #FF5C1B, #FF9A5C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Nie papierkową robotę.</span>
           </h1>
           <p className="text-lg max-w-2xl mx-auto mb-10" style={{ color: '#8A92A8' }}>
-            Planer treningowy, feedback zawodników i zarządzanie biznesem — bez Excela, WhatsApp i osobnego systemu płatności.
+            Planer treningowy dla trenerów biegania — plany, feedback zawodników i zarządzanie biznesem w jednym miejscu. Bez Excela i WhatsApp.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
             <a href="#pricing" className="px-8 py-4 rounded-2xl font-semibold text-white" style={{ background: 'linear-gradient(135deg, #FF5C1B, #FF7A42)' }}>Zacznij 30-dniowy trial za darmo</a>
