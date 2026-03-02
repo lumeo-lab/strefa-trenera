@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, startTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Tabs } from '@/components/ui/Tabs'
 import { intensityColor, sessionTypeLabel, formatDate, getWeekDays, toISODate } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
+import { createFeedback } from '@/lib/actions/feedback'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DbRow = Record<string, any>
@@ -93,10 +95,12 @@ function FeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit: ()
 }
 
 export function AthleteTodayPage({ athlete, sessions, recentFeedback, today }: Props) {
+  const router = useRouter()
   const [selectedDate, setSelectedDate] = useState(today)
   const [savedFeedback, setSavedFeedback] = useState<FeedbackData | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [feedbackTab, setFeedbackTab] = useState('text')
+  const [submitting, setSubmitting] = useState(false)
 
   const [feeling, setFeeling] = useState('')
   const [trainingType, setTrainingType] = useState('')
@@ -144,15 +148,48 @@ export function AthleteTodayPage({ athlete, sessions, recentFeedback, today }: P
     setFeedbackOpen(true)
   }
 
-  function submitText() {
+  async function submitText() {
+    if (submitting) return
+    setSubmitting(true)
+    const fd = new FormData()
+    fd.set('athlete_id', athlete.id)
+    fd.set('coach_id', athlete.coach_id)
+    fd.set('slug', athlete.slug)
+    fd.set('date', selectedDate)
+    fd.set('source', 'text')
+    fd.set('feeling', feeling)
+    fd.set('training_type', trainingType)
+    fd.set('distance_km', distanceKm)
+    fd.set('duration_min', durationMin)
+    fd.set('intensity', intensity)
+    fd.set('notes', notes)
+    if (daySession?.id) fd.set('session_id', daySession.id)
+    const result = await createFeedback(fd)
+    setSubmitting(false)
+    if (result?.error) { alert('Błąd zapisu: ' + result.error); return }
     setSavedFeedback({ source: 'text', feeling, trainingType, distanceKm, durationMin, intensity, notes })
     setFeedbackOpen(false)
+    startTransition(() => router.refresh())
   }
 
-  function submitVoice() {
+  async function submitVoice() {
+    if (submitting) return
+    setSubmitting(true)
+    const fd = new FormData()
+    fd.set('athlete_id', athlete.id)
+    fd.set('coach_id', athlete.coach_id)
+    fd.set('slug', athlete.slug)
+    fd.set('date', selectedDate)
+    fd.set('source', 'voice')
+    fd.set('voice_transcript', 'Trening poszedł świetnie...')
+    if (daySession?.id) fd.set('session_id', daySession.id)
+    const result = await createFeedback(fd)
+    setSubmitting(false)
+    if (result?.error) { alert('Błąd zapisu: ' + result.error); return }
     setSavedFeedback({ source: 'voice', voiceTranscript: 'Trening poszedł świetnie...' })
     setFeedbackOpen(false)
     setRecorded(false)
+    startTransition(() => router.refresh())
   }
 
   function handleRecord() {
@@ -164,9 +201,13 @@ export function AthleteTodayPage({ athlete, sessions, recentFeedback, today }: P
 
   const modalFooter =
     feedbackTab === 'text' ? (
-      <Button className="w-full" onClick={submitText} disabled={!textFormHasData}>Zapisz feedback</Button>
+      <Button className="w-full" onClick={submitText} disabled={!textFormHasData || submitting}>
+        {submitting ? 'Zapisywanie...' : 'Zapisz feedback'}
+      </Button>
     ) : feedbackTab === 'voice' && recorded ? (
-      <Button className="w-full" onClick={submitVoice}>Wyślij feedback głosowy</Button>
+      <Button className="w-full" onClick={submitVoice} disabled={submitting}>
+        {submitting ? 'Zapisywanie...' : 'Wyślij feedback głosowy'}
+      </Button>
     ) : null
 
   return (
