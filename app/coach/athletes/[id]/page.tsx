@@ -278,9 +278,9 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
               )}
             </div>
 
-            {/* ── Widok tygodniowy ── */}
+            {/* ── Widok tygodniowy — 7 kolumn ── */}
             {planView === 'week' && (
-              <div className="space-y-2">
+              <div className="grid grid-cols-7 gap-2" style={{ minHeight: '520px' }}>
                 {weekDays.map(day => {
                   const dateStr = toISODate(day)
                   const daySessions = weekSessions.filter(s => s.date === dateStr)
@@ -288,57 +288,61 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
                   const pastFlag = isPast(dateStr)
 
                   return (
-                    <div key={dateStr} className="flex rounded-2xl overflow-hidden"
-                      style={{ border: todayFlag ? '2px solid rgba(255,92,27,0.5)' : '1px solid var(--border)', background: 'var(--bg-card)', minHeight: '76px' }}>
-                      {/* Etykieta dnia */}
-                      <div className="w-28 shrink-0 flex flex-col items-center justify-center py-3 text-center"
-                        style={{ background: todayFlag ? 'rgba(255,92,27,0.07)' : 'var(--bg-subtle)', borderRight: '1px solid var(--border)' }}>
-                        <div className="text-xs font-medium capitalize mb-0.5" style={{ color: todayFlag ? '#FF5C1B' : 'var(--text-muted)' }}>
+                    <div key={dateStr} className="flex flex-col rounded-2xl overflow-hidden"
+                      style={{ border: todayFlag ? '2px solid rgba(255,92,27,0.5)' : '1px solid var(--border)', background: 'var(--bg-card)' }}>
+
+                      {/* Nagłówek kolumny */}
+                      <div className="py-3 px-2 text-center shrink-0"
+                        style={{ background: todayFlag ? 'rgba(255,92,27,0.07)' : 'var(--bg-subtle)', borderBottom: '1px solid var(--border)' }}>
+                        <div className="text-xs font-medium capitalize" style={{ color: todayFlag ? '#FF5C1B' : 'var(--text-muted)' }}>
                           {dayName(day, true)}
                         </div>
-                        <div className="text-2xl font-black leading-none" style={{ color: todayFlag ? '#FF5C1B' : 'var(--text-primary)' }}>
+                        <div className="text-xl font-black leading-tight mt-0.5" style={{ color: todayFlag ? '#FF5C1B' : 'var(--text-primary)' }}>
                           {day.getDate()}
                         </div>
-                        {todayFlag && <div className="text-xs mt-0.5" style={{ color: '#FF5C1B' }}>Dziś</div>}
+                        {todayFlag && <div className="text-xs font-semibold mt-0.5" style={{ color: '#FF5C1B' }}>Dziś</div>}
                       </div>
 
                       {/* Sesje */}
-                      <div className="flex-1 divide-y" style={{ borderColor: 'var(--border)' }}>
+                      <div className="flex-1 p-1.5 space-y-1.5 overflow-y-auto">
                         {daySessions.length === 0 && (
-                          <div className="flex items-center h-full px-6">
-                            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Wolny dzień</span>
+                          <div className="h-full flex items-center justify-center py-4">
+                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>wolny</span>
                           </div>
                         )}
                         {daySessions.map(session => (
-                          <div key={session.id} className={`flex items-center gap-4 px-6 py-3 ${intensityColor(session.type)}`}>
-                            <div className="flex-1">
-                              <div className="font-semibold text-sm">{session.title}</div>
-                              {session.description && <div className="text-xs opacity-70 mt-0.5">{session.description}</div>}
-                              <div className="flex flex-wrap gap-4 text-xs font-medium opacity-80 mt-1">
-                                {session.plannedDistance && <span>📏 {session.plannedDistance} km</span>}
-                                {session.plannedDuration && <span>⏱️ {session.plannedDuration} min</span>}
-                                {session.plannedPace && <span>⚡ {session.plannedPace}/km</span>}
-                              </div>
+                          <div
+                            key={session.id}
+                            onClick={() => openEditSession(session)}
+                            className={`p-2 rounded-xl cursor-pointer transition-opacity hover:opacity-80 ${intensityColor(session.type)}`}
+                          >
+                            <div className="font-semibold text-xs leading-tight mb-1">{session.title}</div>
+                            {session.description && (
+                              <div className="text-xs opacity-60 leading-tight mb-1 line-clamp-2">{session.description}</div>
+                            )}
+                            <div className="flex flex-col gap-0.5 text-xs opacity-75">
+                              {session.plannedDistance && <span>📏 {session.plannedDistance} km</span>}
+                              {session.plannedDuration && <span>⏱ {session.plannedDuration} min</span>}
+                              {session.plannedPace && <span>⚡ {session.plannedPace}/km</span>}
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="mt-1.5">
                               {session.completed
-                                ? <span className="text-xs px-2 py-1 rounded-full bg-green-500/10 text-green-400">✓ Wykonany</span>
+                                ? <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">✓</span>
                                 : pastFlag
-                                ? <span className="text-xs px-2 py-1 rounded-full bg-red-500/10 text-red-400">Pominięty</span>
-                                : <span className="text-xs px-2 py-1 rounded-full" style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>{sessionTypeLabel(session.type)}</span>
-                              }
-                              <button onClick={() => openEditSession(session)} className="p-1.5 rounded-lg cursor-pointer text-sm" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>✏️</button>
+                                ? <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full">✗</span>
+                                : null}
                             </div>
                           </div>
                         ))}
                       </div>
 
-                      {/* Przycisk dodawania */}
-                      <div className="w-12 shrink-0 flex items-center justify-center" style={{ borderLeft: '1px solid var(--border)' }}>
-                        <button onClick={() => openNewSession(dateStr)}
-                          className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer text-lg font-light transition-colors"
+                      {/* Przycisk dodaj */}
+                      <div className="p-1.5 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+                        <button
+                          onClick={() => openNewSession(dateStr)}
+                          className="w-full py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-colors"
                           style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
-                          title="Dodaj sesję">+</button>
+                        >+ dodaj</button>
                       </div>
                     </div>
                   )
@@ -365,7 +369,7 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
                     <div key={wi} className="grid grid-cols-7" style={{ borderBottom: wi < calendarWeeks.length - 1 ? '1px solid var(--border)' : 'none' }}>
                       {week.map((dateStr, di) => {
                         if (!dateStr) return (
-                          <div key={di} className="min-h-24 p-2" style={{ background: 'var(--bg-base)', borderRight: di < 6 ? '1px solid var(--border)' : 'none' }} />
+                          <div key={di} className="min-h-36 p-2" style={{ background: 'var(--bg-base)', borderRight: di < 6 ? '1px solid var(--border)' : 'none' }} />
                         )
                         const daySessions = sessions.filter(s => s.date === dateStr)
                         const todayFlag = isToday(dateStr)
@@ -374,30 +378,49 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
 
                         return (
                           <div key={dateStr}
-                            onClick={() => setSelectedDay(isSelected ? null : dateStr)}
-                            className="min-h-24 p-2 cursor-pointer transition-colors hover:opacity-90"
+                            className="min-h-36 p-2 transition-colors"
                             style={{
                               background: isSelected ? 'rgba(255,92,27,0.06)' : 'var(--bg-card)',
                               borderRight: di < 6 ? '1px solid var(--border)' : 'none',
                               outline: todayFlag ? '2px solid rgba(255,92,27,0.4)' : 'none',
                               outlineOffset: '-2px',
                             }}>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-bold" style={{ color: todayFlag ? '#FF5C1B' : 'var(--text-primary)' }}>{dayNum}</span>
-                              {daySessions.length === 0 && (
-                                <button onClick={e => { e.stopPropagation(); openNewSession(dateStr) }}
-                                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 cursor-pointer"
-                                  style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>+</button>
-                              )}
+                            {/* Nagłówek dnia */}
+                            <div className="flex items-center justify-between mb-1.5">
+                              <button
+                                onClick={() => setSelectedDay(isSelected ? null : dateStr)}
+                                className="text-sm font-bold cursor-pointer w-6 h-6 rounded-full flex items-center justify-center"
+                                style={{
+                                  background: todayFlag ? '#FF5C1B' : 'transparent',
+                                  color: todayFlag ? 'white' : isSelected ? '#FF5C1B' : 'var(--text-primary)',
+                                }}
+                              >{dayNum}</button>
+                              <button
+                                onClick={e => { e.stopPropagation(); openNewSession(dateStr) }}
+                                className="w-5 h-5 rounded-full flex items-center justify-center text-xs cursor-pointer transition-colors"
+                                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+                                title="Dodaj sesję"
+                              >+</button>
                             </div>
-                            <div className="space-y-0.5">
+                            {/* Sesje — szczegóły */}
+                            <div className="space-y-1">
                               {daySessions.slice(0, 3).map(s => (
-                                <div key={s.id} className={`text-xs px-1.5 py-0.5 rounded truncate ${intensityColor(s.type)}`}>
-                                  {s.title}
+                                <div
+                                  key={s.id}
+                                  onClick={() => openEditSession(s)}
+                                  className={`px-1.5 py-1 rounded-lg cursor-pointer transition-opacity hover:opacity-80 ${intensityColor(s.type)}`}
+                                >
+                                  <div className="text-xs font-semibold leading-tight truncate">{s.title}</div>
+                                  <div className="flex flex-wrap gap-x-2 mt-0.5" style={{ fontSize: '10px', opacity: 0.75 }}>
+                                    {s.plannedDistance && <span>{s.plannedDistance}km</span>}
+                                    {s.plannedDuration && <span>{s.plannedDuration}min</span>}
+                                    {s.plannedPace && <span>{s.plannedPace}</span>}
+                                  </div>
+                                  {s.completed && <div className="text-green-400 mt-0.5" style={{ fontSize: '10px' }}>✓ wykonany</div>}
                                 </div>
                               ))}
                               {daySessions.length > 3 && (
-                                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>+{daySessions.length - 3} więcej</div>
+                                <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>+{daySessions.length - 3} więcej</div>
                               )}
                             </div>
                           </div>

@@ -11,36 +11,65 @@ const navItems = [
   { href: '/coach/chat', icon: '💬', label: 'Czat' },
 ]
 
-export function CoachSidebar() {
+interface Props {
+  collapsed: boolean
+  onToggle: () => void
+}
+
+export function CoachSidebar({ collapsed, onToggle }: Props) {
   const pathname = usePathname()
+  const w = collapsed ? '64px' : '256px'
 
   return (
-    <aside className="w-64 h-screen flex flex-col fixed left-0 top-0 z-30"
-      style={{ background: 'var(--bg-card)', borderRight: '1px solid var(--border)' }}>
-      <div className="px-6 py-5 border-b" style={{ borderColor: 'var(--border)' }}>
-        <Link href="/" className="text-xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
-          Strefa<span style={{ color: '#FF5C1B' }}> Trenera</span>
-        </Link>
-        <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Panel trenera</div>
+    <aside
+      className="h-screen flex flex-col fixed left-0 top-0 z-30 transition-all duration-200 overflow-hidden"
+      style={{ width: w, background: 'var(--bg-card)', borderRight: '1px solid var(--border)' }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-5 border-b shrink-0" style={{ borderColor: 'var(--border)', minHeight: '72px' }}>
+        {!collapsed && (
+          <Link href="/" className="text-lg font-black tracking-tight leading-tight" style={{ color: 'var(--text-primary)' }}>
+            Strefa<span style={{ color: '#FF5C1B' }}> Trenera</span>
+            <div className="text-xs font-normal mt-0.5" style={{ color: 'var(--text-muted)' }}>Panel trenera</div>
+          </Link>
+        )}
+        {collapsed && (
+          <div className="w-full flex justify-center">
+            <span className="text-lg font-black" style={{ color: '#FF5C1B' }}>ST</span>
+          </div>
+        )}
+        <button
+          onClick={onToggle}
+          className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors ml-1"
+          style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+          title={collapsed ? 'Rozwiń menu' : 'Zwiń menu'}
+        >
+          <span className="text-sm leading-none">{collapsed ? '→' : '←'}</span>
+        </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-4 px-3">
-        <ul className="space-y-1">
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto py-4 px-2">
+        <ul className="space-y-0.5">
           {navItems.map(item => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
+                  className="flex items-center rounded-xl transition-all"
                   style={{
+                    gap: collapsed ? '0' : '10px',
+                    padding: collapsed ? '10px 0' : '10px 12px',
+                    justifyContent: collapsed ? 'center' : undefined,
                     background: isActive ? 'rgba(255,92,27,0.12)' : undefined,
                     color: isActive ? '#FF5C1B' : 'var(--text-muted)',
                     borderLeft: isActive ? '2px solid #FF5C1B' : '2px solid transparent',
                   }}
+                  title={collapsed ? item.label : undefined}
                 >
-                  <span className="text-base w-5 text-center">{item.icon}</span>
-                  {item.label}
+                  <span className="text-base w-5 text-center shrink-0">{item.icon}</span>
+                  {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
                 </Link>
               </li>
             )
@@ -48,17 +77,26 @@ export function CoachSidebar() {
         </ul>
       </nav>
 
-      <div className="p-4 border-t" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-sm text-white">TC</div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>Tomasz Czajka</div>
-            <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>Plan Pro</div>
+      {/* Footer */}
+      <div className="p-3 border-t shrink-0" style={{ borderColor: 'var(--border)' }}>
+        {collapsed ? (
+          <div className="flex justify-center">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-sm text-white">TC</div>
           </div>
-        </div>
-        <Link href="/" className="flex items-center gap-2 mt-2 px-3 py-2 rounded-xl text-sm transition-colors" style={{ color: 'var(--text-muted)' }}>
-          <span>←</span> Strona główna
-        </Link>
+        ) : (
+          <>
+            <div className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-sm text-white shrink-0">TC</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>Tomasz Czajka</div>
+                <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>Plan Pro</div>
+              </div>
+            </div>
+            <Link href="/" className="flex items-center gap-2 mt-1 px-3 py-2 rounded-xl text-sm transition-colors" style={{ color: 'var(--text-muted)' }}>
+              <span>←</span> Strona główna
+            </Link>
+          </>
+        )}
       </div>
     </aside>
   )

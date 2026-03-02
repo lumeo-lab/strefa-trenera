@@ -1,12 +1,18 @@
+'use client'
+import { useState } from 'react'
 import { CoachSidebar } from '@/components/coach/CoachSidebar'
 import { ThemeProvider } from '@/lib/theme'
 
 export default function CoachLayout({ children }: { children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = useState(false)
   return (
     <ThemeProvider>
       <div className="flex min-h-screen">
-        <CoachSidebar />
-        <main className="flex-1 ml-64 min-h-screen overflow-auto" style={{ background: 'var(--bg-base)' }}>
+        <CoachSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
+        <main
+          className="flex-1 min-h-screen overflow-auto transition-all duration-200"
+          style={{ marginLeft: collapsed ? '64px' : '256px', background: 'var(--bg-base)' }}
+        >
           {children}
         </main>
       </div>
