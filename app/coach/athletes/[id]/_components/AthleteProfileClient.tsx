@@ -91,6 +91,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [draftDate, setDraftDate] = useState('')
   const [draft, setDraft] = useState<SessionDraft>(emptyDraft())
 
+  // ── History month navigation ──
+  const [historyMonth, setHistoryMonth] = useState(currentMonth)
+
   // ── Expanded feedback rows ──
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   function toggleRow(sessionId: string) {
@@ -516,6 +519,20 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 </Card>
               ))}
             </div>
+
+            {/* Month navigation */}
+            <div className="flex items-center justify-between">
+              <button onClick={() => setHistoryMonth(m => shiftMonth(m, -1))}
+                className="px-3 py-1.5 rounded-xl text-sm cursor-pointer"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>←</button>
+              <span className="text-sm font-bold capitalize" style={{ color: 'var(--text-primary)' }}>
+                {monthLabel(historyMonth)}
+              </span>
+              <button onClick={() => setHistoryMonth(m => shiftMonth(m, 1))}
+                className="px-3 py-1.5 rounded-xl text-sm cursor-pointer"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>→</button>
+            </div>
+
             <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
               <table className="w-full text-sm">
                 <thead>
@@ -526,7 +543,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   </tr>
                 </thead>
                 <tbody>
-                  {[...initialSessions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30).map(session => {
+                  {[...initialSessions].filter(s => s.date.slice(0, 7) === historyMonth).sort((a, b) => b.date.localeCompare(a.date)).map(session => {
                     const fb = feedbackBySession[session.id]
                     const isExpanded = expandedRows.has(session.id)
                     return (
