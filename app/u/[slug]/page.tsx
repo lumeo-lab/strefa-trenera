@@ -74,8 +74,14 @@ export default async function SlugPage({ params, searchParams }: Props) {
     .gte('date', rangeStart.toISOString().split('T')[0])
     .lte('date', rangeEnd.toISOString().split('T')[0])
 
-  // keyed by date
-  const feedbacks = Object.fromEntries((feedbacksArr ?? []).map(f => [f.date, f]))
+  // keyed by date, split by source type so athlete can have both text + voice per day
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const feedbacks: Record<string, { text: any; voice: any }> = {}
+  for (const fb of feedbacksArr ?? []) {
+    if (!feedbacks[fb.date]) feedbacks[fb.date] = { text: null, voice: null }
+    if (fb.source === 'voice') feedbacks[fb.date].voice = fb
+    else feedbacks[fb.date].text = fb
+  }
 
   return (
     <AthleteTodayPage

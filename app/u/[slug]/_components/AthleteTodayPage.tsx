@@ -17,7 +17,7 @@ type DbRow = Record<string, any>
 interface Props {
   athlete: AthleteSession
   sessions: DbRow[]
-  feedbacks: Record<string, DbRow>
+  feedbacks: Record<string, { text: DbRow | null; voice: DbRow | null }>
   today: string
 }
 
@@ -63,11 +63,11 @@ interface FeedbackData {
   voiceTranscript?: string
 }
 
-function FeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit: () => void }) {
+function FeedbackCard({ feedback, onEdit, label }: { feedback: FeedbackData; onEdit: () => void; label: string }) {
   return (
     <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold">📝 Twój feedback</span>
+        <span className="text-sm font-semibold">{label}</span>
         <button onClick={onEdit} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg cursor-pointer"
           style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>✏️ Edytuj</button>
       </div>
@@ -98,7 +98,8 @@ function FeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit: ()
 export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props) {
   const router = useRouter()
   const [selectedDate, setSelectedDate] = useState(today)
-  const [optimisticFeedback, setOptimisticFeedback] = useState<FeedbackData | null>(null)
+  const [optimisticTextFeedback, setOptimisticTextFeedback] = useState<FeedbackData | null>(null)
+  const [optimisticVoiceFeedback, setOptimisticVoiceFeedback] = useState<FeedbackData | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [feedbackTab, setFeedbackTab] = useState('text')
   const [submitting, setSubmitting] = useState(false)
@@ -116,32 +117,14 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
   const recognitionRef = useRef<any>(null)
 
   const daySession = sessions.find(s => s.date === selectedDate)
-  const dayFeedback = feedbacks[selectedDate] ?? null
-  const activeFeedback = optimisticFeedback ?? (dayFeedback ? {
-    source: dayFeedback.source as 'text' | 'voice',
-    voiceTranscript: dayFeedback.source === 'voice' ? dayFeedback.transcript : undefined,
-    notes: dayFeedback.source === 'text' ? dayFeedback.transcript : undefined,
-    coachReply: dayFeedback.coach_reply ?? undefined,
-  } as FeedbackData : null)
+  const dayFeedbacks = feedbacks[selectedDate] ?? { text: null, voice: null }
+  const textFeedback = dayFeedbacks.text
+  const voiceFeedback = dayFeedbacks.voice
   const isPastOrToday = selectedDate <= today
   const weekDays = getWeekDays(0)
 
-  function navigate(delta: number) {
-    setSelectedDate(d => shiftDate(d, delta))
-    setOptimisticFeedback(null)
-    setRecorded(false)
-    setVoiceTranscript('')
-  }
-
-  function selectDay(dateStr: string) {
-    setSelectedDate(dateStr)
-    setOptimisticFeedback(null)
-    setRecorded(false)
-    setVoiceTranscript('')
-  }
-
-  function parseTranscript(t: string) {
-    const r = { feeling: '', trainingType: '', distanceKm: '', durationMin: '', intensity: '', notes: '' }
+  function parseTranscript(t: string): FeedbackData {
+    const r: FeedbackData = { source: 'text' }
     for (const part of t.split(' | ')) {
       if (part.startsWith('Samopoczucie: ')) r.feeling = part.slice(14)
       else if (part.startsWith('Typ: ')) r.trainingType = part.slice(5)
@@ -153,28 +136,52 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
     return r
   }
 
-  function openModal(editing: boolean) {
-    if (editing && dayFeedback) {
-      if (dayFeedback.source === 'voice') {
-        setFeedbackTab('voice')
+  const activeTextFeedback: FeedbackData | null = optimisticTextFeedback ??
+    (textFeedback ? parseTranscript(textFeedback.transcript ?? '') : null)
+
+  const activeVoiceFeedback: FeedbackData | null = optimisticVoiceFeedback ??
+    (voiceFeedback ? { source: 'voice', voiceTranscript: voiceFeedback.transcript ?? '' } : null)
+
+  function navigate(delta: number) {
+    setSelectedDate(d => shiftDate(d, delta))
+    setOptimisticTextFeedback(null)
+    setOptimisticVoiceFeedback(null)
+    setRecorded(false)
+    setVoiceTranscript('')
+  }
+
+  function selectDay(dateStr: string) {
+    setSelectedDate(dateStr)
+    setOptimisticTextFeedback(null)
+    setOptimisticVoiceFeedback(null)
+    setRecorded(false)
+    setVoiceTranscript('')
+  }
+
+  function openModal(type: 'text' | 'voice', editing: boolean) {
+    if (type === 'voice') {
+      setFeedbackTab('voice')
+      if (editing && voiceFeedback) {
         setRecorded(true)
-        setVoiceTranscript(dayFeedback.transcript ?? '')
+        setVoiceTranscript(voiceFeedback.transcript ?? '')
       } else {
-        const parsed = parseTranscript(dayFeedback.transcript ?? '')
-        setFeeling(parsed.feeling)
-        setTrainingType(parsed.trainingType)
-        setDistanceKm(parsed.distanceKm)
-        setDurationMin(parsed.durationMin)
-        setIntensity(parsed.intensity)
-        setNotes(parsed.notes)
-        setFeedbackTab('text')
+        setRecorded(false)
+        setVoiceTranscript('')
       }
     } else {
-      setFeeling(''); setTrainingType(''); setDistanceKm('')
-      setDurationMin(''); setIntensity(''); setNotes('')
-      setRecorded(false)
-      setVoiceTranscript('')
       setFeedbackTab('text')
+      if (editing && textFeedback) {
+        const parsed = parseTranscript(textFeedback.transcript ?? '')
+        setFeeling(parsed.feeling ?? '')
+        setTrainingType(parsed.trainingType ?? '')
+        setDistanceKm(parsed.distanceKm ?? '')
+        setDurationMin(parsed.durationMin ?? '')
+        setIntensity(parsed.intensity ?? '')
+        setNotes(parsed.notes ?? '')
+      } else {
+        setFeeling(''); setTrainingType(''); setDistanceKm('')
+        setDurationMin(''); setIntensity(''); setNotes('')
+      }
     }
     setFeedbackOpen(true)
   }
@@ -200,9 +207,10 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
     }
     if (daySession?.id) fd.set('session_id', daySession.id)
 
+    const existingFeedback = source === 'voice' ? voiceFeedback : textFeedback
     let result
-    if (dayFeedback?.id) {
-      fd.set('id', dayFeedback.id)
+    if (existingFeedback?.id) {
+      fd.set('id', existingFeedback.id)
       result = await updateFeedback(fd)
     } else {
       result = await createFeedback(fd)
@@ -213,14 +221,22 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
     const optimistic: FeedbackData = source === 'text'
       ? { source: 'text', feeling, trainingType, distanceKm, durationMin, intensity, notes }
       : { source: 'voice', voiceTranscript: voiceTranscript || 'Brak transkrypcji' }
-    setOptimisticFeedback(optimistic)
+    if (source === 'text') setOptimisticTextFeedback(optimistic)
+    else setOptimisticVoiceFeedback(optimistic)
     setFeedbackOpen(false)
     setRecorded(false)
     setVoiceTranscript('')
     startTransition(() => router.refresh())
   }
 
-  function handleRecord() {
+  async function handleRecord() {
+    // Request microphone permission explicitly — required in PWA standalone mode
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch {
+      alert('Brak dostępu do mikrofonu. Zezwól na dostęp w ustawieniach przeglądarki.')
+      return
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SR) {
@@ -234,7 +250,6 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
     recognitionRef.current = recognition
     setVoiceTranscript('')
     setRecording(true)
-    recognition.start()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (e: any) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -249,6 +264,12 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
     recognition.onerror = (e: any) => {
       setRecording(false)
       if (e.error !== 'aborted') alert('Błąd nagrywania. Sprawdź uprawnienia mikrofonu.')
+    }
+    try {
+      recognition.start()
+    } catch {
+      setRecording(false)
+      alert('Nie można uruchomić nagrywania.')
     }
   }
 
@@ -336,29 +357,42 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
           )}
 
           {isPastOrToday && (
-            activeFeedback ? (
-              <div className="space-y-2">
-                <FeedbackCard feedback={activeFeedback} onEdit={() => openModal(true)} />
-                {(dayFeedback?.coach_reply) && (
-                  <div className="p-4 rounded-2xl" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
-                    <div className="text-xs font-semibold mb-2" style={{ color: '#2ECC71' }}>💬 Odpowiedź trenera</div>
-                    <p className="text-sm">{dayFeedback.coach_reply}</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button onClick={() => openModal(false)}
-                className="w-full py-3.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95"
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: '#FF5C1B' }}>
-                📝 Dodaj feedback po treningu
-              </button>
-            )
+            <div className="space-y-2">
+              {/* Text feedback */}
+              {activeTextFeedback ? (
+                <FeedbackCard feedback={activeTextFeedback} onEdit={() => openModal('text', true)} label="📝 Feedback" />
+              ) : (
+                <button onClick={() => openModal('text', false)}
+                  className="w-full py-3.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: '#FF5C1B' }}>
+                  📝 Dodaj feedback po treningu
+                </button>
+              )}
+
+              {/* Voice feedback */}
+              {activeVoiceFeedback ? (
+                <FeedbackCard feedback={activeVoiceFeedback} onEdit={() => openModal('voice', true)} label="🎤 Nagranie głosowe" />
+              ) : (
+                <button onClick={() => openModal('voice', false)}
+                  className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                  🎤 Dodaj nagranie głosowe
+                </button>
+              )}
+
+              {/* Coach reply */}
+              {(textFeedback?.coach_reply || voiceFeedback?.coach_reply) && (
+                <div className="p-4 rounded-2xl" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
+                  <div className="text-xs font-semibold mb-2" style={{ color: '#2ECC71' }}>💬 Odpowiedź trenera</div>
+                  <p className="text-sm">{textFeedback?.coach_reply || voiceFeedback?.coach_reply}</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
         {/* Desktop sidebar */}
         <div className="hidden lg:flex flex-col gap-4">
-          {/* Week mini-calendar */}
           <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
             <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Ten tydzień</div>
             <div className="space-y-1">
@@ -401,14 +435,13 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
             </div>
           </div>
 
-          {/* Coach reply for selected day */}
-          {dayFeedback?.coach_reply && (
+          {(textFeedback?.coach_reply || voiceFeedback?.coach_reply) && (
             <div className="p-4 rounded-2xl" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
               <div className="text-xs font-semibold mb-2" style={{ color: '#2ECC71' }}>💬 Odpowiedź trenera</div>
-              <p className="text-sm">{dayFeedback.coach_reply}</p>
-              {dayFeedback.date && (
+              <p className="text-sm">{textFeedback?.coach_reply || voiceFeedback?.coach_reply}</p>
+              {(textFeedback?.date || voiceFeedback?.date) && (
                 <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                  {formatDate(dayFeedback.date, { day: 'numeric', month: 'short' })}
+                  {formatDate(textFeedback?.date || voiceFeedback?.date, { day: 'numeric', month: 'short' })}
                 </div>
               )}
             </div>
