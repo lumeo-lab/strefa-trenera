@@ -46,12 +46,12 @@ export function signalBg(signal: FeedbackSignal): string {
 
 export function intensityColor(type: SessionType): string {
   const map: Record<SessionType, string> = {
-    easy: 'bg-green-500/20 text-green-400 border-green-500/30',
-    interval: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-    tempo: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    long: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    rest: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    gym: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+    easy: 'session-easy',
+    interval: 'session-interval',
+    tempo: 'session-tempo',
+    long: 'session-long',
+    rest: 'session-rest',
+    gym: 'session-gym',
   }
   return map[type]
 }
