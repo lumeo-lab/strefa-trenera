@@ -63,6 +63,54 @@ export async function createFeedback(formData: FormData) {
   return { success: true }
 }
 
+export async function updateFeedback(formData: FormData) {
+  const id = formData.get('id') as string
+  const athleteId = formData.get('athlete_id') as string
+  const source = formData.get('source') as string
+  const feeling = formData.get('feeling') as string
+  const trainingType = formData.get('training_type') as string
+  const distanceKm = formData.get('distance_km') as string
+  const durationMin = formData.get('duration_min') as string
+  const intensity = formData.get('intensity') as string
+  const notes = formData.get('notes') as string
+  const voiceTranscript = formData.get('voice_transcript') as string
+
+  if (!id || !athleteId) return { error: 'Brak wymaganych danych' }
+
+  const feelingSignal: Record<string, string> = {
+    '😫': 'red', '😕': 'red', '😐': 'yellow', '😊': 'green', '🤩': 'green',
+  }
+  const signal = feelingSignal[feeling] ?? 'green'
+
+  let transcript = ''
+  let aiSummary = ''
+
+  if (source === 'voice') {
+    transcript = voiceTranscript || ''
+    aiSummary = 'Feedback głosowy'
+  } else {
+    const parts = []
+    if (feeling) parts.push(`Samopoczucie: ${feeling}`)
+    if (trainingType) parts.push(`Typ: ${trainingType}`)
+    if (distanceKm) parts.push(`Dystans: ${distanceKm} km`)
+    if (durationMin) parts.push(`Czas: ${durationMin} min`)
+    if (intensity) parts.push(`Intensywność: ${intensity}`)
+    if (notes) parts.push(`Notatka: ${notes}`)
+    transcript = parts.join(' | ')
+    aiSummary = feeling ? `${feeling} — ${intensity || trainingType || 'trening'}` : (trainingType || 'Feedback tekstowy')
+  }
+
+  const { error } = await adminClient.from('feedbacks').update({
+    source, signal, transcript, ai_summary: aiSummary,
+  }).eq('id', id).eq('athlete_id', athleteId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/u/${formData.get('slug')}`)
+  revalidatePath('/coach/feedback')
+  return { success: true }
+}
+
 export async function markFeedbackRead(id: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

@@ -62,20 +62,26 @@ export default async function SlugPage({ params, searchParams }: Props) {
     })())
     .order('date')
 
-  const { data: recentFeedback } = await adminClient
+  const rangeStart = new Date()
+  rangeStart.setDate(rangeStart.getDate() - 7)
+  const rangeEnd = new Date()
+  rangeEnd.setDate(rangeEnd.getDate() + 7)
+
+  const { data: feedbacksArr } = await adminClient
     .from('feedbacks')
-    .select('coach_reply, date')
+    .select('*')
     .eq('athlete_id', athlete.id)
-    .not('coach_reply', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
+    .gte('date', rangeStart.toISOString().split('T')[0])
+    .lte('date', rangeEnd.toISOString().split('T')[0])
+
+  // keyed by date
+  const feedbacks = Object.fromEntries((feedbacksArr ?? []).map(f => [f.date, f]))
 
   return (
     <AthleteTodayPage
       athlete={athlete}
       sessions={sessions ?? []}
-      recentFeedback={recentFeedback}
+      feedbacks={feedbacks}
       today={today}
     />
   )

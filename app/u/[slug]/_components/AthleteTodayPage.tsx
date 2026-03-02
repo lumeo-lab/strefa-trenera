@@ -8,7 +8,7 @@ import { Tabs } from '@/components/ui/Tabs'
 import { intensityColor, sessionTypeLabel, formatDate, getWeekDays, toISODate } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
-import { createFeedback } from '@/lib/actions/feedback'
+import { createFeedback, updateFeedback } from '@/lib/actions/feedback'
 import { PWAInstallBanner } from '@/components/ui/PWAInstallBanner'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,7 +17,7 @@ type DbRow = Record<string, any>
 interface Props {
   athlete: AthleteSession
   sessions: DbRow[]
-  recentFeedback: DbRow | null
+  feedbacks: Record<string, DbRow>
   today: string
 }
 
@@ -95,10 +95,10 @@ function FeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit: ()
   )
 }
 
-export function AthleteTodayPage({ athlete, sessions, recentFeedback, today }: Props) {
+export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props) {
   const router = useRouter()
   const [selectedDate, setSelectedDate] = useState(today)
-  const [savedFeedback, setSavedFeedback] = useState<FeedbackData | null>(null)
+  const [optimisticFeedback, setOptimisticFeedback] = useState<FeedbackData | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [feedbackTab, setFeedbackTab] = useState('text')
   const [submitting, setSubmitting] = useState(false)
@@ -113,31 +113,30 @@ export function AthleteTodayPage({ athlete, sessions, recentFeedback, today }: P
   const [recorded, setRecorded] = useState(false)
 
   const daySession = sessions.find(s => s.date === selectedDate)
+  const dayFeedback = feedbacks[selectedDate] ?? null
+  const activeFeedback = optimisticFeedback ?? (dayFeedback ? {
+    source: dayFeedback.source as 'text' | 'voice',
+    voiceTranscript: dayFeedback.source === 'voice' ? dayFeedback.transcript : undefined,
+    notes: dayFeedback.source === 'text' ? dayFeedback.transcript : undefined,
+    coachReply: dayFeedback.coach_reply ?? undefined,
+  } as FeedbackData : null)
   const isPastOrToday = selectedDate <= today
   const weekDays = getWeekDays(0)
 
   function navigate(delta: number) {
     setSelectedDate(d => shiftDate(d, delta))
-    setSavedFeedback(null)
+    setOptimisticFeedback(null)
     setRecorded(false)
   }
 
   function selectDay(dateStr: string) {
     setSelectedDate(dateStr)
-    setSavedFeedback(null)
+    setOptimisticFeedback(null)
     setRecorded(false)
   }
 
   function openModal(editing: boolean) {
-    if (editing && savedFeedback?.source === 'text') {
-      setFeeling(savedFeedback.feeling ?? '')
-      setTrainingType(savedFeedback.trainingType ?? '')
-      setDistanceKm(savedFeedback.distanceKm ?? '')
-      setDurationMin(savedFeedback.durationMin ?? '')
-      setIntensity(savedFeedback.intensity ?? '')
-      setNotes(savedFeedback.notes ?? '')
-      setFeedbackTab('text')
-    } else if (editing && savedFeedback?.source === 'voice') {
+    if (editing && dayFeedback?.source === 'voice') {
       setFeedbackTab('voice')
       setRecorded(true)
     } else {
@@ -149,7 +148,7 @@ export function AthleteTodayPage({ athlete, sessions, recentFeedback, today }: P
     setFeedbackOpen(true)
   }
 
-  async function submitText() {
+  async function submitFeedback(source: 'text' | 'voice') {
     if (submitting) return
     setSubmitting(true)
     const fd = new FormData()
@@ -157,37 +156,33 @@ export function AthleteTodayPage({ athlete, sessions, recentFeedback, today }: P
     fd.set('coach_id', athlete.coach_id)
     fd.set('slug', athlete.slug)
     fd.set('date', selectedDate)
-    fd.set('source', 'text')
-    fd.set('feeling', feeling)
-    fd.set('training_type', trainingType)
-    fd.set('distance_km', distanceKm)
-    fd.set('duration_min', durationMin)
-    fd.set('intensity', intensity)
-    fd.set('notes', notes)
+    fd.set('source', source)
+    if (source === 'text') {
+      fd.set('feeling', feeling)
+      fd.set('training_type', trainingType)
+      fd.set('distance_km', distanceKm)
+      fd.set('duration_min', durationMin)
+      fd.set('intensity', intensity)
+      fd.set('notes', notes)
+    } else {
+      fd.set('voice_transcript', 'Trening poszedł świetnie...')
+    }
     if (daySession?.id) fd.set('session_id', daySession.id)
-    const result = await createFeedback(fd)
-    setSubmitting(false)
-    if (result?.error) { alert('Błąd zapisu: ' + result.error); return }
-    setSavedFeedback({ source: 'text', feeling, trainingType, distanceKm, durationMin, intensity, notes })
-    setFeedbackOpen(false)
-    startTransition(() => router.refresh())
-  }
 
-  async function submitVoice() {
-    if (submitting) return
-    setSubmitting(true)
-    const fd = new FormData()
-    fd.set('athlete_id', athlete.id)
-    fd.set('coach_id', athlete.coach_id)
-    fd.set('slug', athlete.slug)
-    fd.set('date', selectedDate)
-    fd.set('source', 'voice')
-    fd.set('voice_transcript', 'Trening poszedł świetnie...')
-    if (daySession?.id) fd.set('session_id', daySession.id)
-    const result = await createFeedback(fd)
+    let result
+    if (dayFeedback?.id) {
+      fd.set('id', dayFeedback.id)
+      result = await updateFeedback(fd)
+    } else {
+      result = await createFeedback(fd)
+    }
     setSubmitting(false)
     if (result?.error) { alert('Błąd zapisu: ' + result.error); return }
-    setSavedFeedback({ source: 'voice', voiceTranscript: 'Trening poszedł świetnie...' })
+
+    const optimistic: FeedbackData = source === 'text'
+      ? { source: 'text', feeling, trainingType, distanceKm, durationMin, intensity, notes }
+      : { source: 'voice', voiceTranscript: 'Trening poszedł świetnie...' }
+    setOptimisticFeedback(optimistic)
     setFeedbackOpen(false)
     setRecorded(false)
     startTransition(() => router.refresh())
@@ -202,11 +197,11 @@ export function AthleteTodayPage({ athlete, sessions, recentFeedback, today }: P
 
   const modalFooter =
     feedbackTab === 'text' ? (
-      <Button className="w-full" onClick={submitText} disabled={!textFormHasData || submitting}>
+      <Button className="w-full" onClick={() => submitFeedback('text')} disabled={!textFormHasData || submitting}>
         {submitting ? 'Zapisywanie...' : 'Zapisz feedback'}
       </Button>
     ) : feedbackTab === 'voice' && recorded ? (
-      <Button className="w-full" onClick={submitVoice} disabled={submitting}>
+      <Button className="w-full" onClick={() => submitFeedback('voice')} disabled={submitting}>
         {submitting ? 'Zapisywanie...' : 'Wyślij feedback głosowy'}
       </Button>
     ) : null
@@ -277,9 +272,17 @@ export function AthleteTodayPage({ athlete, sessions, recentFeedback, today }: P
             </div>
           )}
 
-          {isPastOrToday && daySession && !daySession.completed && (
-            savedFeedback ? (
-              <FeedbackCard feedback={savedFeedback} onEdit={() => openModal(true)} />
+          {isPastOrToday && (
+            activeFeedback ? (
+              <div className="space-y-2">
+                <FeedbackCard feedback={activeFeedback} onEdit={() => openModal(true)} />
+                {(dayFeedback?.coach_reply) && (
+                  <div className="p-4 rounded-2xl" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
+                    <div className="text-xs font-semibold mb-2" style={{ color: '#2ECC71' }}>💬 Odpowiedź trenera</div>
+                    <p className="text-sm">{dayFeedback.coach_reply}</p>
+                  </div>
+                )}
+              </div>
             ) : (
               <button onClick={() => openModal(false)}
                 className="w-full py-3.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95"
@@ -335,14 +338,14 @@ export function AthleteTodayPage({ athlete, sessions, recentFeedback, today }: P
             </div>
           </div>
 
-          {/* Last coach reply */}
-          {recentFeedback?.coach_reply && (
-            <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>💬 Odpowiedź trenera</div>
-              <p className="text-sm">{recentFeedback.coach_reply}</p>
-              {recentFeedback.date && (
+          {/* Coach reply for selected day */}
+          {dayFeedback?.coach_reply && (
+            <div className="p-4 rounded-2xl" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
+              <div className="text-xs font-semibold mb-2" style={{ color: '#2ECC71' }}>💬 Odpowiedź trenera</div>
+              <p className="text-sm">{dayFeedback.coach_reply}</p>
+              {dayFeedback.date && (
                 <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                  {formatDate(recentFeedback.date, { day: 'numeric', month: 'short' })}
+                  {formatDate(dayFeedback.date, { day: 'numeric', month: 'short' })}
                 </div>
               )}
             </div>

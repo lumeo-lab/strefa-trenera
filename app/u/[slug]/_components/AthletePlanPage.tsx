@@ -11,6 +11,7 @@ type DbRow = Record<string, any>
 interface Props {
   athlete: AthleteSession
   sessions: DbRow[]
+  feedbacks: Record<string, DbRow>
   today: string
 }
 
@@ -20,7 +21,7 @@ function shiftMonth(m: string, d: number): string {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
 }
 
-export function AthletePlanPage({ athlete, sessions, today }: Props) {
+export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) {
   const currentMonth = today.slice(0, 7)
   const [view, setView] = useState<'week' | 'month'>('week')
   const [weekOffset, setWeekOffset] = useState(0)
@@ -108,14 +109,15 @@ export function AthletePlanPage({ athlete, sessions, today }: Props) {
               const isToday = dateStr === today
               const isPast = dateStr < today
 
+              const fb = feedbacks[dateStr]
               return (
                 <div key={dateStr} className="rounded-2xl overflow-hidden" style={{ border: isToday ? '2px solid rgba(255,92,27,0.4)' : '1px solid var(--border)', background: 'var(--bg-card)' }}>
-                  <div className="px-4 py-3 flex items-center gap-3" style={{ background: isToday ? 'rgba(255,92,27,0.06)' : 'var(--bg-subtle)', borderBottom: daySessions.length > 0 ? '1px solid var(--border)' : 'none' }}>
+                  <div className="px-4 py-3 flex items-center gap-3" style={{ background: isToday ? 'rgba(255,92,27,0.06)' : 'var(--bg-subtle)', borderBottom: daySessions.length > 0 || fb ? '1px solid var(--border)' : 'none' }}>
                     <div className="text-center shrink-0" style={{ minWidth: '40px' }}>
                       <div className="text-xs font-medium capitalize" style={{ color: isToday ? '#FF5C1B' : 'var(--text-muted)' }}>{dayName(day, true)}</div>
                       <div className="text-xl font-black" style={{ color: isToday ? '#FF5C1B' : 'var(--text-primary)' }}>{day.getDate()}</div>
                     </div>
-                    {daySessions.length === 0 && (
+                    {daySessions.length === 0 && !fb && (
                       <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Wolny dzień</span>
                     )}
                   </div>
@@ -141,6 +143,23 @@ export function AthletePlanPage({ athlete, sessions, today }: Props) {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {fb && (
+                    <div className="px-3 pb-3 space-y-1.5">
+                      <div className="p-2.5 rounded-xl text-xs" style={{ background: 'var(--bg-subtle)' }}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span>{fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'}</span>
+                          <span className="font-semibold">{fb.ai_summary}</span>
+                        </div>
+                        {fb.transcript && <p className="opacity-70 line-clamp-2">{fb.transcript}</p>}
+                      </div>
+                      {fb.coach_reply && (
+                        <div className="p-2.5 rounded-xl text-xs" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
+                          <div className="font-semibold mb-0.5" style={{ color: '#2ECC71' }}>💬 Trener:</div>
+                          <p className="line-clamp-2">{fb.coach_reply}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

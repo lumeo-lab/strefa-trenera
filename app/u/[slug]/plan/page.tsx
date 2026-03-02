@@ -27,5 +27,14 @@ export default async function PlanPage({ params }: { params: Promise<{ slug: str
     .lte('date', to.toISOString().split('T')[0])
     .order('date')
 
-  return <AthletePlanPage athlete={athlete} sessions={sessions ?? []} today={today} />
+  const { data: feedbacksArr } = await adminClient
+    .from('feedbacks')
+    .select('id, date, signal, ai_summary, coach_reply, transcript, source')
+    .eq('athlete_id', athlete.id)
+    .gte('date', from.toISOString().split('T')[0])
+    .lte('date', to.toISOString().split('T')[0])
+
+  const feedbacks = Object.fromEntries((feedbacksArr ?? []).map(f => [f.date, f]))
+
+  return <AthletePlanPage athlete={athlete} sessions={sessions ?? []} feedbacks={feedbacks} today={today} />
 }
