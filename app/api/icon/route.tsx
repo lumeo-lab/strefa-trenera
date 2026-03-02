@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 
 export function GET(request: NextRequest) {
   const size = parseInt(request.nextUrl.searchParams.get('size') ?? '192')
-  const fontSize = Math.round(size * 0.36)
+  const fontSize = Math.round(size * 0.52)
 
   return new ImageResponse(
     (
