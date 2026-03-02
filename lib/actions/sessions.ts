@@ -46,10 +46,15 @@ export async function updateSession(_: unknown, formData: FormData) {
   const athleteId = formData.get('athlete_id') as string
 
   const updates: Record<string, unknown> = {}
-  const stringFields = ['date', 'type', 'title', 'description', 'planned_pace', 'actual_pace'] as const
+  const stringFields = ['date', 'type', 'title', 'description'] as const
   for (const f of stringFields) {
     const v = formData.get(f)
     if (v !== null) updates[f] = v
+  }
+  // Pace fields: empty string → null
+  for (const f of ['planned_pace', 'actual_pace'] as const) {
+    const v = formData.get(f)
+    if (v !== null) updates[f] = (v as string).trim() || null
   }
   const numFields = ['planned_distance', 'planned_duration', 'actual_distance', 'actual_duration', 'avg_hr', 'max_hr'] as const
   for (const f of numFields) {

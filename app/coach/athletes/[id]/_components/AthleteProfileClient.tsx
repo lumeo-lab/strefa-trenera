@@ -158,9 +158,17 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     fd.set('type', draft.type)
     fd.set('title', draft.title)
     fd.set('description', draft.description)
-    if (draft.plannedDistance) fd.set('planned_distance', draft.plannedDistance)
-    if (draft.plannedDuration) fd.set('planned_duration', draft.plannedDuration)
-    if (draft.plannedPace) fd.set('planned_pace', draft.plannedPace)
+
+    if (editingSessionId) {
+      // Przy edycji zawsze wysyłamy pola — pusty string = null na serwerze
+      fd.set('planned_distance', draft.plannedDistance)
+      fd.set('planned_duration', draft.plannedDuration)
+      fd.set('planned_pace', draft.plannedPace)
+    } else {
+      if (draft.plannedDistance) fd.set('planned_distance', draft.plannedDistance)
+      if (draft.plannedDuration) fd.set('planned_duration', draft.plannedDuration)
+      if (draft.plannedPace) fd.set('planned_pace', draft.plannedPace)
+    }
 
     if (editingSessionId) {
       fd.set('id', editingSessionId)
@@ -347,7 +355,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
             {/* ── Widok tygodniowy ── */}
             {planView === 'week' && (
-              <div className="grid grid-cols-7 gap-2" style={{ minHeight: '520px' }}>
+              <div className="grid grid-cols-7 gap-2" style={{ minHeight: '260px' }}>
                 {weekDays.map(day => {
                   const dateStr = toISODate(day)
                   const daySessions = weekSessions.filter(s => s.date === dateStr)
