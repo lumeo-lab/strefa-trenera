@@ -37,8 +37,8 @@ export default function LandingPage() {
       <section id="hero" className="pt-32 pb-24 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255,92,27,0.15) 0%, transparent 60%)' }} />
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold mb-8 text-base tracking-wide" style={{ background: 'rgba(255,92,27,0.15)', border: '2px solid rgba(255,92,27,0.4)', color: '#FF7A42' }}>
-            🏃 Dla trenerów biegania
+          <div className="inline-flex px-4 py-2 rounded-full text-sm font-medium mb-8" style={{ background: 'rgba(255,92,27,0.1)', border: '1px solid rgba(255,92,27,0.2)', color: '#FF5C1B' }}>
+            Platforma dla trenerów biegania
           </div>
           <h1 className="font-black tracking-tight mb-6 leading-tight" style={{ fontSize: 'clamp(2.4rem, 5.5vw, 4.2rem)' }}>
             Prowadź swoich biegaczy.<br />
