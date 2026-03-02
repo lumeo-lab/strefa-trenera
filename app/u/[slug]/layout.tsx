@@ -10,7 +10,7 @@ export async function generateMetadata(
     appleWebApp: {
       capable: true,
       statusBarStyle: 'black-translucent',
-      title: 'Strefa Trenera',
+      title: 'Plan Treningowy',
     },
   }
 }

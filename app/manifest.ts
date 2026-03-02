@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Strefa Trenera',
-    short_name: 'Strefa Trenera',
+    name: 'Plan Treningowy',
+    short_name: 'Plan Treningowy',
     description: 'Twój panel treningowy',
     start_url: '/',
     display: 'standalone',

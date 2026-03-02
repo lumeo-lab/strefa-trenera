@@ -56,13 +56,13 @@ export function PWAInstallBanner() {
     >
       <div className="flex items-start gap-3">
         <div
-          className="w-11 h-11 flex items-center justify-center shrink-0 font-black text-sm text-white"
+          className="w-11 h-11 flex items-center justify-center shrink-0 text-2xl"
           style={{ background: '#FF5C1B', borderRadius: '22%' }}
         >
-          ST
+          👟
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm mb-1">Dodaj do ekranu głównego</div>
+          <div className="font-semibold text-sm mb-1">Dodaj Plan Treningowy do ekranu głównego</div>
 
           {mode === 'ios-safari' && (
             <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>

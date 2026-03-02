@@ -6,8 +6,8 @@ export async function GET(
 
   return Response.json(
     {
-      name: 'Strefa Trenera',
-      short_name: 'Strefa Trenera',
+      name: 'Plan Treningowy',
+      short_name: 'Plan Treningowy',
       description: 'Twój panel treningowy',
       start_url: `/u/${slug}`,
       display: 'standalone',

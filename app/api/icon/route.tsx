@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 
 export function GET(request: NextRequest) {
   const size = parseInt(request.nextUrl.searchParams.get('size') ?? '192')
-  const fontSize = Math.round(size * 0.52)
+  const fontSize = Math.round(size * 0.65)
 
   return new ImageResponse(
     (
@@ -18,17 +18,7 @@ export function GET(request: NextRequest) {
           borderRadius: '22%',
         }}
       >
-        <span
-          style={{
-            color: 'white',
-            fontSize,
-            fontWeight: 900,
-            letterSpacing: '-1px',
-            fontFamily: 'system-ui, sans-serif',
-          }}
-        >
-          ST
-        </span>
+        <span style={{ fontSize, lineHeight: 1 }}>👟</span>
       </div>
     ),
     { width: size, height: size }
