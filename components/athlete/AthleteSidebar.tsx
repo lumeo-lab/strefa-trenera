@@ -19,7 +19,7 @@ export function AthleteSidebar() {
       style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}>
       {/* Logo */}
       <div className="px-6 py-5 border-b" style={{ borderColor: 'var(--border)' }}>
-        <div className="text-xl font-black tracking-tight" style={{ color: '#FF5C1B' }}>CoachBiz</div>
+        <div className="text-xl font-black tracking-tight" style={{ color: '#FF5C1B' }}>Strefa Trenera</div>
         <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Panel zawodnika</div>
       </div>
 

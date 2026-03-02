@@ -88,7 +88,7 @@ export default function LandingPage() {
           </div>
           <div className="text-center flex flex-col items-center gap-3">
             <span className="text-2xl" style={{ color: '#FF5C1B' }}>↓</span>
-            <p className="text-lg font-medium">CoachBiz zamyka tę pętlę w jednym ekosystemie</p>
+            <p className="text-lg font-medium">Strefa Trenera zamyka tę pętlę w jednym ekosystemie</p>
             <span className="text-2xl" style={{ color: '#FF5C1B' }}>↓</span>
           </div>
         </div>
@@ -208,14 +208,14 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <SectionBadge>Porównanie</SectionBadge>
             <h2 className="font-bold tracking-tight mb-4 mt-4" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)' }}>Jedyna platforma z<br />pełnym ekosystemem</h2>
-            <p style={{ color: '#8A92A8' }}>CoachBiz to jedyne narzędzie łączące trening, feedback AI i biznes w jednym miejscu — po polsku.</p>
+            <p style={{ color: '#8A92A8' }}>Strefa Trenera to jedyne narzędzie łączące trening, feedback AI i biznes w jednym miejscu — po polsku.</p>
           </div>
           <div className="overflow-x-auto rounded-2xl" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
                   <th className="text-left p-4 font-medium" style={{ color: '#8A92A8' }}>Funkcja</th>
-                  {['CoachBiz', 'Good Coach App', 'TrainingPeaks', 'Final Surge'].map((h, i) => (
+                  {['Strefa Trenera', 'Good Coach App', 'TrainingPeaks', 'Final Surge'].map((h, i) => (
                     <th key={h} className="p-4 text-center font-semibold" style={{ background: i === 0 ? 'rgba(255,92,27,0.08)' : undefined, color: i === 0 ? '#FF5C1B' : '#8A92A8' }}>{h}</th>
                   ))}
                 </tr>
@@ -298,7 +298,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <SectionBadge>Opinie trenerów</SectionBadge>
-            <h2 className="font-bold tracking-tight mb-4 mt-4" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)' }}>Co mówią trenerzy,<br />którzy używają CoachBiz</h2>
+            <h2 className="font-bold tracking-tight mb-4 mt-4" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)' }}>Co mówią trenerzy,<br />którzy używają Strefa Trenera</h2>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {[
@@ -360,7 +360,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="flex items-center justify-between pt-6 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-            <span className="text-sm" style={{ color: '#8A92A8' }}>© 2026 CoachBiz. Wszystkie prawa zastrzeżone.</span>
+            <span className="text-sm" style={{ color: '#8A92A8' }}>© 2026 Strefa Trenera. Wszystkie prawa zastrzeżone.</span>
             <span className="flex items-center gap-2 text-sm" style={{ color: '#8A92A8' }}>
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
               System działa poprawnie
@@ -423,7 +423,7 @@ function FeatureBlock({ num, title, heading, desc, points, visual, reverse }: { 
 function MockupDashboard() {
   return (
     <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)', background: '#1E2330' }}>
-      <MockupBar title="CoachBiz — Dashboard trenera" />
+      <MockupBar title="Strefa Trenera — Dashboard trenera" />
       <div className="p-4 space-y-2">
         <div className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: '#8A92A8' }}>Zawodnicy (6)</div>
         {[

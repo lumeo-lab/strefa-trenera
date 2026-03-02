@@ -71,6 +71,9 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
     allSessions.filter(s => s.athleteId === id)
   )
 
+  // ── Feedback lookup by sessionId ──
+  const feedbackBySession = Object.fromEntries(athleteFeedbacks.map(f => [f.sessionId, f]))
+
   // ── Plan view state ──
   const [planView, setPlanView] = useState<'week' | 'month'>('week')
   const [weekOffset, setWeekOffset] = useState(0)
@@ -82,6 +85,16 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
   const [editingSession, setEditingSession] = useState<Session | null>(null)
   const [draftDate, setDraftDate] = useState('')
   const [draft, setDraft] = useState<SessionDraft>(emptyDraft())
+
+  // ── Expanded feedback rows ──
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  function toggleRow(sessionId: string) {
+    setExpandedRows(prev => {
+      const next = new Set(prev)
+      next.has(sessionId) ? next.delete(sessionId) : next.add(sessionId)
+      return next
+    })
+  }
 
   // ── Notes state ──
   const [coachNotes, setCoachNotes] = useState(athlete.coachNotes)
@@ -453,33 +466,78 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
-                    {['Data', 'Sesja', 'Typ', 'Dystans', 'Tempo', 'HR', 'Status'].map(h => (
+                    {['Data', 'Sesja', 'Typ', 'Dystans', 'Tempo', 'HR', 'Status', 'Feedback'].map(h => (
                       <th key={h} className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {sessions.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20).map((session, i) => (
-                    <tr key={session.id} style={{ borderBottom: '1px solid var(--bg-subtle)' }}>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(session.date, { day: 'numeric', month: 'short' })}</td>
-                      <td className="px-4 py-3 font-medium text-xs">{session.title}</td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${intensityColor(session.type)}`}>{sessionTypeLabel(session.type)}</span>
-                      </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {session.actualDistance ? `${session.actualDistance} km` : session.plannedDistance ? `(${session.plannedDistance} km)` : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.actualPace || session.plannedPace || '—'}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.avgHR ? `${session.avgHR} bpm` : '—'}</td>
-                      <td className="px-4 py-3">
-                        {session.completed
-                          ? <span className="text-xs text-green-400">✓ Wykonany</span>
-                          : session.date < TODAY
-                          ? <span className="text-xs text-red-400">✗ Pominięty</span>
-                          : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Planowany</span>}
-                      </td>
-                    </tr>
-                  ))}
+                  {sessions.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20).map((session) => {
+                    const fb = feedbackBySession[session.id]
+                    const isExpanded = expandedRows.has(session.id)
+                    return (
+                      <>
+                        <tr key={session.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--bg-subtle)' }}>
+                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(session.date, { day: 'numeric', month: 'short' })}</td>
+                          <td className="px-4 py-3 font-medium text-xs">{session.title}</td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${intensityColor(session.type)}`}>{sessionTypeLabel(session.type)}</span>
+                          </td>
+                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                            {session.actualDistance ? `${session.actualDistance} km` : session.plannedDistance ? `(${session.plannedDistance} km)` : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.actualPace || session.plannedPace || '—'}</td>
+                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.avgHR ? `${session.avgHR} bpm` : '—'}</td>
+                          <td className="px-4 py-3">
+                            {session.completed
+                              ? <span className="text-xs text-green-400">✓ Wykonany</span>
+                              : session.date < TODAY
+                              ? <span className="text-xs text-red-400">✗ Pominięty</span>
+                              : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Planowany</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            {fb ? (
+                              <button
+                                onClick={() => toggleRow(session.id)}
+                                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg cursor-pointer transition-all"
+                                style={{
+                                  background: isExpanded ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                                  color: isExpanded ? '#FF5C1B' : 'var(--text-muted)',
+                                }}
+                                title="Pokaż feedback"
+                              >
+                                <span>💬</span>
+                                <span>{isExpanded ? '▲' : '▼'}</span>
+                              </button>
+                            ) : (
+                              <span className="text-xs" style={{ color: 'var(--bg-subtle)' }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                        {fb && isExpanded && (
+                          <tr key={`${session.id}-fb`} style={{ borderBottom: '1px solid var(--bg-subtle)' }}>
+                            <td colSpan={8} className="px-4 pb-4 pt-1">
+                              <div className="rounded-xl p-4" style={{ background: 'var(--bg-subtle)', borderLeft: `3px solid ${fb.signal === 'green' ? '#2ECC71' : fb.signal === 'yellow' ? '#F39C12' : '#E74C3C'}` }}>
+                                <div className="flex items-center gap-3 mb-2">
+                                  <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                                    {fb.source === 'voice' ? '🎤 Głosowy' : fb.source === 'text' ? '📝 Tekstowy' : '⌚ Auto'}
+                                  </span>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${fb.signal === 'green' ? 'bg-green-500/10 text-green-400' : fb.signal === 'yellow' ? 'bg-yellow-500/10 text-yellow-400' : 'bg-red-500/10 text-red-400'}`}>
+                                    {fb.signal === 'green' ? '● OK' : fb.signal === 'yellow' ? '● Uwaga' : '● Alert'}
+                                  </span>
+                                  <span className="text-xs ml-auto" style={{ color: 'var(--text-muted)' }}>{formatDate(fb.date, { day: 'numeric', month: 'short' })}</span>
+                                </div>
+                                <p className="text-sm mb-2" style={{ color: 'var(--text-primary)' }}>{fb.aiSummary}</p>
+                                {fb.transcript && (
+                                  <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>„{fb.transcript}"</p>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

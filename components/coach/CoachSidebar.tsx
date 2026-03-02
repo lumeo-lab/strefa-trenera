@@ -6,7 +6,6 @@ const navItems = [
   { href: '/coach/athletes', icon: '👟', label: 'Zawodnicy' },
   { href: '/coach/feedback', icon: '📥', label: 'Feedback' },
   { href: '/coach/planner', icon: '📅', label: 'Planer' },
-  { href: '/coach/crm', icon: '🗂️', label: 'CRM' },
   { href: '/coach/invoices', icon: '💳', label: 'Faktury' },
   { href: '/coach/analytics', icon: '📊', label: 'Analityka' },
   { href: '/coach/chat', icon: '💬', label: 'Czat' },
@@ -20,7 +19,7 @@ export function CoachSidebar() {
       style={{ background: 'var(--bg-card)', borderRight: '1px solid var(--border)' }}>
       <div className="px-6 py-5 border-b" style={{ borderColor: 'var(--border)' }}>
         <Link href="/" className="text-xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
-          Coach<span style={{ color: '#FF5C1B' }}>Biz</span>
+          Strefa<span style={{ color: '#FF5C1B' }}> Trenera</span>
         </Link>
         <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Panel trenera</div>
       </div>

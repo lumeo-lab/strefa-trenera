@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'CoachBiz — Platforma dla trenerów biegania',
+  title: 'Strefa Trenera — Platforma dla trenerów biegania',
   description: 'Zamknij pętlę trener–zawodnik w jednym miejscu',
 }
 
