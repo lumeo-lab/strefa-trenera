@@ -29,16 +29,16 @@ const FEELING_LABELS: Record<string, string> = {
 function parseFeedback(fb: DbRow) {
   const textSummary = fb.source !== 'voice' ? (fb.transcript ?? '') : ''
   const voice = fb.ai_analysis || (fb.source === 'voice' ? fb.transcript : '') || ''
-  const r: Record<string, string> = {}
+  let feeling = '', trainingType = '', distanceKm = '', durationMin = '', intensity = '', notes = ''
   for (const part of textSummary.split(' | ')) {
-    if (part.startsWith('Samopoczucie: ')) r.feeling = part.slice(14)
-    else if (part.startsWith('Typ: ')) r.trainingType = part.slice(5)
-    else if (part.startsWith('Dystans: ')) r.distanceKm = part.slice(9).replace(' km', '')
-    else if (part.startsWith('Czas: ')) r.durationMin = part.slice(6).replace(' min', '')
-    else if (part.startsWith('Intensywność: ')) r.intensity = part.slice(14)
-    else if (part.startsWith('Notatka: ')) r.notes = part.slice(9)
+    if (part.startsWith('Samopoczucie: ')) feeling = part.slice(14)
+    else if (part.startsWith('Typ: ')) trainingType = part.slice(5)
+    else if (part.startsWith('Dystans: ')) distanceKm = part.slice(9).replace(' km', '')
+    else if (part.startsWith('Czas: ')) durationMin = part.slice(6).replace(' min', '')
+    else if (part.startsWith('Intensywność: ')) intensity = part.slice(14)
+    else if (part.startsWith('Notatka: ')) notes = part.slice(9)
   }
-  return { ...r, voice }
+  return { feeling, trainingType, distanceKm, durationMin, intensity, notes, voice }
 }
 
 function FeedbackDetail({ fb }: { fb: DbRow }) {
