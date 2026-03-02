@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, startTransition } from 'react'
+import { useState, useRef, startTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -111,6 +111,9 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
   const [notes, setNotes] = useState('')
   const [recording, setRecording] = useState(false)
   const [recorded, setRecorded] = useState(false)
+  const [voiceTranscript, setVoiceTranscript] = useState('')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null)
 
   const daySession = sessions.find(s => s.date === selectedDate)
   const dayFeedback = feedbacks[selectedDate] ?? null
@@ -127,22 +130,50 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
     setSelectedDate(d => shiftDate(d, delta))
     setOptimisticFeedback(null)
     setRecorded(false)
+    setVoiceTranscript('')
   }
 
   function selectDay(dateStr: string) {
     setSelectedDate(dateStr)
     setOptimisticFeedback(null)
     setRecorded(false)
+    setVoiceTranscript('')
+  }
+
+  function parseTranscript(t: string) {
+    const r = { feeling: '', trainingType: '', distanceKm: '', durationMin: '', intensity: '', notes: '' }
+    for (const part of t.split(' | ')) {
+      if (part.startsWith('Samopoczucie: ')) r.feeling = part.slice(14)
+      else if (part.startsWith('Typ: ')) r.trainingType = part.slice(5)
+      else if (part.startsWith('Dystans: ')) r.distanceKm = part.slice(9).replace(' km', '')
+      else if (part.startsWith('Czas: ')) r.durationMin = part.slice(6).replace(' min', '')
+      else if (part.startsWith('Intensywność: ')) r.intensity = part.slice(14)
+      else if (part.startsWith('Notatka: ')) r.notes = part.slice(9)
+    }
+    return r
   }
 
   function openModal(editing: boolean) {
-    if (editing && dayFeedback?.source === 'voice') {
-      setFeedbackTab('voice')
-      setRecorded(true)
+    if (editing && dayFeedback) {
+      if (dayFeedback.source === 'voice') {
+        setFeedbackTab('voice')
+        setRecorded(true)
+        setVoiceTranscript(dayFeedback.transcript ?? '')
+      } else {
+        const parsed = parseTranscript(dayFeedback.transcript ?? '')
+        setFeeling(parsed.feeling)
+        setTrainingType(parsed.trainingType)
+        setDistanceKm(parsed.distanceKm)
+        setDurationMin(parsed.durationMin)
+        setIntensity(parsed.intensity)
+        setNotes(parsed.notes)
+        setFeedbackTab('text')
+      }
     } else {
       setFeeling(''); setTrainingType(''); setDistanceKm('')
       setDurationMin(''); setIntensity(''); setNotes('')
       setRecorded(false)
+      setVoiceTranscript('')
       setFeedbackTab('text')
     }
     setFeedbackOpen(true)
@@ -165,7 +196,7 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
       fd.set('intensity', intensity)
       fd.set('notes', notes)
     } else {
-      fd.set('voice_transcript', 'Trening poszedł świetnie...')
+      fd.set('voice_transcript', voiceTranscript || 'Brak transkrypcji')
     }
     if (daySession?.id) fd.set('session_id', daySession.id)
 
@@ -181,16 +212,48 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
 
     const optimistic: FeedbackData = source === 'text'
       ? { source: 'text', feeling, trainingType, distanceKm, durationMin, intensity, notes }
-      : { source: 'voice', voiceTranscript: 'Trening poszedł świetnie...' }
+      : { source: 'voice', voiceTranscript: voiceTranscript || 'Brak transkrypcji' }
     setOptimisticFeedback(optimistic)
     setFeedbackOpen(false)
     setRecorded(false)
+    setVoiceTranscript('')
     startTransition(() => router.refresh())
   }
 
   function handleRecord() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SR) {
+      alert('Twoja przeglądarka nie obsługuje nagrywania głosu. Użyj Chrome na Androidzie lub Safari na iOS.')
+      return
+    }
+    const recognition = new SR()
+    recognition.lang = 'pl-PL'
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognitionRef.current = recognition
+    setVoiceTranscript('')
     setRecording(true)
-    setTimeout(() => { setRecording(false); setRecorded(true) }, 3000)
+    recognition.start()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (e: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const text = Array.from(e.results).map((r: any) => r[0].transcript).join(' ')
+      setVoiceTranscript(text)
+    }
+    recognition.onend = () => {
+      setRecording(false)
+      setRecorded(true)
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onerror = (e: any) => {
+      setRecording(false)
+      if (e.error !== 'aborted') alert('Błąd nagrywania. Sprawdź uprawnienia mikrofonu.')
+    }
+  }
+
+  function stopRecord() {
+    recognitionRef.current?.stop()
   }
 
   const textFormHasData = !!(feeling || trainingType || distanceKm || durationMin || intensity || notes.trim())
@@ -448,6 +511,14 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
                   <span className="text-4xl">🔴</span>
                 </div>
                 <div className="text-sm" style={{ color: '#E74C3C' }}>Nagrywam... mów swobodnie</div>
+                {voiceTranscript && (
+                  <p className="text-sm italic px-2 text-left" style={{ color: 'var(--text-muted)' }}>{voiceTranscript}</p>
+                )}
+                <button onClick={stopRecord}
+                  className="px-6 py-2 rounded-xl text-sm font-medium cursor-pointer"
+                  style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>
+                  ⏹ Zatrzymaj
+                </button>
               </div>
             )}
             {recorded && (
@@ -457,6 +528,13 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
                   <span className="text-4xl">✓</span>
                 </div>
                 <div className="text-sm text-green-400">Nagranie gotowe!</div>
+                {voiceTranscript && (
+                  <p className="text-sm italic px-2 text-left" style={{ color: 'var(--text-muted)' }}>"{voiceTranscript}"</p>
+                )}
+                <button onClick={() => { setRecorded(false); setVoiceTranscript('') }}
+                  className="text-xs cursor-pointer" style={{ color: 'var(--text-muted)', background: 'none', border: 'none' }}>
+                  Nagraj ponownie
+                </button>
               </div>
             )}
           </div>
