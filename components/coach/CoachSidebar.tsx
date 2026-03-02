@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 const navItems = [
   { href: '/coach/athletes', icon: '👟', label: 'Zawodnicy' },
   { href: '/coach/feedback', icon: '📥', label: 'Feedback' },
-  { href: '/coach/planner', icon: '📅', label: 'Planer' },
   { href: '/coach/invoices', icon: '💳', label: 'Faktury' },
   { href: '/coach/analytics', icon: '📊', label: 'Analityka' },
   { href: '/coach/chat', icon: '💬', label: 'Czat' },
