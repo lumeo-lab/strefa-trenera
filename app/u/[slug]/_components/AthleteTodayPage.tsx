@@ -4,7 +4,6 @@ import { useState, useRef, startTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { Tabs } from '@/components/ui/Tabs'
 import { intensityColor, sessionTypeLabel, formatDate, getWeekDays, toISODate } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
@@ -17,7 +16,7 @@ type DbRow = Record<string, any>
 interface Props {
   athlete: AthleteSession
   sessions: DbRow[]
-  feedbacks: Record<string, { text: DbRow | null; voice: DbRow | null }>
+  feedbacks: Record<string, DbRow>
   today: string
 }
 
@@ -53,7 +52,6 @@ const TRAINING_TYPES = ['Easy / Rozbieganie', 'Interwały', 'Tempo', 'Long Run',
 const INPUT_STYLE = { background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }
 
 interface FeedbackData {
-  source: 'voice' | 'text'
   feeling?: string
   trainingType?: string
   distanceKm?: string
@@ -63,17 +61,36 @@ interface FeedbackData {
   voiceTranscript?: string
 }
 
-function FeedbackCard({ feedback, onEdit, label }: { feedback: FeedbackData; onEdit: () => void; label: string }) {
+function parseTranscript(t: string): FeedbackData {
+  const r: FeedbackData = {}
+  for (const part of t.split(' | ')) {
+    if (part.startsWith('Samopoczucie: ')) r.feeling = part.slice(14)
+    else if (part.startsWith('Typ: ')) r.trainingType = part.slice(5)
+    else if (part.startsWith('Dystans: ')) r.distanceKm = part.slice(9).replace(' km', '')
+    else if (part.startsWith('Czas: ')) r.durationMin = part.slice(6).replace(' min', '')
+    else if (part.startsWith('Intensywność: ')) r.intensity = part.slice(14)
+    else if (part.startsWith('Notatka: ')) r.notes = part.slice(9)
+  }
+  return r
+}
+
+function dbRowToFeedback(fb: DbRow): FeedbackData {
+  // ai_analysis = voice transcript (new); fallback: transcript for old voice-only rows
+  const voice = fb.ai_analysis || (fb.source === 'voice' ? fb.transcript : '') || ''
+  const textSummary = fb.source !== 'voice' ? (fb.transcript ?? '') : ''
+  return { ...parseTranscript(textSummary), voiceTranscript: voice || undefined }
+}
+
+function FeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit: () => void }) {
+  const hasText = !!(feedback.feeling || feedback.trainingType || feedback.distanceKm || feedback.durationMin || feedback.intensity || feedback.notes)
   return (
     <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold">{label}</span>
+        <span className="text-sm font-semibold">📝 Twój feedback</span>
         <button onClick={onEdit} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg cursor-pointer"
           style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>✏️ Edytuj</button>
       </div>
-      {feedback.source === 'voice' ? (
-        <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>🎤 "{feedback.voiceTranscript}"</p>
-      ) : (
+      {hasText && (
         <div className="space-y-2">
           {(feedback.feeling || feedback.intensity) && (
             <div className="flex flex-wrap items-center gap-2">
@@ -91,6 +108,12 @@ function FeedbackCard({ feedback, onEdit, label }: { feedback: FeedbackData; onE
           {feedback.notes && <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>"{feedback.notes}"</p>}
         </div>
       )}
+      {feedback.voiceTranscript && (
+        <p className="text-sm italic"
+          style={{ color: 'var(--text-muted)', marginTop: hasText ? '10px' : '0', paddingTop: hasText ? '10px' : '0', borderTop: hasText ? '1px solid var(--border)' : 'none' }}>
+          🎤 {feedback.voiceTranscript}
+        </p>
+      )}
     </div>
   )
 }
@@ -98,10 +121,8 @@ function FeedbackCard({ feedback, onEdit, label }: { feedback: FeedbackData; onE
 export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props) {
   const router = useRouter()
   const [selectedDate, setSelectedDate] = useState(today)
-  const [optimisticTextFeedback, setOptimisticTextFeedback] = useState<FeedbackData | null>(null)
-  const [optimisticVoiceFeedback, setOptimisticVoiceFeedback] = useState<FeedbackData | null>(null)
+  const [optimisticFeedback, setOptimisticFeedback] = useState<FeedbackData | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
-  const [feedbackTab, setFeedbackTab] = useState('text')
   const [submitting, setSubmitting] = useState(false)
 
   const [feeling, setFeeling] = useState('')
@@ -117,76 +138,46 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
   const recognitionRef = useRef<any>(null)
 
   const daySession = sessions.find(s => s.date === selectedDate)
-  const dayFeedbacks = feedbacks[selectedDate] ?? { text: null, voice: null }
-  const textFeedback = dayFeedbacks.text
-  const voiceFeedback = dayFeedbacks.voice
+  const dayFeedback = feedbacks[selectedDate] ?? null
+  const activeFeedback: FeedbackData | null = optimisticFeedback ?? (dayFeedback ? dbRowToFeedback(dayFeedback) : null)
   const isPastOrToday = selectedDate <= today
   const weekDays = getWeekDays(0)
 
-  function parseTranscript(t: string): FeedbackData {
-    const r: FeedbackData = { source: 'text' }
-    for (const part of t.split(' | ')) {
-      if (part.startsWith('Samopoczucie: ')) r.feeling = part.slice(14)
-      else if (part.startsWith('Typ: ')) r.trainingType = part.slice(5)
-      else if (part.startsWith('Dystans: ')) r.distanceKm = part.slice(9).replace(' km', '')
-      else if (part.startsWith('Czas: ')) r.durationMin = part.slice(6).replace(' min', '')
-      else if (part.startsWith('Intensywność: ')) r.intensity = part.slice(14)
-      else if (part.startsWith('Notatka: ')) r.notes = part.slice(9)
-    }
-    return r
-  }
-
-  const activeTextFeedback: FeedbackData | null = optimisticTextFeedback ??
-    (textFeedback ? parseTranscript(textFeedback.transcript ?? '') : null)
-
-  const activeVoiceFeedback: FeedbackData | null = optimisticVoiceFeedback ??
-    (voiceFeedback ? { source: 'voice', voiceTranscript: voiceFeedback.transcript ?? '' } : null)
-
   function navigate(delta: number) {
     setSelectedDate(d => shiftDate(d, delta))
-    setOptimisticTextFeedback(null)
-    setOptimisticVoiceFeedback(null)
+    setOptimisticFeedback(null)
     setRecorded(false)
     setVoiceTranscript('')
   }
 
   function selectDay(dateStr: string) {
     setSelectedDate(dateStr)
-    setOptimisticTextFeedback(null)
-    setOptimisticVoiceFeedback(null)
+    setOptimisticFeedback(null)
     setRecorded(false)
     setVoiceTranscript('')
   }
 
-  function openModal(type: 'text' | 'voice', editing: boolean) {
-    if (type === 'voice') {
-      setFeedbackTab('voice')
-      if (editing && voiceFeedback) {
-        setRecorded(true)
-        setVoiceTranscript(voiceFeedback.transcript ?? '')
-      } else {
-        setRecorded(false)
-        setVoiceTranscript('')
-      }
+  function openModal(editing: boolean) {
+    if (editing && dayFeedback) {
+      const fd = dbRowToFeedback(dayFeedback)
+      setFeeling(fd.feeling ?? '')
+      setTrainingType(fd.trainingType ?? '')
+      setDistanceKm(fd.distanceKm ?? '')
+      setDurationMin(fd.durationMin ?? '')
+      setIntensity(fd.intensity ?? '')
+      setNotes(fd.notes ?? '')
+      setVoiceTranscript(fd.voiceTranscript ?? '')
+      setRecorded(!!(fd.voiceTranscript))
     } else {
-      setFeedbackTab('text')
-      if (editing && textFeedback) {
-        const parsed = parseTranscript(textFeedback.transcript ?? '')
-        setFeeling(parsed.feeling ?? '')
-        setTrainingType(parsed.trainingType ?? '')
-        setDistanceKm(parsed.distanceKm ?? '')
-        setDurationMin(parsed.durationMin ?? '')
-        setIntensity(parsed.intensity ?? '')
-        setNotes(parsed.notes ?? '')
-      } else {
-        setFeeling(''); setTrainingType(''); setDistanceKm('')
-        setDurationMin(''); setIntensity(''); setNotes('')
-      }
+      setFeeling(''); setTrainingType(''); setDistanceKm('')
+      setDurationMin(''); setIntensity(''); setNotes('')
+      setVoiceTranscript('')
+      setRecorded(false)
     }
     setFeedbackOpen(true)
   }
 
-  async function submitFeedback(source: 'text' | 'voice') {
+  async function submitFeedback() {
     if (submitting) return
     setSubmitting(true)
     const fd = new FormData()
@@ -194,23 +185,18 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
     fd.set('coach_id', athlete.coach_id)
     fd.set('slug', athlete.slug)
     fd.set('date', selectedDate)
-    fd.set('source', source)
-    if (source === 'text') {
-      fd.set('feeling', feeling)
-      fd.set('training_type', trainingType)
-      fd.set('distance_km', distanceKm)
-      fd.set('duration_min', durationMin)
-      fd.set('intensity', intensity)
-      fd.set('notes', notes)
-    } else {
-      fd.set('voice_transcript', voiceTranscript || 'Brak transkrypcji')
-    }
+    fd.set('feeling', feeling)
+    fd.set('training_type', trainingType)
+    fd.set('distance_km', distanceKm)
+    fd.set('duration_min', durationMin)
+    fd.set('intensity', intensity)
+    fd.set('notes', notes)
+    fd.set('voice_transcript', voiceTranscript)
     if (daySession?.id) fd.set('session_id', daySession.id)
 
-    const existingFeedback = source === 'voice' ? voiceFeedback : textFeedback
     let result
-    if (existingFeedback?.id) {
-      fd.set('id', existingFeedback.id)
+    if (dayFeedback?.id) {
+      fd.set('id', dayFeedback.id)
       result = await updateFeedback(fd)
     } else {
       result = await createFeedback(fd)
@@ -218,11 +204,7 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
     setSubmitting(false)
     if (result?.error) { alert('Błąd zapisu: ' + result.error); return }
 
-    const optimistic: FeedbackData = source === 'text'
-      ? { source: 'text', feeling, trainingType, distanceKm, durationMin, intensity, notes }
-      : { source: 'voice', voiceTranscript: voiceTranscript || 'Brak transkrypcji' }
-    if (source === 'text') setOptimisticTextFeedback(optimistic)
-    else setOptimisticVoiceFeedback(optimistic)
+    setOptimisticFeedback({ feeling, trainingType, distanceKm, durationMin, intensity, notes, voiceTranscript: voiceTranscript || undefined })
     setFeedbackOpen(false)
     setRecorded(false)
     setVoiceTranscript('')
@@ -230,7 +212,6 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
   }
 
   async function handleRecord() {
-    // Request microphone permission explicitly — required in PWA standalone mode
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true })
     } catch {
@@ -256,39 +237,24 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
       const text = Array.from(e.results).map((r: any) => r[0].transcript).join(' ')
       setVoiceTranscript(text)
     }
-    recognition.onend = () => {
-      setRecording(false)
-      setRecorded(true)
-    }
+    recognition.onend = () => { setRecording(false); setRecorded(true) }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (e: any) => {
       setRecording(false)
       if (e.error !== 'aborted') alert('Błąd nagrywania. Sprawdź uprawnienia mikrofonu.')
     }
-    try {
-      recognition.start()
-    } catch {
-      setRecording(false)
-      alert('Nie można uruchomić nagrywania.')
-    }
+    try { recognition.start() } catch { setRecording(false); alert('Nie można uruchomić nagrywania.') }
   }
 
-  function stopRecord() {
-    recognitionRef.current?.stop()
-  }
+  function stopRecord() { recognitionRef.current?.stop() }
 
-  const textFormHasData = !!(feeling || trainingType || distanceKm || durationMin || intensity || notes.trim())
+  const canSave = !!(feeling || trainingType || distanceKm || durationMin || intensity || notes.trim() || voiceTranscript.trim())
 
-  const modalFooter =
-    feedbackTab === 'text' ? (
-      <Button className="w-full" onClick={() => submitFeedback('text')} disabled={!textFormHasData || submitting}>
-        {submitting ? 'Zapisywanie...' : 'Zapisz feedback'}
-      </Button>
-    ) : feedbackTab === 'voice' && recorded ? (
-      <Button className="w-full" onClick={() => submitFeedback('voice')} disabled={submitting}>
-        {submitting ? 'Zapisywanie...' : 'Wyślij feedback głosowy'}
-      </Button>
-    ) : null
+  const modalFooter = (
+    <Button className="w-full" onClick={submitFeedback} disabled={!canSave || submitting}>
+      {submitting ? 'Zapisywanie...' : 'Zapisz feedback'}
+    </Button>
+  )
 
   return (
     <div style={{ color: 'var(--text-primary)', paddingBottom: '90px' }}>
@@ -357,37 +323,23 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
           )}
 
           {isPastOrToday && (
-            <div className="space-y-2">
-              {/* Text feedback */}
-              {activeTextFeedback ? (
-                <FeedbackCard feedback={activeTextFeedback} onEdit={() => openModal('text', true)} label="📝 Feedback" />
-              ) : (
-                <button onClick={() => openModal('text', false)}
-                  className="w-full py-3.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: '#FF5C1B' }}>
-                  📝 Dodaj feedback po treningu
-                </button>
-              )}
-
-              {/* Voice feedback */}
-              {activeVoiceFeedback ? (
-                <FeedbackCard feedback={activeVoiceFeedback} onEdit={() => openModal('voice', true)} label="🎤 Nagranie głosowe" />
-              ) : (
-                <button onClick={() => openModal('voice', false)}
-                  className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                  🎤 Dodaj nagranie głosowe
-                </button>
-              )}
-
-              {/* Coach reply */}
-              {(textFeedback?.coach_reply || voiceFeedback?.coach_reply) && (
-                <div className="p-4 rounded-2xl" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
-                  <div className="text-xs font-semibold mb-2" style={{ color: '#2ECC71' }}>💬 Odpowiedź trenera</div>
-                  <p className="text-sm">{textFeedback?.coach_reply || voiceFeedback?.coach_reply}</p>
-                </div>
-              )}
-            </div>
+            activeFeedback ? (
+              <div className="space-y-2">
+                <FeedbackCard feedback={activeFeedback} onEdit={() => openModal(true)} />
+                {dayFeedback?.coach_reply && (
+                  <div className="p-4 rounded-2xl" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
+                    <div className="text-xs font-semibold mb-2" style={{ color: '#2ECC71' }}>💬 Odpowiedź trenera</div>
+                    <p className="text-sm">{dayFeedback.coach_reply}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button onClick={() => openModal(false)}
+                className="w-full py-3.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: '#FF5C1B' }}>
+                📝 Dodaj feedback po treningu
+              </button>
+            )
           )}
         </div>
 
@@ -435,13 +387,13 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
             </div>
           </div>
 
-          {(textFeedback?.coach_reply || voiceFeedback?.coach_reply) && (
+          {dayFeedback?.coach_reply && (
             <div className="p-4 rounded-2xl" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
               <div className="text-xs font-semibold mb-2" style={{ color: '#2ECC71' }}>💬 Odpowiedź trenera</div>
-              <p className="text-sm">{textFeedback?.coach_reply || voiceFeedback?.coach_reply}</p>
-              {(textFeedback?.date || voiceFeedback?.date) && (
+              <p className="text-sm">{dayFeedback.coach_reply}</p>
+              {dayFeedback.date && (
                 <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                  {formatDate(textFeedback?.date || voiceFeedback?.date, { day: 'numeric', month: 'short' })}
+                  {formatDate(dayFeedback.date, { day: 'numeric', month: 'short' })}
                 </div>
               )}
             </div>
@@ -451,127 +403,131 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
 
       {/* Feedback Modal */}
       <Modal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} title="Feedback po treningu" size="sm" footer={modalFooter}>
-        <Tabs
-          tabs={[{ id: 'text', label: '📝 Formularz' }, { id: 'voice', label: '🎤 Głosowy' }]}
-          active={feedbackTab}
-          onChange={setFeedbackTab}
-          className="mb-5"
-        />
-
-        {feedbackTab === 'text' && (
-          <div className="space-y-5">
-            <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Samopoczucie</label>
-              <div className="flex gap-1.5">
-                {FEELINGS.map(f => (
-                  <button key={f.emoji} onClick={() => setFeeling(feeling === f.emoji ? '' : f.emoji)}
-                    className="flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl cursor-pointer transition-all"
-                    style={{
-                      background: feeling === f.emoji ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                      border: feeling === f.emoji ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
-                      color: feeling === f.emoji ? '#FF5C1B' : 'var(--text-muted)',
-                    }}>
-                    <span className="text-2xl">{f.emoji}</span>
-                    <span style={{ fontSize: '10px' }}>{f.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Rodzaj treningu</label>
-              <select value={trainingType} onChange={e => setTrainingType(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm cursor-pointer" style={INPUT_STYLE}>
-                <option value="">— wybierz —</option>
-                {TRAINING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Dystans (km)</label>
-                <input type="number" value={distanceKm} onChange={e => setDistanceKm(e.target.value)}
-                  placeholder="np. 10.5" min="0" step="0.1"
-                  className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Czas (min)</label>
-                <input type="number" value={durationMin} onChange={e => setDurationMin(e.target.value)}
-                  placeholder="np. 55" min="0"
-                  className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Jak ciężki był trening?</label>
-              <div className="grid grid-cols-3 gap-2">
-                {INTENSITIES.map(lvl => (
-                  <button key={lvl} onClick={() => setIntensity(intensity === lvl ? '' : lvl)}
-                    className="py-2 px-1 rounded-xl text-xs font-medium cursor-pointer transition-all text-center"
-                    style={{
-                      background: intensity === lvl ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                      border: intensity === lvl ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
-                      color: intensity === lvl ? '#FF5C1B' : 'var(--text-muted)',
-                    }}>{lvl}</button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Własne notatki (opcjonalnie)</label>
-              <textarea value={notes} onChange={e => setNotes(e.target.value)}
-                placeholder="Jak poszedł trening?" rows={3}
-                className="w-full px-3 py-2.5 rounded-xl text-sm resize-none" style={INPUT_STYLE} />
+        <div className="space-y-4">
+          {/* Feeling */}
+          <div>
+            <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Samopoczucie</label>
+            <div className="flex gap-1.5">
+              {FEELINGS.map(f => (
+                <button key={f.emoji} onClick={() => setFeeling(feeling === f.emoji ? '' : f.emoji)}
+                  className="flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl cursor-pointer transition-all"
+                  style={{
+                    background: feeling === f.emoji ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                    border: feeling === f.emoji ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
+                    color: feeling === f.emoji ? '#FF5C1B' : 'var(--text-muted)',
+                  }}>
+                  <span className="text-2xl">{f.emoji}</span>
+                  <span style={{ fontSize: '10px' }}>{f.label}</span>
+                </button>
+              ))}
             </div>
           </div>
-        )}
 
-        {feedbackTab === 'voice' && (
-          <div className="text-center py-6">
-            {!recording && !recorded && (
-              <>
-                <div className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-                  Naciśnij przycisk i mów przez 15–30 sekund
-                </div>
-                <button onClick={handleRecord}
-                  className="w-24 h-24 rounded-full text-4xl mx-auto flex items-center justify-center cursor-pointer active:scale-95"
-                  style={{ background: 'linear-gradient(135deg, #FF5C1B, #FF7A42)', boxShadow: '0 0 40px rgba(255,92,27,0.4)' }}>
-                  🎤
-                </button>
-                <div className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>Naciśnij aby nagrać</div>
-              </>
-            )}
-            {recording && (
-              <div className="space-y-4">
-                <div className="w-24 h-24 rounded-full mx-auto flex items-center justify-center animate-pulse"
-                  style={{ background: 'rgba(231,76,60,0.2)', border: '2px solid #E74C3C' }}>
-                  <span className="text-4xl">🔴</span>
-                </div>
-                <div className="text-sm" style={{ color: '#E74C3C' }}>Nagrywam... mów swobodnie</div>
-                {voiceTranscript && (
-                  <p className="text-sm italic px-2 text-left" style={{ color: 'var(--text-muted)' }}>{voiceTranscript}</p>
-                )}
+          {/* Training type */}
+          <div>
+            <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Rodzaj treningu</label>
+            <select value={trainingType} onChange={e => setTrainingType(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl text-sm cursor-pointer" style={INPUT_STYLE}>
+              <option value="">— wybierz —</option>
+              {TRAINING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          {/* Distance + duration */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Dystans (km)</label>
+              <input type="number" value={distanceKm} onChange={e => setDistanceKm(e.target.value)}
+                placeholder="np. 10.5" min="0" step="0.1"
+                className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Czas (min)</label>
+              <input type="number" value={durationMin} onChange={e => setDurationMin(e.target.value)}
+                placeholder="np. 55" min="0"
+                className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
+            </div>
+          </div>
+
+          {/* Intensity */}
+          <div>
+            <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Jak ciężki był trening?</label>
+            <div className="grid grid-cols-3 gap-2">
+              {INTENSITIES.map(lvl => (
+                <button key={lvl} onClick={() => setIntensity(intensity === lvl ? '' : lvl)}
+                  className="py-2 px-1 rounded-xl text-xs font-medium cursor-pointer transition-all text-center"
+                  style={{
+                    background: intensity === lvl ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                    border: intensity === lvl ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
+                    color: intensity === lvl ? '#FF5C1B' : 'var(--text-muted)',
+                  }}>{lvl}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Notatki (opcjonalnie)</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)}
+              placeholder="Jak poszedł trening?" rows={2}
+              className="w-full px-3 py-2.5 rounded-xl text-sm resize-none" style={INPUT_STYLE} />
+          </div>
+
+          {/* Voice section divider */}
+          <div className="flex items-center gap-3 pt-1">
+            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>🎤 Nagranie głosowe</span>
+            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+          </div>
+
+          {/* Voice: idle */}
+          {!recording && !recorded && (
+            <button onClick={handleRecord}
+              className="w-full py-3 rounded-xl text-sm font-medium cursor-pointer flex items-center justify-center gap-2"
+              style={{ background: 'var(--bg-subtle)', border: '1px dashed var(--border-mid)', color: 'var(--text-muted)' }}>
+              🎤 Nagraj wiadomość głosową (opcjonalnie)
+            </button>
+          )}
+
+          {/* Voice: recording */}
+          {recording && (
+            <div className="rounded-xl p-3 space-y-2" style={{ background: 'rgba(231,76,60,0.06)', border: '1px solid rgba(231,76,60,0.3)' }}>
+              <div className="flex items-center gap-2">
+                <span className="animate-pulse text-sm">🔴</span>
+                <span className="text-sm font-medium" style={{ color: '#E74C3C' }}>Nagrywam...</span>
                 <button onClick={stopRecord}
-                  className="px-6 py-2 rounded-xl text-sm font-medium cursor-pointer"
+                  className="ml-auto text-xs px-3 py-1 rounded-lg cursor-pointer font-medium"
                   style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>
                   ⏹ Zatrzymaj
                 </button>
               </div>
-            )}
-            {recorded && (
-              <div className="space-y-4">
-                <div className="w-24 h-24 rounded-full mx-auto flex items-center justify-center"
-                  style={{ background: 'rgba(46,204,113,0.1)', border: '2px solid #2ECC71' }}>
-                  <span className="text-4xl">✓</span>
-                </div>
-                <div className="text-sm text-green-400">Nagranie gotowe!</div>
-                {voiceTranscript && (
-                  <p className="text-sm italic px-2 text-left" style={{ color: 'var(--text-muted)' }}>"{voiceTranscript}"</p>
-                )}
+              {voiceTranscript && (
+                <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>{voiceTranscript}</p>
+              )}
+            </div>
+          )}
+
+          {/* Voice: recorded — editable */}
+          {recorded && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-green-400">✓ Nagranie gotowe — możesz poprawić tekst</span>
                 <button onClick={() => { setRecorded(false); setVoiceTranscript('') }}
                   className="text-xs cursor-pointer" style={{ color: 'var(--text-muted)', background: 'none', border: 'none' }}>
-                  Nagraj ponownie
+                  🔄 Nagraj ponownie
                 </button>
               </div>
-            )}
-          </div>
-        )}
+              <textarea
+                value={voiceTranscript}
+                onChange={e => setVoiceTranscript(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2.5 rounded-xl text-sm resize-none"
+                style={INPUT_STYLE}
+                placeholder="Transkrypcja nagrania..."
+              />
+            </div>
+          )}
+        </div>
       </Modal>
 
       <PWAInstallBanner />

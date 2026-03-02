@@ -4,34 +4,27 @@ import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
-export async function createFeedback(formData: FormData) {
-  const athleteId = formData.get('athlete_id') as string
-  const coachId = formData.get('coach_id') as string
-  const sessionId = formData.get('session_id') as string || null
-  const date = formData.get('date') as string
-  const source = formData.get('source') as string
-  const feeling = formData.get('feeling') as string
-  const trainingType = formData.get('training_type') as string
-  const distanceKm = formData.get('distance_km') as string
-  const durationMin = formData.get('duration_min') as string
-  const intensity = formData.get('intensity') as string
-  const notes = formData.get('notes') as string
-  const voiceTranscript = formData.get('voice_transcript') as string
+function buildFeedbackFields(formData: FormData) {
+  const feeling = formData.get('feeling') as string || ''
+  const trainingType = formData.get('training_type') as string || ''
+  const distanceKm = formData.get('distance_km') as string || ''
+  const durationMin = formData.get('duration_min') as string || ''
+  const intensity = formData.get('intensity') as string || ''
+  const notes = formData.get('notes') as string || ''
+  const voiceTranscript = formData.get('voice_transcript') as string || ''
 
-  if (!athleteId || !coachId || !date) return { error: 'Brak wymaganych danych' }
+  const hasText = !!(feeling || trainingType || distanceKm || durationMin || intensity || notes.trim())
+  const hasVoice = !!voiceTranscript.trim()
+  const source = hasText && hasVoice ? 'both' : hasVoice ? 'voice' : 'text'
 
   const feelingSignal: Record<string, string> = {
     '😫': 'red', '😕': 'red', '😐': 'yellow', '😊': 'green', '🤩': 'green',
   }
   const signal = feelingSignal[feeling] ?? 'green'
 
+  // transcript = structured text summary; ai_analysis = voice transcript
   let transcript = ''
-  let aiSummary = ''
-
-  if (source === 'voice') {
-    transcript = voiceTranscript || ''
-    aiSummary = 'Feedback głosowy'
-  } else {
+  if (hasText) {
     const parts = []
     if (feeling) parts.push(`Samopoczucie: ${feeling}`)
     if (trainingType) parts.push(`Typ: ${trainingType}`)
@@ -40,20 +33,32 @@ export async function createFeedback(formData: FormData) {
     if (intensity) parts.push(`Intensywność: ${intensity}`)
     if (notes) parts.push(`Notatka: ${notes}`)
     transcript = parts.join(' | ')
-    aiSummary = feeling ? `${feeling} — ${intensity || trainingType || 'trening'}` : (trainingType || 'Feedback tekstowy')
   }
+
+  const aiSummary = feeling
+    ? `${feeling} — ${intensity || trainingType || 'trening'}`
+    : (trainingType || (hasVoice ? 'Feedback głosowy' : 'Feedback'))
+
+  return { source, signal, transcript, ai_analysis: voiceTranscript, ai_summary: aiSummary }
+}
+
+export async function createFeedback(formData: FormData) {
+  const athleteId = formData.get('athlete_id') as string
+  const coachId = formData.get('coach_id') as string
+  const sessionId = formData.get('session_id') as string || null
+  const date = formData.get('date') as string
+
+  if (!athleteId || !coachId || !date) return { error: 'Brak wymaganych danych' }
+
+  const fields = buildFeedbackFields(formData)
 
   const { error } = await adminClient.from('feedbacks').insert({
     athlete_id: athleteId,
     coach_id: coachId,
     session_id: sessionId,
     date,
-    source,
-    signal,
-    transcript,
-    ai_summary: aiSummary,
-    ai_analysis: '',
     read: false,
+    ...fields,
   })
 
   if (error) return { error: error.message }
@@ -66,43 +71,13 @@ export async function createFeedback(formData: FormData) {
 export async function updateFeedback(formData: FormData) {
   const id = formData.get('id') as string
   const athleteId = formData.get('athlete_id') as string
-  const source = formData.get('source') as string
-  const feeling = formData.get('feeling') as string
-  const trainingType = formData.get('training_type') as string
-  const distanceKm = formData.get('distance_km') as string
-  const durationMin = formData.get('duration_min') as string
-  const intensity = formData.get('intensity') as string
-  const notes = formData.get('notes') as string
-  const voiceTranscript = formData.get('voice_transcript') as string
 
   if (!id || !athleteId) return { error: 'Brak wymaganych danych' }
 
-  const feelingSignal: Record<string, string> = {
-    '😫': 'red', '😕': 'red', '😐': 'yellow', '😊': 'green', '🤩': 'green',
-  }
-  const signal = feelingSignal[feeling] ?? 'green'
+  const fields = buildFeedbackFields(formData)
 
-  let transcript = ''
-  let aiSummary = ''
-
-  if (source === 'voice') {
-    transcript = voiceTranscript || ''
-    aiSummary = 'Feedback głosowy'
-  } else {
-    const parts = []
-    if (feeling) parts.push(`Samopoczucie: ${feeling}`)
-    if (trainingType) parts.push(`Typ: ${trainingType}`)
-    if (distanceKm) parts.push(`Dystans: ${distanceKm} km`)
-    if (durationMin) parts.push(`Czas: ${durationMin} min`)
-    if (intensity) parts.push(`Intensywność: ${intensity}`)
-    if (notes) parts.push(`Notatka: ${notes}`)
-    transcript = parts.join(' | ')
-    aiSummary = feeling ? `${feeling} — ${intensity || trainingType || 'trening'}` : (trainingType || 'Feedback tekstowy')
-  }
-
-  const { error } = await adminClient.from('feedbacks').update({
-    source, signal, transcript, ai_summary: aiSummary,
-  }).eq('id', id).eq('athlete_id', athleteId)
+  const { error } = await adminClient.from('feedbacks').update(fields)
+    .eq('id', id).eq('athlete_id', athleteId)
 
   if (error) return { error: error.message }
 
