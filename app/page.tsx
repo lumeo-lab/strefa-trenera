@@ -41,11 +41,11 @@ export default function LandingPage() {
             Platforma dla trenerów biegania
           </div>
           <h1 className="font-black tracking-tight mb-6 leading-tight" style={{ fontSize: 'clamp(2.2rem, 5vw, 4rem)' }}>
-            Zamknij pętlę trener–zawodnik<br />
+            Miej wszystko pod kontrolą<br />
             <span style={{ background: 'linear-gradient(135deg, #FF5C1B, #FF9A5C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>w jednym miejscu</span>
           </h1>
           <p className="text-lg max-w-2xl mx-auto mb-10" style={{ color: '#8A92A8' }}>
-            Planer treningowy, feedback z AI i zarządzanie biznesem — bez Excela, WhatsApp i osobnego systemu płatności.
+            Planer treningowy, feedback zawodników i zarządzanie biznesem — bez Excela, WhatsApp i osobnego systemu płatności.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
             <a href="#pricing" className="px-8 py-4 rounded-2xl font-semibold text-white" style={{ background: 'linear-gradient(135deg, #FF5C1B, #FF7A42)' }}>Zacznij 30-dniowy trial za darmo</a>
@@ -69,7 +69,7 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <SectionBadge>Problem</SectionBadge>
             <h2 className="font-bold tracking-tight mb-4 mt-4" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)' }}>
-              Dziś pętla trener–zawodnik<br />jest <GradText>zepsuta</GradText>
+              Dziś praca trenera<br />jest <GradText>rozproszona</GradText>
             </h2>
             <p className="max-w-2xl mx-auto" style={{ color: '#8A92A8' }}>Trener planuje w jednym miejscu, zawodnik raportuje w innym, finanse gdzie indziej, a komunikacja w WhatsApp.</p>
           </div>
@@ -88,7 +88,7 @@ export default function LandingPage() {
           </div>
           <div className="text-center flex flex-col items-center gap-3">
             <span className="text-2xl" style={{ color: '#FF5C1B' }}>↓</span>
-            <p className="text-lg font-medium">Strefa Trenera zamyka tę pętlę w jednym ekosystemie</p>
+            <p className="text-lg font-medium">Strefa Trenera łączy to wszystko w jednym ekosystemie</p>
             <span className="text-2xl" style={{ color: '#FF5C1B' }}>↓</span>
           </div>
         </div>
@@ -133,16 +133,16 @@ export default function LandingPage() {
             visual={<MockupDashboard />}
           />
           <FeatureBlock
-            num="02" title="Feedback z AI" heading={<>Feedback który<br />faktycznie się robi</>}
+            num="02" title="Feedback po treningu" heading={<>Feedback który<br />faktycznie się robi</>}
             desc="Filozofia: feedback działa tylko jeśli danie go jest łatwiejsze niż jego pominięcie. Każda sekunda ponad 20 wydłuża współczynnik pominięcia wykładniczo."
-            points={['Trigger automatyczny po treningu — powiadomienie push zanim zawodnik zdąży zapomnieć', 'Feedback głosowy w 15–30 sekund — AI transkrybuje i analizuje', 'AI ekstrahuje samopoczucie, ból, zmęczenie, trudność w formie tagów', 'Trener widzi sygnał (zielony/żółty/czerwony) bez otwierania profilu', 'Automatyczny raport gdy brak feedbacku — dane z zegarka zawsze są']}
+            points={['Trigger automatyczny po treningu — powiadomienie push zanim zawodnik zdąży zapomnieć', 'Feedback głosowy w 15–30 sekund — nagraj krótką notatkę po biegu', 'Samopoczucie, ból, zmęczenie, trudność zapisane w jednym miejscu', 'Trener widzi sygnał (zielony/żółty/czerwony) bez otwierania profilu', 'Automatyczny raport gdy brak feedbacku — dane z zegarka zawsze są']}
             visual={<MockupFeedback />}
             reverse
           />
           <FeatureBlock
             num="03" title="Biznes Trenerski" heading={<>Zarządzaj biznesem<br />jak zawodnik formą</>}
-            desc="CRM z pipeline klientów, kompletne fakturowanie, alerty retencji i analityka przychodów — wszystko czego potrzebuje trener-przedsiębiorca."
-            points={['Pipeline Kanban: Zapytanie → Onboarding → Aktywny — przeciągaj karty', 'Faktury PDF zgodne z polskim prawem', 'Automatyczne przypomnienia o płatnościach', 'Alerty retencji: system wykrywa sygnały rezygnacji zanim zawodnik odejdzie', 'MRR, churn rate, LTV, zaległości — dashboard w czasie rzeczywistym']}
+            desc="CRM z listą klientów, kompletne fakturowanie, alerty retencji i analityka przychodów — wszystko czego potrzebuje trener-przedsiębiorca."
+            points={['Tablica Kanban: Zapytanie → Onboarding → Aktywny — przeciągaj karty', 'Faktury PDF zgodne z polskim prawem', 'Automatyczne przypomnienia o płatnościach', 'Alerty retencji: system wykrywa sygnały rezygnacji zanim zawodnik odejdzie', 'MRR, churn rate, LTV, zaległości — dashboard w czasie rzeczywistym']}
             visual={<MockupAnalytics />}
           />
         </div>
@@ -161,7 +161,7 @@ export default function LandingPage() {
               ['01', 'Załóż konto trenera', '30-dniowy trial z pełną funkcjonalnością planu Pro. Bez karty kredytowej.'],
               ['02', 'Zaproś zawodników', 'Wpisz e-mail, kliknij "Zaproś". Zawodnik dostaje link i łączy zegarek.'],
               ['03', 'Stwórz pierwsze plany', 'Zaplanuj tydzień treningowy w kalendarzu. Skorzystaj z gotowych szablonów.'],
-              ['04', 'Odbieraj feedback z AI', 'Zawodnik daje feedback głosowo w 20 sekund. Trener widzi analizę bez otwierania profilu.'],
+              ['04', 'Odbieraj feedback zawodników', 'Zawodnik daje feedback głosowo w 20 sekund. Trener widzi sygnał bez otwierania profilu.'],
             ].map(([n, t, d]) => (
               <div key={n} className="p-6 rounded-2xl" style={{ background: '#161920', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <div className="text-3xl font-black mb-4" style={{ color: '#FF5C1B' }}>{n}</div>
@@ -208,7 +208,7 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <SectionBadge>Porównanie</SectionBadge>
             <h2 className="font-bold tracking-tight mb-4 mt-4" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)' }}>Jedyna platforma z<br />pełnym ekosystemem</h2>
-            <p style={{ color: '#8A92A8' }}>Strefa Trenera to jedyne narzędzie łączące trening, feedback AI i biznes w jednym miejscu — po polsku.</p>
+            <p style={{ color: '#8A92A8' }}>Strefa Trenera to jedyne narzędzie łączące trening, feedback i biznes w jednym miejscu — po polsku.</p>
           </div>
           <div className="overflow-x-auto rounded-2xl" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
             <table className="w-full text-sm">
@@ -222,9 +222,9 @@ export default function LandingPage() {
               </thead>
               <tbody>
                 {[
-                  ['Feedback głosowy z AI', true, false, false, false],
+                  ['Feedback głosowy po treningu', true, false, false, false],
                   ['Automatyczny trigger feedbacku', true, false, false, false],
-                  ['CRM i pipeline klientów', true, false, false, false],
+                  ['CRM i zarządzanie klientami', true, false, false, false],
                   ['Fakturowanie zintegrowane', true, false, false, 'partial'],
                   ['Alerty retencji', true, false, false, false],
                   ['Planer treningowy', true, true, true, true],
@@ -265,8 +265,8 @@ export default function LandingPage() {
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { name: 'Starter', desc: 'Dla trenerów stawiających pierwsze kroki online', price: prices.starter, athletes: 'do 15 zawodników', features: ['Planer treningowy z kalendarzem', 'Feedback głosowy + AI analiza', 'Czat z zawodnikami', 'Fakturowanie podstawowe', 'Integracje zegarków (Garmin, Strava)'], featured: false },
-              { name: 'Pro', desc: 'Dla aktywnych trenerów z rosnącą bazą zawodników', price: prices.pro, athletes: 'do 50 zawodników', features: ['Wszystko ze Starter', 'CRM z pipeline klientów', 'Analityka retencji i alerty', 'Szablony i automatyzacje', 'Auto-przypomnienia płatności', 'Broadcast do grup zawodników'], featured: true },
+              { name: 'Starter', desc: 'Dla trenerów stawiających pierwsze kroki online', price: prices.starter, athletes: 'do 15 zawodników', features: ['Planer treningowy z kalendarzem', 'Feedback głosowy i tekstowy', 'Czat z zawodnikami', 'Fakturowanie podstawowe', 'Integracje zegarków (Garmin, Strava)'], featured: false },
+              { name: 'Pro', desc: 'Dla aktywnych trenerów z rosnącą bazą zawodników', price: prices.pro, athletes: 'do 50 zawodników', features: ['Wszystko ze Starter', 'CRM z listą klientów', 'Analityka retencji i alerty', 'Szablony i automatyzacje', 'Auto-przypomnienia płatności', 'Broadcast do grup zawodników'], featured: true },
               { name: 'Studio', desc: 'Dla dużych trenerów i małych akademii biegowych', price: prices.studio, athletes: 'do 150 zawodników', features: ['Wszystko z Pro', 'Biały label (własne logo)', 'Priorytetowe wsparcie', 'Dostęp do API', 'Eksport danych', 'Zaawansowana analityka'], featured: false },
               { name: 'Enterprise', desc: 'Dla federacji, akademii i dużych organizacji', price: null, athletes: '150+ zawodników', features: ['Wszystko ze Studio', 'Dedykowane SLA', 'Wdrożenie i szkolenie', 'Własny serwer (on-premise)', 'Dedykowany account manager'], featured: false },
             ].map(plan => (
@@ -304,7 +304,7 @@ export default function LandingPage() {
             {[
               { q: '"Wcześniej spędzałam 3 godziny dziennie na administracji. Teraz mam to ogarnięte w 30 minut. Zawodnicy dają feedback regularnie bo zajmuje im to dosłownie kilkanaście sekund."', name: 'Monika Krawczyk', role: 'Trenerka biegania · 38 zawodników', av: 'MK', color: 'from-pink-500 to-rose-600' },
               { q: '"CRM z alertami retencji uratował mi 4 klientów w pierwszym miesiącu. System sam powiedział mi kto może odejść — zanim zdążyli mi o tym powiedzieć."', name: 'Tomasz Wróbel', role: 'Trener biegania · 62 zawodników', av: 'TW', color: 'from-blue-500 to-cyan-600' },
-              { q: '"Analiza AI głosówek to game-changer. Zawodniczka powiedziała że czuje się dobrze, ale AI wyłapało ból w biodrze. Złapałam kontuzję w zarodku."', name: 'Agnieszka Zając', role: 'Trenerka biegania · 25 zawodników', av: 'AZ', color: 'from-green-500 to-emerald-600' },
+              { q: '"Feedback głosowy to game-changer. Zawodniczka w krótkiej notatce wspomniała o bólu biodra — bez tego w ogóle bym nie wiedziała. Złapałam kontuzję w zarodku."', name: 'Agnieszka Zając', role: 'Trenerka biegania · 25 zawodników', av: 'AZ', color: 'from-green-500 to-emerald-600' },
             ].map(t => (
               <div key={t.name} className="p-8 rounded-2xl" style={{ background: '#161920', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <div className="text-yellow-400 mb-4">★★★★★</div>
@@ -328,7 +328,7 @@ export default function LandingPage() {
           <div className="p-12 rounded-3xl" style={{ background: 'linear-gradient(135deg, rgba(255,92,27,0.1), rgba(255,92,27,0.05))', border: '1px solid rgba(255,92,27,0.2)' }}>
             <SectionBadge>Zacznij dziś</SectionBadge>
             <h2 className="font-bold mb-4 mt-6" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)' }}>
-              Zamknij pętlę.<br /><GradText>Zacznij prowadzić, nie administrować.</GradText>
+              Miej więcej czasu na coaching.<br /><GradText>Zacznij prowadzić, nie administrować.</GradText>
             </h2>
             <p className="mb-8" style={{ color: '#8A92A8' }}>30-dniowy trial z pełną funkcjonalnością. Zapraszaj zawodników od pierwszego dnia.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -349,7 +349,7 @@ export default function LandingPage() {
               <p className="text-sm" style={{ color: '#8A92A8' }}>Platforma łącząca trenerów biegania i zawodników — planer, feedback i biznes w jednym miejscu.</p>
             </div>
             {[
-              { t: 'Produkt', l: ['Planer treningowy', 'Feedback z AI', 'Moduł biznesowy', 'Integracje', 'Cennik'] },
+              { t: 'Produkt', l: ['Planer treningowy', 'Moduł feedbacku', 'Moduł biznesowy', 'Integracje', 'Cennik'] },
               { t: 'Firma', l: ['O nas', 'Blog', 'Kontakt', 'Kariera'] },
               { t: 'Wsparcie', l: ['Centrum pomocy', 'Dokumentacja API', 'Status systemu', 'Polityka prywatności', 'Regulamin'] },
             ].map(col => (
