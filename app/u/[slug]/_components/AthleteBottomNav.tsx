@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTheme } from '@/lib/theme'
 
 interface Props {
   slug: string
@@ -9,6 +10,7 @@ interface Props {
 
 export function AthleteBottomNav({ slug }: Props) {
   const pathname = usePathname()
+  const { theme, toggle } = useTheme()
 
   const items = [
     { href: `/u/${slug}`, icon: '🏠', label: 'Dziś' },
@@ -32,6 +34,15 @@ export function AthleteBottomNav({ slug }: Props) {
             </Link>
           )
         })}
+        <button
+          onClick={toggle}
+          className="flex flex-col items-center gap-1 px-4 py-1 rounded-xl transition-all"
+          style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+          title={theme === 'dark' ? 'Tryb jasny' : 'Tryb ciemny'}
+        >
+          <span className="text-xl">{theme === 'dark' ? '☀️' : '🌙'}</span>
+          <span style={{ fontSize: '10px' }}>{theme === 'dark' ? 'Jasny' : 'Ciemny'}</span>
+        </button>
       </div>
     </nav>
   )
