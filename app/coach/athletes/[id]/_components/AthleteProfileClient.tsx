@@ -286,6 +286,13 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               >
                 WhatsApp
               </a>
+              <a
+                href={`mailto:${athlete.email || ''}?subject=${encodeURIComponent('Twój panel treningowy')}&body=${encodeURIComponent(`Cześć ${athlete.name}!\n\nTutaj znajdziesz swój panel treningowy:\n${inviteUrl}`)}`}
+                className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0"
+                style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8' }}
+              >
+                Email
+              </a>
             </div>
           </div>
         </Card>

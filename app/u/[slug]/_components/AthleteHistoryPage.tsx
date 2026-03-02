@@ -44,27 +44,50 @@ export function AthleteHistoryPage({ athlete, sessions }: Props) {
             <div className="text-5xl mb-3">📊</div>
             <div>Brak ukończonych treningów</div>
           </div>
-        ) : (
-          <div className="space-y-2">
-            {sessions.map(s => (
-              <div key={s.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(s.date, { weekday: 'short', day: 'numeric', month: 'short' })}</div>
-                    <div className="font-semibold text-sm mt-0.5">{s.title}</div>
+        ) : (() => {
+          const byMonth: Record<string, DbRow[]> = {}
+          for (const s of sessions) {
+            const month = s.date.slice(0, 7)
+            if (!byMonth[month]) byMonth[month] = []
+            byMonth[month].push(s)
+          }
+          return (
+            <div className="space-y-6">
+              {Object.entries(byMonth).map(([month, monthSessions]) => {
+                const [y, mo] = month.split('-').map(Number)
+                const label = new Date(y, mo - 1, 1).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })
+                const monthKm = monthSessions.reduce((s, sess) => s + (sess.actual_distance || 0), 0)
+                return (
+                  <div key={month}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm font-bold capitalize" style={{ color: 'var(--text-primary)' }}>{label}</div>
+                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{monthSessions.length} sesji{monthKm > 0 ? ` · ${monthKm.toFixed(0)} km` : ''}</div>
+                    </div>
+                    <div className="space-y-2">
+                      {monthSessions.map(s => (
+                        <div key={s.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(s.date, { weekday: 'short', day: 'numeric', month: 'short' })}</div>
+                              <div className="font-semibold text-sm mt-0.5">{s.title}</div>
+                            </div>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${intensityColor(s.type)}`}>{sessionTypeLabel(s.type)}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-4 text-sm" style={{ color: 'var(--text-muted)' }}>
+                            {s.actual_distance && <span>📏 {s.actual_distance} km</span>}
+                            {s.actual_duration && <span>⏱️ {s.actual_duration} min</span>}
+                            {s.actual_pace && <span>⚡ {s.actual_pace}/km</span>}
+                            {s.avg_hr && <span>❤️ {s.avg_hr} bpm</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${intensityColor(s.type)}`}>{sessionTypeLabel(s.type)}</span>
-                </div>
-                <div className="flex flex-wrap gap-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                  {s.actual_distance && <span>📏 {s.actual_distance} km</span>}
-                  {s.actual_duration && <span>⏱️ {s.actual_duration} min</span>}
-                  {s.actual_pace && <span>⚡ {s.actual_pace}/km</span>}
-                  {s.avg_hr && <span>❤️ {s.avg_hr} bpm</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                )
+              })}
+            </div>
+          )
+        })()}
       </div>
 
       <AthleteBottomNav slug={athlete.slug} />
