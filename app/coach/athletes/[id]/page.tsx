@@ -468,7 +468,7 @@ export default function AthleteProfilePage({ params }: { params: Promise<{ id: s
             )}
 
             {/* ── Legenda typów treningu ── */}
-            <div className="mt-5 flex flex-wrap gap-2 items-center">
+            <div className="mt-5 flex flex-wrap gap-2 items-center pb-32">
               <span className="text-xs font-medium mr-1" style={{ color: 'var(--text-muted)' }}>Legenda:</span>
               {SESSION_TYPES.filter(t => t !== 'rest').map(t => (
                 <span key={t} className={`text-xs px-2.5 py-1 rounded-full font-medium ${intensityColor(t)}`}>
