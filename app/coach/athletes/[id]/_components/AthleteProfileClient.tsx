@@ -768,7 +768,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     ['Cel treningowy', dataEdit.goal],
                     ['Pakiet', dataEdit.package],
                     ['Cena', dataEdit.package_price ? `${dataEdit.package_price} zł/mies.` : ''],
-                    ['Status', { ok: 'OK', warning: 'Uwaga', alert: 'Alert', inactive: 'Nieaktywny' }[dataEdit.status] ?? dataEdit.status],
+                    ['Status', ({ ok: 'OK', warning: 'Uwaga', alert: 'Alert', inactive: 'Nieaktywny' } as Record<string, string>)[dataEdit.status] ?? dataEdit.status],
                     ['Dołączył/a', formatDate(athlete.join_date, { day: 'numeric', month: 'long', year: 'numeric' })],
                   ] as [string, string][]).map(([label, value]) => (
                     <div key={label} className="flex justify-between">
