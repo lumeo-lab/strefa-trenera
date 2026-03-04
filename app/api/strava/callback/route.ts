@@ -5,7 +5,7 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code')
   const slug = req.nextUrl.searchParams.get('state')
   const error = req.nextUrl.searchParams.get('error')
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!
+  const appUrl = req.nextUrl.origin
 
   if (error || !code || !slug) {
     return NextResponse.redirect(`${appUrl}/u/${slug ?? ''}?strava=denied`)
