@@ -7,14 +7,25 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { formatDateTime } from '@/lib/utils'
 import { sendMessage } from '@/lib/actions/messages'
+import { usePushSubscription } from '@/lib/usePushSubscription'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function ChatClient({ athletes, messages }: { athletes: any[]; messages: any[] }) {
+export function ChatClient({ athletes, messages, coachId, coachName }: { athletes: any[]; messages: any[]; coachId: string; coachName: string }) {
   const router = useRouter()
   const [selectedAthleteId, setSelectedAthleteId] = useState(athletes[0]?.id ?? '')
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  usePushSubscription(coachId, 'coach')
+
+  // Poll for new messages every 5s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      startTransition(() => router.refresh())
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [router])
 
   const threadMessages = messages.filter(m => m.athlete_id === selectedAthleteId)
   const selectedAthlete = athletes.find(a => a.id === selectedAthleteId)
@@ -29,6 +40,7 @@ export function ChatClient({ athletes, messages }: { athletes: any[]; messages: 
     const fd = new FormData()
     fd.set('athlete_id', selectedAthleteId)
     fd.set('content', input.trim())
+    fd.set('coach_name', coachName)
     await sendMessage(null, fd)
     setInput('')
     setSending(false)
@@ -101,7 +113,7 @@ export function ChatClient({ athletes, messages }: { athletes: any[]; messages: 
             const isCoach = msg.sender_type === 'coach'
             return (
               <div key={msg.id} className={`flex gap-3 ${isCoach ? 'flex-row-reverse' : ''}`}>
-                <Avatar initials={isCoach ? '?' : (selectedAthlete?.avatar || '?')} size="sm" />
+                <Avatar initials={isCoach ? (coachName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?') : (selectedAthlete?.avatar || '?')} size="sm" />
                 <div className={`max-w-sm ${isCoach ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
                   <div className="px-4 py-3 rounded-2xl text-sm"
                     style={{

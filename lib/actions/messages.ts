@@ -1,7 +1,28 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { adminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { sendPushToUser } from '@/lib/push'
+
+export async function sendAthleteMessage(athleteId: string, coachId: string, content: string, athleteName: string) {
+  const { error } = await adminClient.from('messages').insert({
+    coach_id: coachId,
+    athlete_id: athleteId,
+    sender_type: 'athlete',
+    content: content.trim(),
+  })
+  if (error) return { error: error.message }
+
+  // Push notification to coach
+  await sendPushToUser(coachId, {
+    title: `Wiadomość od ${athleteName}`,
+    body: content.trim().slice(0, 100),
+    url: '/coach/chat',
+  }).catch(() => {})
+
+  return { success: true }
+}
 
 export async function sendMessage(_: unknown, formData: FormData) {
   const supabase = await createClient()
@@ -10,6 +31,7 @@ export async function sendMessage(_: unknown, formData: FormData) {
 
   const athleteId = formData.get('athlete_id') as string
   const content = formData.get('content') as string
+  const coachName = formData.get('coach_name') as string
 
   if (!athleteId || !content?.trim()) return { error: 'Brak wymaganych pól' }
 
@@ -21,6 +43,13 @@ export async function sendMessage(_: unknown, formData: FormData) {
   })
 
   if (error) return { error: error.message }
+
+  // Push notification to athlete
+  await sendPushToUser(athleteId, {
+    title: `Wiadomość od ${coachName || 'trenera'}`,
+    body: content.trim().slice(0, 100),
+    url: `/u`,
+  }).catch(() => {})
 
   revalidatePath('/coach/chat')
   return { success: true }

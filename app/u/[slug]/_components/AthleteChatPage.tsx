@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/Button'
 import { formatDateTime } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
-import { adminClient } from '@/lib/supabase/admin'
+import { sendAthleteMessage } from '@/lib/actions/messages'
+import { usePushSubscription } from '@/lib/usePushSubscription'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DbRow = Record<string, any>
@@ -24,25 +25,29 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  usePushSubscription(athlete.id, 'athlete')
+
+  // Poll for new messages every 5s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      startTransition(() => router.refresh())
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [router])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
 
-  // Get initials for coach
   const coachInitials = coachName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
   async function handleSend() {
     if (!input.trim() || sending) return
     setSending(true)
 
-    await adminClient.from('messages').insert({
-      coach_id: athlete.coach_id,
-      athlete_id: athlete.id,
-      sender_type: 'athlete',
-      content: input.trim(),
-    })
-
+    const content = input.trim()
     setInput('')
+    await sendAthleteMessage(athlete.id, athlete.coach_id, content, athlete.name)
     setSending(false)
     startTransition(() => router.refresh())
   }
@@ -89,7 +94,7 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input - fixed above bottom nav */}
+      {/* Input */}
       <div className="px-5 py-3 border-t shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-base)', paddingBottom: 'max(12px, env(safe-area-inset-bottom))', marginBottom: '64px' }}>
         <div className="flex items-center gap-3">
           <input
