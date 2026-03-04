@@ -174,6 +174,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
   // ── Notes state ──
   const [coachNotes, setCoachNotes] = useState(athlete.coach_notes ?? '')
+  const [notesEditing, setNotesEditing] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
 
   // ── Dane (data edit) state ──
@@ -189,12 +190,17 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     package_price: athlete.package_price?.toString() ?? '',
     status: athlete.status ?? 'ok',
   })
+  const [dataSaving, setDataSaving] = useState(false)
+  const [dataSaved, setDataSaved] = useState(false)
+
+  // ── Personal bests state ──
   const PB_DISTANCES = ['5 km', '10 km', 'Półmaraton', 'Maraton']
+  const [pbEditing, setPbEditing] = useState(false)
   const [pbEdit, setPbEdit] = useState<Record<string, string>>(
     Object.fromEntries(PB_DISTANCES.map(d => [d, (athlete.personal_bests ?? {})[d] ?? '']))
   )
-  const [dataSaving, setDataSaving] = useState(false)
-  const [dataSaved, setDataSaved] = useState(false)
+  const [pbSaving, setPbSaving] = useState(false)
+  const [pbSaved, setPbSaved] = useState(false)
 
   async function saveData() {
     if (dataSaving) return
@@ -202,13 +208,26 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     const fd = new FormData()
     fd.set('id', athlete.id)
     Object.entries(dataEdit).forEach(([k, v]) => fd.set(k, v))
-    const personalBests = Object.fromEntries(Object.entries(pbEdit).filter(([, v]) => v.trim()))
-    fd.set('personal_bests', JSON.stringify(personalBests))
     await updateAthlete(null, fd)
     setDataSaving(false)
     setDataSaved(true)
     setDataEditing(false)
     setTimeout(() => setDataSaved(false), 2000)
+    startTransition(() => router.refresh())
+  }
+
+  async function savePb() {
+    if (pbSaving) return
+    setPbSaving(true)
+    const fd = new FormData()
+    fd.set('id', athlete.id)
+    const personalBests = Object.fromEntries(Object.entries(pbEdit).filter(([, v]) => v.trim()))
+    fd.set('personal_bests', JSON.stringify(personalBests))
+    await updateAthlete(null, fd)
+    setPbSaving(false)
+    setPbSaved(true)
+    setPbEditing(false)
+    setTimeout(() => setPbSaved(false), 2000)
     startTransition(() => router.refresh())
   }
 
@@ -488,7 +507,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                           <div key={session.id} onClick={() => openEditSession(session)}
                             className={`p-2 rounded-xl cursor-pointer transition-opacity hover:opacity-80 ${intensityColor(session.type)}`}>
                             <div className="font-semibold text-xs leading-tight mb-1">{session.title}</div>
-                            {session.description && <div className="text-xs opacity-60 leading-tight mb-1 line-clamp-2">{session.description}</div>}
+                            {session.description && <div className="text-xs opacity-60 leading-tight mb-1">{session.description}</div>}
                             <div className="flex flex-col gap-0.5 text-xs opacity-75">
                               {session.planned_distance && <span>📏 {session.planned_distance} km</span>}
                               {session.planned_duration && <span>⏱ {session.planned_duration} min</span>}
@@ -842,12 +861,27 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Rekordy życiowe</h3>
-                {dataEditing && (
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>format: 3:52:00</span>
+                {!pbEditing ? (
+                  <button
+                    onClick={() => setPbEditing(true)}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                    style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
+                  >Edytuj</button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={() => setPbEditing(false)}
+                      className="px-3 py-2 rounded-xl text-sm cursor-pointer"
+                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Anuluj</button>
+                    <button onClick={savePb} disabled={pbSaving}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                      style={{ background: pbSaved ? 'rgba(46,204,113,0.15)' : '#FF5C1B', color: pbSaved ? '#2ECC71' : 'white' }}>
+                      {pbSaved ? '✓ Zapisano' : pbSaving ? 'Zapisywanie...' : 'Zapisz'}
+                    </button>
+                  </div>
                 )}
               </div>
 
-              {!dataEditing ? (
+              {!pbEditing ? (
                 <div className="space-y-3 text-sm">
                   {PB_DISTANCES.map(dist => (
                     <div key={dist} className="flex justify-between">
@@ -858,6 +892,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 </div>
               ) : (
                 <div className="space-y-3">
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Format: 3:52:00 lub 22:30</p>
                   {PB_DISTANCES.map(dist => (
                     <div key={dist}>
                       <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>{dist}</label>
@@ -893,22 +928,39 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Notatki trenera</h3>
-                <button
-                  onClick={saveNotes}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer transition-all"
-                  style={{ background: notesSaved ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.1)', color: notesSaved ? '#2ECC71' : '#FF5C1B' }}
-                >
-                  {notesSaved ? '✓ Zapisano' : 'Zapisz'}
-                </button>
+                {!notesEditing ? (
+                  <button
+                    onClick={() => setNotesEditing(true)}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                    style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
+                  >Edytuj</button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={() => setNotesEditing(false)}
+                      className="px-3 py-2 rounded-xl text-sm cursor-pointer"
+                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Anuluj</button>
+                    <button
+                      onClick={async () => { await saveNotes(); setNotesEditing(false) }}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                      style={{ background: notesSaved ? 'rgba(46,204,113,0.15)' : '#FF5C1B', color: notesSaved ? '#2ECC71' : 'white' }}
+                    >{notesSaved ? '✓ Zapisano' : 'Zapisz'}</button>
+                  </div>
+                )}
               </div>
-              <textarea
-                value={coachNotes}
-                onChange={e => setCoachNotes(e.target.value)}
-                placeholder="Zapisz obserwacje, uwagi, przemyślenia o zawodniku..."
-                rows={12}
-                className="w-full px-4 py-3 rounded-xl text-sm resize-none"
-                style={inputStyle}
-              />
+              {!notesEditing ? (
+                <div className="text-sm whitespace-pre-wrap min-h-16" style={{ color: coachNotes ? 'var(--text-primary)' : 'var(--text-muted)', lineHeight: 1.7 }}>
+                  {coachNotes || 'Brak notatek. Kliknij Edytuj, aby dodać.'}
+                </div>
+              ) : (
+                <textarea
+                  value={coachNotes}
+                  onChange={e => setCoachNotes(e.target.value)}
+                  placeholder="Zapisz obserwacje, uwagi, przemyślenia o zawodniku..."
+                  rows={12}
+                  className="w-full px-4 py-3 rounded-xl text-sm resize-none"
+                  style={inputStyle}
+                />
+              )}
             </Card>
           </div>
         )}
