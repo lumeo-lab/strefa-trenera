@@ -12,14 +12,15 @@ export async function GET(req: NextRequest) {
   }
 
   // Znajdź zawodnika po slug
-  const { data: athlete } = await adminClient
+  const { data: athlete, error: athleteErr } = await adminClient
     .from('athletes')
     .select('id')
     .eq('slug', slug)
     .single()
 
-  if (!athlete) {
-    return NextResponse.redirect(`${appUrl}/u/${slug}?strava=error`)
+  if (athleteErr || !athlete) {
+    console.error('[strava] athlete not found for slug:', slug, athleteErr?.message)
+    return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=error`)
   }
 
   // Wymień code na tokeny
@@ -35,24 +36,33 @@ export async function GET(req: NextRequest) {
   })
 
   if (!tokenRes.ok) {
-    return NextResponse.redirect(`${appUrl}/u/${slug}?strava=error`)
+    const body = await tokenRes.text()
+    console.error('[strava] token exchange failed:', tokenRes.status, body)
+    return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=error`)
   }
 
   const tokens = await tokenRes.json()
 
   // Zapisz połączenie
-  await adminClient.from('strava_connections').upsert({
+  const { error: upsertErr } = await adminClient.from('strava_connections').upsert({
     athlete_id: athlete.id,
-    strava_athlete_id: tokens.athlete?.id,
+    strava_athlete_id: tokens.athlete?.id ?? null,
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
     expires_at: new Date(tokens.expires_at * 1000).toISOString(),
   }, { onConflict: 'athlete_id' })
 
-  // Pobierz aktywności w tle
-  await syncStravaActivities(athlete.id, tokens.access_token)
+  if (upsertErr) {
+    console.error('[strava] upsert failed:', upsertErr.message)
+    return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=error`)
+  }
 
-  return NextResponse.redirect(`${appUrl}/u/${slug}?strava=connected`)
+  // Pobierz aktywności w tle (nie blokuje redirectu)
+  syncStravaActivities(athlete.id, tokens.access_token).catch(e =>
+    console.error('[strava] sync failed:', e)
+  )
+
+  return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=connected`)
 }
 
 async function syncStravaActivities(athleteId: string, accessToken: string) {
@@ -64,7 +74,6 @@ async function syncStravaActivities(athleteId: string, accessToken: string) {
 
   const activities = await res.json()
   const runs = activities.filter((a: { type: string }) => a.type === 'Run' || a.type === 'TrailRun')
-
   if (!runs.length) return
 
   await adminClient.from('strava_activities').upsert(
