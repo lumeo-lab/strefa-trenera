@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       runs.map((a: {
         id: number; name: string; distance: number; moving_time: number;
         start_date: string; type: string; average_speed: number;
-        average_heartrate?: number; max_heartrate?: number
+        average_heartrate?: number; max_heartrate?: number; total_elevation_gain?: number
       }) => ({
         athlete_id: athleteId,
         strava_id: a.id,
@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
         average_speed: a.average_speed,
         average_heartrate: a.average_heartrate ?? null,
         max_heartrate: a.max_heartrate ?? null,
+        total_elevation_gain: a.total_elevation_gain ?? null,
       })),
       { onConflict: 'strava_id' }
     )

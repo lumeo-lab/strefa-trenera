@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { intensityColor, sessionTypeLabel, formatDate } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
@@ -46,6 +47,23 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
   const currentMonth = new Date().toISOString().slice(0, 7)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [tab, setTab] = useState<'plan' | 'strava'>('plan')
+  const [syncing, setSyncing] = useState(false)
+  const [, startTransition] = useTransition()
+  const router = useRouter()
+
+  async function handleSync() {
+    setSyncing(true)
+    try {
+      await fetch('/api/strava/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ athleteId: athlete.id }),
+      })
+      startTransition(() => router.refresh())
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const monthSessions = sessions.filter(s => s.date.slice(0, 7) === selectedMonth)
   const monthStrava = stravaActivities.filter(a => a.start_date.slice(0, 7) === selectedMonth)
@@ -97,12 +115,19 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
           </a>
         )}
 
-        {/* Connected Strava badge */}
+        {/* Connected Strava badge + sync button */}
         {stravaConnected && (
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm"
+          <div className="flex items-center justify-between px-4 py-2 rounded-xl text-sm"
             style={{ background: 'rgba(252,76,2,0.08)', border: '1px solid rgba(252,76,2,0.2)', color: '#FC4C02' }}>
-            <span>🟠</span>
-            <span className="font-medium">Strava połączona</span>
+            <div className="flex items-center gap-2">
+              <span>🟠</span>
+              <span className="font-medium">Strava połączona</span>
+            </div>
+            <button onClick={handleSync} disabled={syncing}
+              className="text-xs px-3 py-1 rounded-lg cursor-pointer"
+              style={{ background: '#FC4C02', color: 'white', border: 'none', opacity: syncing ? 0.6 : 1 }}>
+              {syncing ? 'Synchronizuję...' : '↻ Odśwież'}
+            </button>
           </div>
         )}
 
@@ -205,6 +230,7 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
                     {a.moving_time && <span>⏱️ {formatDuration(a.moving_time)}</span>}
                     {a.average_speed && <span>⚡ {formatPace(a.average_speed)}</span>}
                     {a.average_heartrate && <span>❤️ {Math.round(a.average_heartrate)} bpm</span>}
+                    {a.total_elevation_gain != null && <span>⛰️ {Math.round(a.total_elevation_gain)} m</span>}
                   </div>
                 </div>
               ))}
