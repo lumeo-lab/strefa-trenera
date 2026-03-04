@@ -176,6 +176,34 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [coachNotes, setCoachNotes] = useState(athlete.coach_notes ?? '')
   const [notesSaved, setNotesSaved] = useState(false)
 
+  // ── Dane (data edit) state ──
+  const [dataEdit, setDataEdit] = useState({
+    name: athlete.name ?? '',
+    email: athlete.email ?? '',
+    phone: athlete.phone ?? '',
+    age: athlete.age?.toString() ?? '',
+    city: athlete.city ?? '',
+    goal: athlete.goal ?? '',
+    package: athlete.package ?? 'Starter',
+    package_price: athlete.package_price?.toString() ?? '',
+    status: athlete.status ?? 'ok',
+  })
+  const [dataSaving, setDataSaving] = useState(false)
+  const [dataSaved, setDataSaved] = useState(false)
+
+  async function saveData() {
+    if (dataSaving) return
+    setDataSaving(true)
+    const fd = new FormData()
+    fd.set('id', athlete.id)
+    Object.entries(dataEdit).forEach(([k, v]) => fd.set(k, v))
+    await updateAthlete(null, fd)
+    setDataSaving(false)
+    setDataSaved(true)
+    setTimeout(() => setDataSaved(false), 2000)
+    startTransition(() => router.refresh())
+  }
+
   // ── Invite link ──
   const [linkCopied, setLinkCopied] = useState(false)
   const inviteUrl = typeof window !== 'undefined'
@@ -458,12 +486,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                               {session.planned_duration && <span>⏱ {session.planned_duration} min</span>}
                               {session.planned_pace && <span>⚡ {session.planned_pace}/km</span>}
                             </div>
-                            <div className="mt-1.5">
-                              {session.completed
-                                ? <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">✓</span>
-                                : pastFlag ? <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full">✗</span>
-                                : null}
-                            </div>
+                            {session.completed && (
+                              <div className="mt-1.5">
+                                <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">✓</span>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -529,9 +556,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                                 <div key={s.id} onClick={() => openEditSession(s)}
                                   className={`px-1.5 py-1 rounded-lg cursor-pointer hover:opacity-80 ${intensityColor(s.type)}`}>
                                   <div className="text-xs font-semibold leading-tight truncate">{s.title}</div>
+                                  {s.description && <div className="text-xs opacity-60 leading-tight truncate mt-0.5">{s.description}</div>}
                                   <div className="flex flex-wrap gap-x-2 mt-0.5" style={{ fontSize: '10px', opacity: 0.75 }}>
-                                    {s.planned_distance && <span>{s.planned_distance}km</span>}
-                                    {s.planned_duration && <span>{s.planned_duration}min</span>}
+                                    {s.planned_distance && <span>📏 {s.planned_distance}km</span>}
+                                    {s.planned_duration && <span>⏱ {s.planned_duration}min</span>}
+                                    {s.planned_pace && <span>⚡ {s.planned_pace}/km</span>}
                                   </div>
                                   {s.completed && <div className="text-green-400 mt-0.5" style={{ fontSize: '10px' }}>✓ wykonany</div>}
                                 </div>
@@ -689,23 +718,77 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         {activeTab === 'data' && (
           <div className="grid grid-cols-2 gap-6">
             <Card className="p-5">
-              <h3 className="font-semibold mb-4">Dane osobowe</h3>
-              <div className="space-y-3 text-sm">
-                {[
-                  ['Email', athlete.email],
-                  ['Telefon', athlete.phone],
-                  ['Wiek', athlete.age ? `${athlete.age} lat` : null],
-                  ['Miasto', athlete.city],
-                  ['Cel', athlete.goal],
-                  ['Pakiet', athlete.package],
-                  ['Cena', formatCurrency(athlete.package_price) + '/mies.'],
-                  ['Dołączył/a', formatDate(athlete.join_date, { day: 'numeric', month: 'long', year: 'numeric' })],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex justify-between">
-                    <span style={{ color: 'var(--text-muted)' }}>{label}</span>
-                    <span className="font-medium">{value || '—'}</span>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Dane zawodnika</h3>
+                <button
+                  onClick={saveData}
+                  disabled={dataSaving}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer transition-all"
+                  style={{ background: dataSaved ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.1)', color: dataSaved ? '#2ECC71' : '#FF5C1B' }}
+                >
+                  {dataSaved ? '✓ Zapisano' : dataSaving ? 'Zapisywanie...' : 'Zapisz'}
+                </button>
+              </div>
+              <div className="space-y-3">
+                {([
+                  ['Imię i nazwisko', 'name', 'text'],
+                  ['Email', 'email', 'email'],
+                  ['Telefon', 'phone', 'text'],
+                  ['Wiek', 'age', 'number'],
+                  ['Miasto', 'city', 'text'],
+                  ['Cel treningowy', 'goal', 'text'],
+                ] as const).map(([label, field, type]) => (
+                  <div key={field}>
+                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>{label}</label>
+                    <input
+                      type={type}
+                      value={dataEdit[field]}
+                      onChange={e => setDataEdit(d => ({ ...d, [field]: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm"
+                      style={inputStyle}
+                    />
                   </div>
                 ))}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Pakiet</label>
+                    <select
+                      value={dataEdit.package}
+                      onChange={e => setDataEdit(d => ({ ...d, package: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+                      style={inputStyle}
+                    >
+                      {['Starter', 'Standard', 'Pro'].map(p => <option key={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Cena (zł/mies.)</label>
+                    <input
+                      type="number"
+                      value={dataEdit.package_price}
+                      onChange={e => setDataEdit(d => ({ ...d, package_price: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm"
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Status</label>
+                  <select
+                    value={dataEdit.status}
+                    onChange={e => setDataEdit(d => ({ ...d, status: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+                    style={inputStyle}
+                  >
+                    <option value="ok">OK</option>
+                    <option value="warning">Uwaga</option>
+                    <option value="alert">Alert</option>
+                    <option value="inactive">Nieaktywny</option>
+                  </select>
+                </div>
+                <div className="pt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Dołączył/a: {formatDate(athlete.join_date, { day: 'numeric', month: 'long', year: 'numeric' })}
+                </div>
               </div>
             </Card>
             <Card className="p-5">

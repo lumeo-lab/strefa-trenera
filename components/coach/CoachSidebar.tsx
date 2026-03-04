@@ -11,6 +11,7 @@ const navItems = [
   { href: '/coach/invoices', icon: '💳', label: 'Faktury' },
   { href: '/coach/analytics', icon: '📊', label: 'Analityka' },
   { href: '/coach/chat', icon: '💬', label: 'Czat' },
+  { href: '/coach/settings', icon: '⚙️', label: 'Ustawienia' },
 ]
 
 interface Props {

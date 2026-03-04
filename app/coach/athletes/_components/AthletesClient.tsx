@@ -29,9 +29,10 @@ interface Athlete {
 interface Props {
   athletes: Athlete[]
   lastSessionMap: Record<string, string>
+  weeklyLoadMap: Record<string, number>
 }
 
-export function AthletesClient({ athletes, lastSessionMap }: Props) {
+export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap }: Props) {
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [state, formAction, pending] = useActionState(createAthlete, null)
@@ -47,19 +48,19 @@ export function AthletesClient({ athletes, lastSessionMap }: Props) {
       <CoachTopbar
         title="Zawodnicy"
         subtitle={`${athletes.length} ${athletes.length === 1 ? 'zawodnik' : 'zawodników'}`}
-        actions={<Button size="sm" onClick={() => setModalOpen(true)}>+ Dodaj zawodnika</Button>}
       />
 
       <div className="p-6">
-        {/* Search */}
-        <div className="mb-6">
+        {/* Search + Add */}
+        <div className="flex items-center gap-3 mb-6">
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Szukaj zawodnika..."
-            className="w-full max-w-sm px-4 py-2.5 rounded-xl text-sm"
+            className="max-w-sm px-4 py-2.5 rounded-xl text-sm flex-1"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
           />
+          <Button size="sm" onClick={() => setModalOpen(true)}>+ Dodaj zawodnika</Button>
         </div>
 
         {/* Empty state */}
@@ -80,6 +81,7 @@ export function AthletesClient({ athletes, lastSessionMap }: Props) {
                 <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
                   <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Zawodnik</th>
                   <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Cel</th>
+                  <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Obciążenie (7 dni)</th>
                   <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Pakiet</th>
                   <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Status</th>
                   <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Ostatni trening</th>
@@ -103,6 +105,13 @@ export function AthletesClient({ athletes, lastSessionMap }: Props) {
                         </Link>
                       </td>
                       <td className="px-5 py-4" style={{ color: 'var(--text-muted)' }}>{athlete.goal || '—'}</td>
+                      <td className="px-5 py-4">
+                        {weeklyLoadMap[athlete.id] ? (
+                          <span className="text-sm font-medium">{weeklyLoadMap[athlete.id].toFixed(0)} km</span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        )}
+                      </td>
                       <td className="px-5 py-4">
                         <Badge variant={athlete.package === 'Pro' ? 'orange' : athlete.package === 'Standard' ? 'blue' : 'gray'}>
                           {athlete.package}

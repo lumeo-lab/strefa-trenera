@@ -26,10 +26,27 @@ export default async function AthletesPage() {
     }
   }
 
+  // Weekly load: total planned km from last 7 days per athlete
+  const weekAgo = new Date()
+  weekAgo.setDate(weekAgo.getDate() - 7)
+  const weekAgoStr = weekAgo.toISOString().split('T')[0]
+
+  const { data: recentSessions } = await supabase
+    .from('training_sessions')
+    .select('athlete_id, planned_distance, actual_distance')
+    .gte('date', weekAgoStr)
+
+  const weeklyLoadMap: Record<string, number> = {}
+  for (const s of recentSessions ?? []) {
+    const km = s.actual_distance ?? s.planned_distance ?? 0
+    weeklyLoadMap[s.athlete_id] = (weeklyLoadMap[s.athlete_id] ?? 0) + km
+  }
+
   return (
     <AthletesClient
       athletes={athletes ?? []}
       lastSessionMap={lastSessionMap}
+      weeklyLoadMap={weeklyLoadMap}
     />
   )
 }
