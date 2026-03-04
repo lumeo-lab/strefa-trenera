@@ -17,7 +17,7 @@ export function ChatClient({ athletes, messages, coachId, coachName }: { athlete
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  usePushSubscription(coachId, 'coach')
+  const { permission, subscribe } = usePushSubscription(coachId, 'coach')
 
   // Poll for new messages every 5s
   useEffect(() => {
@@ -107,6 +107,17 @@ export function ChatClient({ athletes, messages, coachId, coachName }: { athlete
             </>
           )}
         </div>
+
+        {/* Push notification prompt */}
+        {permission === 'default' && (
+          <div className="px-6 pt-3">
+            <button onClick={subscribe}
+              className="px-4 py-2.5 rounded-xl text-sm cursor-pointer w-full text-left"
+              style={{ background: 'rgba(255,92,27,0.1)', border: '1px solid rgba(255,92,27,0.3)', color: '#FF5C1B' }}>
+              🔔 Włącz powiadomienia o nowych wiadomościach
+            </button>
+          </div>
+        )}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">

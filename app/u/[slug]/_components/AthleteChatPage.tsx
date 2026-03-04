@@ -25,7 +25,7 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  usePushSubscription(athlete.id, 'athlete')
+  const { permission, subscribe } = usePushSubscription(athlete.id, 'athlete')
 
   // Poll for new messages every 5s
   useEffect(() => {
@@ -68,6 +68,15 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Push notification prompt */}
+      {permission === 'default' && (
+        <button onClick={subscribe}
+          className="mx-5 mt-3 px-4 py-2.5 rounded-xl text-sm text-left w-[calc(100%-40px)] cursor-pointer"
+          style={{ background: 'rgba(255,92,27,0.1)', border: '1px solid rgba(255,92,27,0.3)', color: '#FF5C1B' }}>
+          🔔 Włącz powiadomienia o nowych wiadomościach
+        </button>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4" style={{ paddingBottom: '90px' }}>
