@@ -97,6 +97,10 @@ export async function updateAthlete(_: unknown, formData: FormData) {
   if (packagePrice !== null) updates.package_price = parseFloat(packagePrice as string)
   const status = formData.get('status')
   if (status !== null) updates.status = status as string
+  const personalBests = formData.get('personal_bests')
+  if (personalBests !== null) {
+    try { updates.personal_bests = JSON.parse(personalBests as string) } catch { /* ignore */ }
+  }
 
   const { error } = await supabase
     .from('athletes')

@@ -177,6 +177,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [notesSaved, setNotesSaved] = useState(false)
 
   // ── Dane (data edit) state ──
+  const [dataEditing, setDataEditing] = useState(false)
   const [dataEdit, setDataEdit] = useState({
     name: athlete.name ?? '',
     email: athlete.email ?? '',
@@ -188,6 +189,10 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     package_price: athlete.package_price?.toString() ?? '',
     status: athlete.status ?? 'ok',
   })
+  const PB_DISTANCES = ['5 km', '10 km', 'Półmaraton', 'Maraton']
+  const [pbEdit, setPbEdit] = useState<Record<string, string>>(
+    Object.fromEntries(PB_DISTANCES.map(d => [d, (athlete.personal_bests ?? {})[d] ?? '']))
+  )
   const [dataSaving, setDataSaving] = useState(false)
   const [dataSaved, setDataSaved] = useState(false)
 
@@ -197,9 +202,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     const fd = new FormData()
     fd.set('id', athlete.id)
     Object.entries(dataEdit).forEach(([k, v]) => fd.set(k, v))
+    const personalBests = Object.fromEntries(Object.entries(pbEdit).filter(([, v]) => v.trim()))
+    fd.set('personal_bests', JSON.stringify(personalBests))
     await updateAthlete(null, fd)
     setDataSaving(false)
     setDataSaved(true)
+    setDataEditing(false)
     setTimeout(() => setDataSaved(false), 2000)
     startTransition(() => router.refresh())
   }
@@ -720,91 +728,151 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Dane zawodnika</h3>
-                <button
-                  onClick={saveData}
-                  disabled={dataSaving}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer transition-all"
-                  style={{ background: dataSaved ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.1)', color: dataSaved ? '#2ECC71' : '#FF5C1B' }}
-                >
-                  {dataSaved ? '✓ Zapisano' : dataSaving ? 'Zapisywanie...' : 'Zapisz'}
-                </button>
-              </div>
-              <div className="space-y-3">
-                {([
-                  ['Imię i nazwisko', 'name', 'text'],
-                  ['Email', 'email', 'email'],
-                  ['Telefon', 'phone', 'text'],
-                  ['Wiek', 'age', 'number'],
-                  ['Miasto', 'city', 'text'],
-                  ['Cel treningowy', 'goal', 'text'],
-                ] as const).map(([label, field, type]) => (
-                  <div key={field}>
-                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>{label}</label>
-                    <input
-                      type={type}
-                      value={dataEdit[field]}
-                      onChange={e => setDataEdit(d => ({ ...d, [field]: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl text-sm"
-                      style={inputStyle}
-                    />
+                {!dataEditing ? (
+                  <button
+                    onClick={() => setDataEditing(true)}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                    style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
+                  >
+                    Edytuj
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDataEditing(false)}
+                      className="px-3 py-2 rounded-xl text-sm cursor-pointer"
+                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                    >
+                      Anuluj
+                    </button>
+                    <button
+                      onClick={saveData}
+                      disabled={dataSaving}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                      style={{ background: dataSaved ? 'rgba(46,204,113,0.15)' : '#FF5C1B', color: dataSaved ? '#2ECC71' : 'white' }}
+                    >
+                      {dataSaved ? '✓ Zapisano' : dataSaving ? 'Zapisywanie...' : 'Zapisz'}
+                    </button>
                   </div>
-                ))}
-                <div className="grid grid-cols-2 gap-3">
+                )}
+              </div>
+
+              {!dataEditing ? (
+                <div className="space-y-3 text-sm">
+                  {([
+                    ['Imię i nazwisko', dataEdit.name],
+                    ['Email', dataEdit.email],
+                    ['Telefon', dataEdit.phone],
+                    ['Wiek', dataEdit.age ? `${dataEdit.age} lat` : ''],
+                    ['Miasto', dataEdit.city],
+                    ['Cel treningowy', dataEdit.goal],
+                    ['Pakiet', dataEdit.package],
+                    ['Cena', dataEdit.package_price ? `${dataEdit.package_price} zł/mies.` : ''],
+                    ['Status', { ok: 'OK', warning: 'Uwaga', alert: 'Alert', inactive: 'Nieaktywny' }[dataEdit.status] ?? dataEdit.status],
+                    ['Dołączył/a', formatDate(athlete.join_date, { day: 'numeric', month: 'long', year: 'numeric' })],
+                  ] as [string, string][]).map(([label, value]) => (
+                    <div key={label} className="flex justify-between">
+                      <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+                      <span className="font-medium text-right ml-4">{value || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {([
+                    ['Imię i nazwisko', 'name', 'text'],
+                    ['Email', 'email', 'email'],
+                    ['Telefon', 'phone', 'text'],
+                    ['Wiek', 'age', 'number'],
+                    ['Miasto', 'city', 'text'],
+                    ['Cel treningowy', 'goal', 'text'],
+                  ] as const).map(([label, field, type]) => (
+                    <div key={field}>
+                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>{label}</label>
+                      <input
+                        type={type}
+                        value={dataEdit[field]}
+                        onChange={e => setDataEdit(d => ({ ...d, [field]: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl text-sm"
+                        style={inputStyle}
+                      />
+                    </div>
+                  ))}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Pakiet</label>
+                      <select
+                        value={dataEdit.package}
+                        onChange={e => setDataEdit(d => ({ ...d, package: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+                        style={inputStyle}
+                      >
+                        {['Starter', 'Standard', 'Pro'].map(p => <option key={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Cena (zł/mies.)</label>
+                      <input
+                        type="number"
+                        value={dataEdit.package_price}
+                        onChange={e => setDataEdit(d => ({ ...d, package_price: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl text-sm"
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
                   <div>
-                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Pakiet</label>
+                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Status</label>
                     <select
-                      value={dataEdit.package}
-                      onChange={e => setDataEdit(d => ({ ...d, package: e.target.value }))}
+                      value={dataEdit.status}
+                      onChange={e => setDataEdit(d => ({ ...d, status: e.target.value }))}
                       className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
                       style={inputStyle}
                     >
-                      {['Starter', 'Standard', 'Pro'].map(p => <option key={p}>{p}</option>)}
+                      <option value="ok">OK</option>
+                      <option value="warning">Uwaga</option>
+                      <option value="alert">Alert</option>
+                      <option value="inactive">Nieaktywny</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Cena (zł/mies.)</label>
-                    <input
-                      type="number"
-                      value={dataEdit.package_price}
-                      onChange={e => setDataEdit(d => ({ ...d, package_price: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl text-sm"
-                      style={inputStyle}
-                    />
-                  </div>
                 </div>
-                <div>
-                  <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Status</label>
-                  <select
-                    value={dataEdit.status}
-                    onChange={e => setDataEdit(d => ({ ...d, status: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
-                    style={inputStyle}
-                  >
-                    <option value="ok">OK</option>
-                    <option value="warning">Uwaga</option>
-                    <option value="alert">Alert</option>
-                    <option value="inactive">Nieaktywny</option>
-                  </select>
-                </div>
-                <div className="pt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-                  Dołączył/a: {formatDate(athlete.join_date, { day: 'numeric', month: 'long', year: 'numeric' })}
-                </div>
-              </div>
+              )}
             </Card>
+
             <Card className="p-5">
-              <h3 className="font-semibold mb-4">Rekordy życiowe</h3>
-              {Object.entries(athlete.personal_bests || {}).length === 0 ? (
-                <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Brak rekordów</div>
-              ) : (
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Rekordy życiowe</h3>
+                {dataEditing && (
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>format: 3:52:00</span>
+                )}
+              </div>
+
+              {!dataEditing ? (
                 <div className="space-y-3 text-sm">
-                  {Object.entries(athlete.personal_bests || {}).map(([dist, time]) => (
+                  {PB_DISTANCES.map(dist => (
                     <div key={dist} className="flex justify-between">
                       <span style={{ color: 'var(--text-muted)' }}>{dist}</span>
-                      <span className="font-mono font-medium">{time as string}</span>
+                      <span className="font-mono font-medium">{pbEdit[dist] || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {PB_DISTANCES.map(dist => (
+                    <div key={dist}>
+                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>{dist}</label>
+                      <input
+                        value={pbEdit[dist]}
+                        onChange={e => setPbEdit(p => ({ ...p, [dist]: e.target.value }))}
+                        placeholder="np. 22:30"
+                        className="w-full px-3 py-2 rounded-xl text-sm font-mono"
+                        style={inputStyle}
+                      />
                     </div>
                   ))}
                 </div>
               )}
+
               {athlete.injuries && athlete.injuries.length > 0 && (
                 <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
                   <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Kontuzje/historia</div>
