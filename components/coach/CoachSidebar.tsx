@@ -5,13 +5,27 @@ import { usePathname } from 'next/navigation'
 import { logout } from '@/lib/actions/auth'
 import { useTheme } from '@/lib/theme'
 
-const navItems = [
-  { href: '/coach/athletes', icon: '👟', label: 'Zawodnicy' },
-  { href: '/coach/feedback', icon: '📥', label: 'Feedback' },
-  { href: '/coach/invoices', icon: '💳', label: 'Faktury' },
-  { href: '/coach/analytics', icon: '📊', label: 'Analityka' },
-  { href: '/coach/chat', icon: '💬', label: 'Czat' },
+const navSections = [
+  {
+    label: 'Planer treningowy',
+    items: [
+      { href: '/coach/athletes', icon: '👟', label: 'Zawodnicy' },
+      { href: '/coach/feedback', icon: '📥', label: 'Feedback' },
+      { href: '/coach/chat', icon: '💬', label: 'Czat' },
+    ],
+  },
+  {
+    label: 'Biznes',
+    items: [
+      { href: '/coach/invoices', icon: '💳', label: 'Faktury' },
+      { href: '/coach/analytics', icon: '📊', label: 'Analityka' },
+    ],
+  },
+]
+
+const bottomItems = [
   { href: '/coach/settings', icon: '⚙️', label: 'Ustawienia' },
+  { href: '/coach/help', icon: '❓', label: 'Pomoc' },
 ]
 
 interface Props {
@@ -22,12 +36,7 @@ interface Props {
 }
 
 function initials(name: string) {
-  return name
-    .split(' ')
-    .map(w => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
 function planLabel(plan: string) {
@@ -35,8 +44,30 @@ function planLabel(plan: string) {
   return map[plan] ?? plan
 }
 
-export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan }: Props) {
+function NavLink({ href, icon, label, collapsed }: { href: string; icon: string; label: string; collapsed: boolean }) {
   const pathname = usePathname()
+  const isActive = pathname === href || pathname.startsWith(href + '/')
+  return (
+    <Link
+      href={href}
+      className="flex items-center rounded-xl transition-all"
+      style={{
+        gap: collapsed ? '0' : '10px',
+        padding: collapsed ? '10px 0' : '10px 12px',
+        justifyContent: collapsed ? 'center' : undefined,
+        background: isActive ? 'rgba(255,92,27,0.12)' : undefined,
+        color: isActive ? '#FF5C1B' : 'var(--text-muted)',
+        borderLeft: isActive ? '2px solid #FF5C1B' : '2px solid transparent',
+      }}
+      title={collapsed ? label : undefined}
+    >
+      <span className="text-base w-5 text-center shrink-0">{icon}</span>
+      {!collapsed && <span className="text-sm font-medium">{label}</span>}
+    </Link>
+  )
+}
+
+export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan }: Props) {
   const { theme, toggle } = useTheme()
   const w = collapsed ? '64px' : '256px'
   const avatarLetters = initials(coachName)
@@ -70,35 +101,42 @@ export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan }: Prop
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2">
-        <ul className="space-y-0.5">
-          {navItems.map(item => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-            return (
+      <nav className="flex-1 overflow-y-auto py-3 px-2 flex flex-col gap-4">
+        {/* Sections */}
+        <div className="space-y-4">
+          {navSections.map(section => (
+            <div key={section.label}>
+              {!collapsed && (
+                <div className="px-3 mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>
+                  {section.label}
+                </div>
+              )}
+              {collapsed && <div className="border-t mx-2 mb-1" style={{ borderColor: 'var(--border)' }} />}
+              <ul className="space-y-0.5">
+                {section.items.map(item => (
+                  <li key={item.href}>
+                    <NavLink {...item} collapsed={collapsed} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom items: Settings + Help */}
+        <div className="mt-auto">
+          {!collapsed && <div className="border-t mb-2 mx-1" style={{ borderColor: 'var(--border)' }} />}
+          <ul className="space-y-0.5">
+            {bottomItems.map(item => (
               <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="flex items-center rounded-xl transition-all"
-                  style={{
-                    gap: collapsed ? '0' : '10px',
-                    padding: collapsed ? '10px 0' : '10px 12px',
-                    justifyContent: collapsed ? 'center' : undefined,
-                    background: isActive ? 'rgba(255,92,27,0.12)' : undefined,
-                    color: isActive ? '#FF5C1B' : 'var(--text-muted)',
-                    borderLeft: isActive ? '2px solid #FF5C1B' : '2px solid transparent',
-                  }}
-                  title={collapsed ? item.label : undefined}
-                >
-                  <span className="text-base w-5 text-center shrink-0">{item.icon}</span>
-                  {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
-                </Link>
+                <NavLink {...item} collapsed={collapsed} />
               </li>
-            )
-          })}
-        </ul>
+            ))}
+          </ul>
+        </div>
       </nav>
 
-      {/* Footer */}
+      {/* Footer: user + theme + logout */}
       <div className="p-3 border-t shrink-0" style={{ borderColor: 'var(--border)' }}>
         {collapsed ? (
           <div className="flex flex-col items-center gap-2">
