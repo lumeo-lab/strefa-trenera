@@ -3,7 +3,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import { sendPushToUser } from '@/lib/push'
+
+function firePush(userId: string, payload: { title: string; body: string; url: string }) {
+  // Fire-and-forget — błąd push nigdy nie blokuje wysyłania wiadomości
+  import('@/lib/push')
+    .then(({ sendPushToUser }) => sendPushToUser(userId, payload))
+    .catch(() => {})
+}
 
 export async function sendAthleteMessage(athleteId: string, coachId: string, content: string, athleteName: string) {
   const { error } = await adminClient.from('messages').insert({
@@ -14,12 +20,11 @@ export async function sendAthleteMessage(athleteId: string, coachId: string, con
   })
   if (error) return { error: error.message }
 
-  // Push notification to coach
-  await sendPushToUser(coachId, {
+  firePush(coachId, {
     title: `Wiadomość od ${athleteName}`,
     body: content.trim().slice(0, 100),
     url: '/coach/chat',
-  }).catch(() => {})
+  })
 
   return { success: true }
 }
@@ -41,15 +46,13 @@ export async function sendMessage(_: unknown, formData: FormData) {
     sender_type: 'coach',
     content: content.trim(),
   })
-
   if (error) return { error: error.message }
 
-  // Push notification to athlete
-  await sendPushToUser(athleteId, {
+  firePush(athleteId, {
     title: `Wiadomość od ${coachName || 'trenera'}`,
     body: content.trim().slice(0, 100),
-    url: `/u`,
-  }).catch(() => {})
+    url: '/u',
+  })
 
   revalidatePath('/coach/chat')
   return { success: true }
