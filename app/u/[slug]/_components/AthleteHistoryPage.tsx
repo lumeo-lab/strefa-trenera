@@ -75,6 +75,11 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
             Odmówiłeś dostępu do Stravy.
           </div>
         )}
+        {stravaStatus === 'error' && (
+          <div className="px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }}>
+            Błąd połączenia ze Stravą. Sprawdź logi Vercel lub spróbuj ponownie.
+          </div>
+        )}
 
         {/* Connect Strava */}
         {!stravaConnected && (
