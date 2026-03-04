@@ -555,8 +555,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                               {daySessions.slice(0, 3).map(s => (
                                 <div key={s.id} onClick={() => openEditSession(s)}
                                   className={`px-1.5 py-1 rounded-lg cursor-pointer hover:opacity-80 ${intensityColor(s.type)}`}>
-                                  <div className="text-xs font-semibold leading-tight truncate">{s.title}</div>
-                                  {s.description && <div className="text-xs opacity-60 leading-tight truncate mt-0.5">{s.description}</div>}
+                                  <div className="text-xs font-semibold leading-tight">{s.title}</div>
+                                  {s.description && <div className="text-xs opacity-60 leading-tight mt-0.5">{s.description}</div>}
                                   <div className="flex flex-wrap gap-x-2 mt-0.5" style={{ fontSize: '10px', opacity: 0.75 }}>
                                     {s.planned_distance && <span>📏 {s.planned_distance}km</span>}
                                     {s.planned_duration && <span>⏱ {s.planned_duration}min</span>}

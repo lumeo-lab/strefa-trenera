@@ -31,7 +31,7 @@ export function SettingsClient({ email, name, plan }: Props) {
     <div>
       <CoachTopbar title="Ustawienia profilu" subtitle="Zarządzaj swoim kontem" />
 
-      <div className="p-6 max-w-2xl space-y-6">
+      <div className="p-6 max-w-2xl mx-auto space-y-6">
 
         {/* Avatar + plan info */}
         <Card className="p-5">

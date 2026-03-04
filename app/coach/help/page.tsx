@@ -59,7 +59,7 @@ export default function HelpPage() {
     <div>
       <CoachTopbar title="Pomoc" subtitle="FAQ i kontakt" />
 
-      <div className="p-6 max-w-3xl space-y-8">
+      <div className="p-6 max-w-3xl mx-auto space-y-8">
 
         {/* Contact info */}
         <Card className="p-6">
