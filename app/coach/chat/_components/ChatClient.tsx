@@ -36,15 +36,21 @@ export function ChatClient({ athletes, messages, coachId, coachName }: { athlete
 
   async function handleSend() {
     if (!input.trim() || !selectedAthleteId || sending) return
+    const content = input.trim()
     setSending(true)
-    const fd = new FormData()
-    fd.set('athlete_id', selectedAthleteId)
-    fd.set('content', input.trim())
-    fd.set('coach_name', coachName)
-    await sendMessage(null, fd)
     setInput('')
-    setSending(false)
-    startTransition(() => router.refresh())
+    try {
+      const fd = new FormData()
+      fd.set('athlete_id', selectedAthleteId)
+      fd.set('content', content)
+      fd.set('coach_name', coachName)
+      await sendMessage(null, fd)
+      startTransition(() => router.refresh())
+    } catch {
+      setInput(content)
+    } finally {
+      setSending(false)
+    }
   }
 
   if (athletes.length === 0) {

@@ -1,32 +1,34 @@
-import webpush from 'web-push'
 import { adminClient } from '@/lib/supabase/admin'
 
-webpush.setVapidDetails(
-  process.env.VAPID_EMAIL!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-)
-
 export async function sendPushToUser(userId: string, payload: { title: string; body: string; url: string }) {
-  const { data: subs } = await adminClient
-    .from('push_subscriptions')
-    .select('subscription, id')
-    .eq('user_id', userId)
+  try {
+    const webpush = (await import('web-push')).default
 
-  if (!subs?.length) return
+    const pubKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    const privKey = process.env.VAPID_PRIVATE_KEY
+    const email = process.env.VAPID_EMAIL
+    if (!pubKey || !privKey || !email) return
 
-  const results = await Promise.allSettled(
-    subs.map(row =>
-      webpush.sendNotification(row.subscription, JSON.stringify(payload))
-        .catch(async (err) => {
-          // Remove expired/invalid subscriptions
-          if (err.statusCode === 410 || err.statusCode === 404) {
-            await adminClient.from('push_subscriptions').delete().eq('id', row.id)
-          }
-          throw err
-        })
+    webpush.setVapidDetails(email, pubKey, privKey)
+
+    const { data: subs } = await adminClient
+      .from('push_subscriptions')
+      .select('subscription, id')
+      .eq('user_id', userId)
+
+    if (!subs?.length) return
+
+    await Promise.allSettled(
+      subs.map(row =>
+        webpush.sendNotification(row.subscription, JSON.stringify(payload))
+          .catch(async (err: { statusCode?: number }) => {
+            if (err.statusCode === 410 || err.statusCode === 404) {
+              await adminClient.from('push_subscriptions').delete().eq('id', row.id)
+            }
+          })
+      )
     )
-  )
-
-  return results
+  } catch {
+    // Push errors should never break message sending
+  }
 }

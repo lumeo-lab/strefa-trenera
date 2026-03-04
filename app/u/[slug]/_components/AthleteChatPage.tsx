@@ -43,13 +43,17 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
 
   async function handleSend() {
     if (!input.trim() || sending) return
-    setSending(true)
-
     const content = input.trim()
+    setSending(true)
     setInput('')
-    await sendAthleteMessage(athlete.id, athlete.coach_id, content, athlete.name)
-    setSending(false)
-    startTransition(() => router.refresh())
+    try {
+      await sendAthleteMessage(athlete.id, athlete.coach_id, content, athlete.name)
+      startTransition(() => router.refresh())
+    } catch {
+      setInput(content)
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
