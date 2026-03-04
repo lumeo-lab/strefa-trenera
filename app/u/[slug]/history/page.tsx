@@ -5,10 +5,10 @@ import { AthleteHistoryPage } from '../_components/AthleteHistoryPage'
 
 export default async function HistoryPage({ params, searchParams }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ strava?: string }>
+  searchParams: Promise<{ strava?: string; msg?: string }>
 }) {
   const { slug } = await params
-  const { strava } = await searchParams
+  const { strava, msg: stravaMsg } = await searchParams
   const athlete = await getAthleteFromSession(slug)
 
   if (!athlete) redirect(`/u/${slug}`)
@@ -26,6 +26,7 @@ export default async function HistoryPage({ params, searchParams }: {
       stravaConnected={!!stravaConn}
       stravaActivities={stravaActivities ?? []}
       stravaStatus={strava}
+      stravaMsg={stravaMsg}
     />
   )
 }

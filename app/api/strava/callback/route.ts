@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
     .single()
 
   if (athleteErr || !athlete) {
-    console.error('[strava] athlete not found for slug:', slug, athleteErr?.message)
-    return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=error`)
+    const msg = encodeURIComponent('athlete_not_found: ' + (athleteErr?.message ?? 'no row'))
+    return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=error&msg=${msg}`)
   }
 
   // Wymień code na tokeny
@@ -37,8 +37,8 @@ export async function GET(req: NextRequest) {
 
   if (!tokenRes.ok) {
     const body = await tokenRes.text()
-    console.error('[strava] token exchange failed:', tokenRes.status, body)
-    return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=error`)
+    const msg = encodeURIComponent('token_failed: ' + tokenRes.status + ' ' + body.slice(0, 100))
+    return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=error&msg=${msg}`)
   }
 
   const tokens = await tokenRes.json()
@@ -53,8 +53,8 @@ export async function GET(req: NextRequest) {
   }, { onConflict: 'athlete_id' })
 
   if (upsertErr) {
-    console.error('[strava] upsert failed:', upsertErr.message)
-    return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=error`)
+    const msg = encodeURIComponent('upsert_failed: ' + upsertErr.message)
+    return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=error&msg=${msg}`)
   }
 
   // Pobierz aktywności w tle (nie blokuje redirectu)

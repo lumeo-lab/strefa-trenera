@@ -14,6 +14,7 @@ interface Props {
   stravaConnected: boolean
   stravaActivities: DbRow[]
   stravaStatus?: string
+  stravaMsg?: string
 }
 
 function shiftMonth(m: string, d: number): string {
@@ -41,7 +42,7 @@ function formatDuration(seconds: number): string {
   return h > 0 ? `${h}h ${m}min` : `${m} min`
 }
 
-export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaActivities, stravaStatus }: Props) {
+export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaActivities, stravaStatus, stravaMsg }: Props) {
   const currentMonth = new Date().toISOString().slice(0, 7)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [tab, setTab] = useState<'plan' | 'strava'>('plan')
@@ -77,7 +78,8 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
         )}
         {stravaStatus === 'error' && (
           <div className="px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }}>
-            Błąd połączenia ze Stravą. Sprawdź logi Vercel lub spróbuj ponownie.
+            <div className="font-medium">Błąd połączenia ze Stravą</div>
+            {stravaMsg && <div className="mt-1 text-xs opacity-80 break-all">{stravaMsg}</div>}
           </div>
         )}
 
