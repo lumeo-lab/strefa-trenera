@@ -48,16 +48,25 @@ export default function LandingPage() {
             Planer treningowy dla trenerów biegania — plany, feedback zawodników i zarządzanie biznesem w jednym miejscu. Bez Excela i WhatsApp.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
-            <a href="#pricing" className="px-8 py-4 rounded-2xl font-semibold text-white" style={{ background: 'linear-gradient(135deg, #FF5C1B, #FF7A42)' }}>Zacznij 30-dniowy trial za darmo</a>
+            <a href="#pricing" className="px-8 py-4 rounded-2xl font-semibold text-white" style={{ background: 'linear-gradient(135deg, #FF5C1B, #FF7A42)' }}>Zacznij za darmo</a>
             <a href="#features" className="px-8 py-4 rounded-2xl font-semibold" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}>Zobacz jak działa</a>
           </div>
-          <p className="text-sm" style={{ color: '#8A92A8' }}>Bez karty kredytowej · Pełna funkcjonalność planu Pro · Anuluj kiedy chcesz</p>
+          <p className="text-sm" style={{ color: '#8A92A8' }}>Bezpłatnie do 2 zawodników · Bez karty kredytowej · Zacznij w 5 minut</p>
         </div>
+
+        {/* Stats boxes */}
         <div className="max-w-6xl mx-auto px-6 mt-20 grid grid-cols-2 md:grid-cols-4 gap-6">
-          {[['8–12h', 'tygodniowo oszczędza trener'], ['<20s', 'zajmuje feedback zawodnika'], ['1', 'platforma zamiast 5 narzędzi'], ['5', 'integracji zegarków sportowych']].map(([n, l]) => (
-            <div key={n} className="text-center p-6 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          {[
+            { n: '8–12h', l: 'tygodniowo zaoszczędza trener', sub: 'mniej administracji' },
+            { n: '<20s', l: 'zajmuje feedback zawodnika', sub: 'głosem lub tekstem' },
+            { n: '1', l: 'platforma zamiast 5 narzędzi', sub: 'wszystko w jednym miejscu' },
+            { n: '100%', l: 'historii treningowej pod ręką', sub: 'plan vs wykonanie' },
+          ].map(({ n, l, sub }) => (
+            <div key={n} className="text-center p-6 rounded-2xl relative overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: 'linear-gradient(90deg, transparent, #FF5C1B, transparent)' }} />
               <div className="text-3xl font-black mb-1" style={{ color: '#FF5C1B' }}>{n}</div>
-              <div className="text-sm" style={{ color: '#8A92A8' }}>{l}</div>
+              <div className="text-sm font-medium mb-1">{l}</div>
+              <div className="text-xs" style={{ color: '#8A92A8' }}>{sub}</div>
             </div>
           ))}
         </div>
@@ -75,12 +84,24 @@ export default function LandingPage() {
           </div>
           <div className="grid md:grid-cols-3 gap-6 mb-12">
             {[
-              { icon: '💬', t: 'Chaos w komunikacji', d: 'Feedback gubi się w WhatsApp. Trener nie ma historii, zawodnik nie ma nawyku raportowania. Coaching oparty na przeczuciu.' },
-              { icon: '📊', t: 'Brak narzędzi do planowania', d: 'Plany treningowe w Excelu, kopiowane ręcznie. Brak analizy realizacji, porównania plan vs wykonanie.' },
-              { icon: '💸', t: 'Rozproszony biznes', d: 'Faktury, płatności i lista klientów w różnych miejscach. Trener traci 8–12h tygodniowo na administrację.' },
+              {
+                icon: <IconChaos />,
+                t: 'Chaos w komunikacji',
+                d: 'Feedback gubi się w WhatsApp. Trener nie ma historii, zawodnik nie ma nawyku raportowania. Coaching oparty na przeczuciu.',
+              },
+              {
+                icon: <IconPlanning />,
+                t: 'Brak narzędzi do planowania',
+                d: 'Plany treningowe w Excelu, kopiowane ręcznie. Brak analizy realizacji, porównania plan vs wykonanie.',
+              },
+              {
+                icon: <IconBusiness />,
+                t: 'Rozproszony biznes',
+                d: 'Faktury, płatności i lista klientów w różnych miejscach. Trener traci 8–12h tygodniowo na administrację.',
+              },
             ].map(p => (
               <div key={p.t} className="p-8 rounded-2xl" style={{ background: '#161920', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div className="text-4xl mb-4">{p.icon}</div>
+                <div className="mb-5">{p.icon}</div>
                 <h3 className="text-lg font-semibold mb-2">{p.t}</h3>
                 <p className="text-sm" style={{ color: '#8A92A8' }}>{p.d}</p>
               </div>
@@ -135,7 +156,7 @@ export default function LandingPage() {
           <FeatureBlock
             num="02" title="Feedback po treningu" heading={<>Feedback który<br />faktycznie się robi</>}
             desc="Filozofia: feedback działa tylko jeśli danie go jest łatwiejsze niż jego pominięcie. Każda sekunda ponad 20 wydłuża współczynnik pominięcia wykładniczo."
-            points={['Trigger automatyczny po treningu — powiadomienie push zanim zawodnik zdąży zapomnieć', 'Feedback głosowy w 15–30 sekund — nagraj krótką notatkę po biegu', 'Samopoczucie, ból, zmęczenie, trudność zapisane w jednym miejscu', 'Trener widzi sygnał (zielony/żółty/czerwony) bez otwierania profilu', 'Automatyczny raport gdy brak feedbacku — dane z zegarka zawsze są']}
+            points={['Trigger automatyczny po treningu — powiadomienie push zanim zawodnik zdąży zapomnieć', 'Feedback głosowy w 15–30 sekund — nagraj krótką notatkę po biegu', 'Samopoczucie, ból, zmęczenie, trudność zapisane w jednym miejscu', 'Trener widzi sygnał (zielony/żółty/czerwony) bez otwierania profilu', 'Link z zegarka (Garmin, Strava) bezpośrednio przy treningu']}
             visual={<MockupFeedback />}
             reverse
           />
@@ -158,8 +179,8 @@ export default function LandingPage() {
           </div>
           <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6">
             {[
-              ['01', 'Załóż konto trenera', '30-dniowy trial z pełną funkcjonalnością planu Pro. Bez karty kredytowej.'],
-              ['02', 'Zaproś zawodników', 'Wpisz e-mail, kliknij "Zaproś". Zawodnik dostaje link i łączy zegarek.'],
+              ['01', 'Załóż konto trenera', 'Rejestracja zajmuje minutę. Bez karty kredytowej — zacznij bezpłatnie.'],
+              ['02', 'Zaproś zawodników', 'Wpisz e-mail, kliknij "Zaproś". Zawodnik dostaje link i od razu ma dostęp do swojego panelu.'],
               ['03', 'Stwórz pierwsze plany', 'Zaplanuj tydzień treningowy w kalendarzu. Skorzystaj z gotowych szablonów.'],
               ['04', 'Odbieraj feedback zawodników', 'Zawodnik daje feedback głosowo w 20 sekund. Trener widzi sygnał bez otwierania profilu.'],
             ].map(([n, t, d]) => (
@@ -173,37 +194,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Integrations */}
-      <section id="integrations" className="py-24">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <SectionBadge>Integracje</SectionBadge>
-            <h2 className="font-bold tracking-tight mb-4 mt-4" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)' }}>Pracuje z narzędziami,<br />które już masz</h2>
-            <p style={{ color: '#8A92A8' }}>Zawodnik łączy zegarek raz. Potem synchronizacja działa automatycznie w tle.</p>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[
-              ['⌚', 'Garmin Connect', 'Krytyczna', '#2ECC71'],
-              ['🟠', 'Strava', 'Krytyczna', '#2ECC71'],
-              ['🍎', 'Apple Health', 'Wysoki', '#3498DB'],
-              ['🔵', 'Polar Flow', 'Wysoki', '#3498DB'],
-              ['🔺', 'Suunto App', 'Średni', '#F1C40F'],
-              ['💳', 'Przelewy24', 'Płatności PL', '#2ECC71'],
-              ['💜', 'Stripe', 'Płatności INT', '#3498DB'],
-              ['📅', 'Google Calendar', 'Synchronizacja', '#3498DB'],
-            ].map(([logo, name, priority, color]) => (
-              <div key={name} className="p-5 rounded-xl text-center" style={{ background: '#161920', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div className="text-3xl mb-2">{logo}</div>
-                <div className="font-medium text-sm mb-1">{name}</div>
-                <div className="text-xs px-2 py-0.5 rounded-full inline-block" style={{ background: `${color}20`, color }}>{priority}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Comparison */}
-      <section id="comparison" className="py-24" style={{ background: '#0a0b10' }}>
+      <section id="comparison" className="py-24">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <SectionBadge>Porównanie</SectionBadge>
@@ -248,12 +240,12 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="py-24">
+      <section id="pricing" className="py-24" style={{ background: '#0a0b10' }}>
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
             <SectionBadge>Cennik</SectionBadge>
-            <h2 className="font-bold tracking-tight mb-4 mt-4" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)' }}>Płaci trener.<br />Zawodnicy za darmo.</h2>
-            <p style={{ color: '#8A92A8' }}>Liczba zawodników determinuje plan. Bez limitu treningów, feedbacków i faktur.</p>
+            <h2 className="font-bold tracking-tight mb-4 mt-4" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)' }}>Zacznij bezpłatnie,<br />skaluj kiedy chcesz.</h2>
+            <p style={{ color: '#8A92A8' }}>Do 2 zawodników zawsze za darmo. Płacisz dopiero gdy naprawdę potrzebujesz więcej.</p>
           </div>
           <div className="flex items-center justify-center gap-4 mb-12">
             <span className="text-sm font-medium" style={{ color: !isYearly ? '#E8EAF0' : '#8A92A8' }}>Miesięcznie</span>
@@ -265,36 +257,44 @@ export default function LandingPage() {
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { name: 'Starter', desc: 'Dla trenerów stawiających pierwsze kroki online', price: prices.starter, athletes: 'do 15 zawodników', features: ['Planer treningowy z kalendarzem', 'Feedback głosowy i tekstowy', 'Czat z zawodnikami', 'Fakturowanie podstawowe', 'Integracje zegarków (Garmin, Strava)'], featured: false },
-              { name: 'Pro', desc: 'Dla aktywnych trenerów z rosnącą bazą zawodników', price: prices.pro, athletes: 'do 50 zawodników', features: ['Wszystko ze Starter', 'CRM z listą klientów', 'Analityka retencji i alerty', 'Szablony i automatyzacje', 'Auto-przypomnienia płatności', 'Broadcast do grup zawodników'], featured: true },
-              { name: 'Studio', desc: 'Dla dużych trenerów i małych akademii biegowych', price: prices.studio, athletes: 'do 150 zawodników', features: ['Wszystko z Pro', 'Biały label (własne logo)', 'Priorytetowe wsparcie', 'Dostęp do API', 'Eksport danych', 'Zaawansowana analityka'], featured: false },
-              { name: 'Enterprise', desc: 'Dla federacji, akademii i dużych organizacji', price: null, athletes: '150+ zawodników', features: ['Wszystko ze Studio', 'Dedykowane SLA', 'Wdrożenie i szkolenie', 'Własny serwer (on-premise)', 'Dedykowany account manager'], featured: false },
+              { name: 'Bezpłatny', desc: 'Na start — bez żadnych zobowiązań', price: 0, athletes: 'do 2 zawodników', features: ['Planer treningowy z kalendarzem', 'Feedback głosowy i tekstowy', 'Czat z zawodnikami', 'Profil zawodnika'], featured: false, free: true },
+              { name: 'Starter', desc: 'Dla trenerów stawiających pierwsze kroki online', price: prices.starter, athletes: 'do 15 zawodników', features: ['Wszystko z planu Bezpłatnego', 'Nieograniczona liczba treningów', 'Fakturowanie podstawowe', 'Historia i analityka'], featured: false, free: false },
+              { name: 'Pro', desc: 'Dla aktywnych trenerów z rosnącą bazą zawodników', price: prices.pro, athletes: 'do 50 zawodników', features: ['Wszystko ze Starter', 'CRM z listą klientów', 'Analityka retencji i alerty', 'Szablony i automatyzacje', 'Auto-przypomnienia płatności', 'Broadcast do grup zawodników'], featured: true, free: false },
+              { name: 'Studio', desc: 'Dla dużych trenerów i małych akademii biegowych', price: prices.studio, athletes: 'do 150 zawodników', features: ['Wszystko z Pro', 'Biały label (własne logo)', 'Priorytetowe wsparcie', 'Dostęp do API', 'Eksport danych', 'Zaawansowana analityka'], featured: false, free: false },
             ].map(plan => (
               <div key={plan.name} className="p-6 rounded-2xl relative" style={{ background: plan.featured ? 'rgba(255,92,27,0.08)' : '#161920', border: plan.featured ? '2px solid rgba(255,92,27,0.4)' : '1px solid rgba(255,255,255,0.07)' }}>
                 {plan.featured && <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold text-white" style={{ background: '#FF5C1B' }}>Najpopularniejszy</div>}
                 <div className="font-bold text-lg mb-1">{plan.name}</div>
                 <div className="text-xs mb-4" style={{ color: '#8A92A8' }}>{plan.desc}</div>
                 <div className="mb-1">
-                  {plan.price ? <><span className="text-4xl font-black">{plan.price}</span><span style={{ color: '#8A92A8' }}> zł/mies.</span></> : <span className="text-2xl font-black">Wycena</span>}
+                  {plan.free
+                    ? <><span className="text-4xl font-black">0</span><span style={{ color: '#8A92A8' }}> zł/mies.</span></>
+                    : <><span className="text-4xl font-black">{plan.price}</span><span style={{ color: '#8A92A8' }}> zł/mies.</span></>
+                  }
                 </div>
                 <div className="text-xs mb-6" style={{ color: '#8A92A8' }}>{plan.athletes}</div>
                 <ul className="space-y-2 mb-6">
                   {plan.features.map(f => <li key={f} className="flex items-start gap-2 text-sm" style={{ color: '#8A92A8' }}><span className="text-green-400 shrink-0">✓</span>{f}</li>)}
                 </ul>
-                <a href="#" className="block text-center py-3 rounded-xl font-semibold text-sm transition-all" style={{ background: plan.featured ? '#FF5C1B' : 'rgba(255,255,255,0.08)', border: plan.featured ? 'none' : '1px solid rgba(255,255,255,0.1)', color: plan.featured ? 'white' : '#E8EAF0' }}>
-                  {plan.name === 'Enterprise' ? 'Skontaktuj się' : 'Zacznij za darmo'}
-                </a>
+                <Link href="/register" className="block text-center py-3 rounded-xl font-semibold text-sm transition-all" style={{ background: plan.featured ? '#FF5C1B' : 'rgba(255,255,255,0.08)', border: plan.featured ? 'none' : '1px solid rgba(255,255,255,0.1)', color: plan.featured ? 'white' : '#E8EAF0' }}>
+                  Zacznij za darmo
+                </Link>
               </div>
             ))}
           </div>
+          <div className="mt-6 p-5 rounded-2xl text-center" style={{ background: '#161920', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <span className="font-semibold">Enterprise</span>
+            <span className="text-sm ml-3" style={{ color: '#8A92A8' }}>150+ zawodników · Federacje i akademie biegowe · Dedykowane SLA · Własny serwer</span>
+            <a href="mailto:kontakt@strefa-trenera.pl" className="ml-4 text-sm font-medium" style={{ color: '#FF5C1B' }}>Skontaktuj się →</a>
+          </div>
           <p className="text-center text-sm mt-8" style={{ color: '#8A92A8' }}>
-            ✓ 30-dniowy bezpłatny trial z pełną funkcjonalnością planu Pro &nbsp;·&nbsp; ✓ Bez karty kredytowej &nbsp;·&nbsp; ✓ Anuluj kiedy chcesz
+            ✓ Bezpłatnie do 2 zawodników &nbsp;·&nbsp; ✓ Bez karty kredytowej &nbsp;·&nbsp; ✓ Zacznij w 5 minut
           </p>
         </div>
       </section>
 
       {/* Testimonials */}
-      <section id="testimonials" className="py-24" style={{ background: '#0a0b10' }}>
+      <section id="testimonials" className="py-24">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <SectionBadge>Opinie trenerów</SectionBadge>
@@ -323,19 +323,19 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-24">
+      <section className="py-24" style={{ background: '#0a0b10' }}>
         <div className="max-w-3xl mx-auto px-6 text-center">
           <div className="p-12 rounded-3xl" style={{ background: 'linear-gradient(135deg, rgba(255,92,27,0.1), rgba(255,92,27,0.05))', border: '1px solid rgba(255,92,27,0.2)' }}>
             <SectionBadge>Zacznij dziś</SectionBadge>
             <h2 className="font-bold mb-4 mt-6" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)' }}>
               Miej więcej czasu na coaching.<br /><GradText>Zacznij prowadzić, nie administrować.</GradText>
             </h2>
-            <p className="mb-8" style={{ color: '#8A92A8' }}>30-dniowy trial z pełną funkcjonalnością. Zapraszaj zawodników od pierwszego dnia.</p>
+            <p className="mb-8" style={{ color: '#8A92A8' }}>Bezpłatnie do 2 zawodników. Zaproś pierwszych zawodników i zacznij pracować już dziś.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="#pricing" className="px-8 py-4 rounded-2xl font-semibold text-white" style={{ background: 'linear-gradient(135deg, #FF5C1B, #FF7A42)', fontSize: '1.05rem' }}>Zacznij 30-dniowy trial za darmo</a>
+              <Link href="/register" className="px-8 py-4 rounded-2xl font-semibold text-white" style={{ background: 'linear-gradient(135deg, #FF5C1B, #FF7A42)', fontSize: '1.05rem' }}>Zacznij za darmo</Link>
               <a href="#features" className="px-8 py-4 rounded-2xl font-semibold" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}>Dowiedz się więcej</a>
             </div>
-            <p className="text-sm mt-4" style={{ color: '#8A92A8' }}>Bez karty kredytowej · Pełna funkcjonalność Pro · Anuluj kiedy chcesz</p>
+            <p className="text-sm mt-4" style={{ color: '#8A92A8' }}>Bez karty kredytowej · Konfiguracja w 5 minut</p>
           </div>
         </div>
       </section>
@@ -345,11 +345,11 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
             <div className="col-span-2 md:col-span-1">
-              <div className="text-xl font-black mb-4">Coach<span style={{ color: '#FF5C1B' }}>Biz</span></div>
+              <div className="text-xl font-black mb-4">Strefa<span style={{ color: '#FF5C1B' }}> Trenera</span></div>
               <p className="text-sm" style={{ color: '#8A92A8' }}>Platforma łącząca trenerów biegania i zawodników — planer, feedback i biznes w jednym miejscu.</p>
             </div>
             {[
-              { t: 'Produkt', l: ['Planer treningowy', 'Moduł feedbacku', 'Moduł biznesowy', 'Integracje', 'Cennik'] },
+              { t: 'Produkt', l: ['Planer treningowy', 'Moduł feedbacku', 'Moduł biznesowy', 'Cennik'] },
               { t: 'Firma', l: ['O nas', 'Blog', 'Kontakt', 'Kariera'] },
               { t: 'Wsparcie', l: ['Centrum pomocy', 'Dokumentacja API', 'Status systemu', 'Polityka prywatności', 'Regulamin'] },
             ].map(col => (
@@ -369,6 +369,58 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+// SVG Icons for Problem section
+function IconChaos() {
+  return (
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+      <rect x="4" y="6" width="24" height="16" rx="5" fill="rgba(255,92,27,0.15)" stroke="#FF5C1B" strokeWidth="1.5"/>
+      <rect x="36" y="14" width="24" height="16" rx="5" fill="rgba(52,152,219,0.15)" stroke="#3498DB" strokeWidth="1.5"/>
+      <rect x="10" y="40" width="24" height="16" rx="5" fill="rgba(155,89,182,0.15)" stroke="#9B59B6" strokeWidth="1.5"/>
+      <path d="M28 14 L36 22" stroke="#8A92A8" strokeWidth="1.5" strokeDasharray="3 3"/>
+      <path d="M22 40 L40 30" stroke="#8A92A8" strokeWidth="1.5" strokeDasharray="3 3"/>
+      <path d="M48 30 L34 40" stroke="#8A92A8" strokeWidth="1.5" strokeDasharray="3 3"/>
+      <circle cx="48" cy="44" r="6" fill="rgba(241,196,15,0.15)" stroke="#F1C40F" strokeWidth="1.5"/>
+      <line x1="46" y1="42" x2="50" y2="46" stroke="#F1C40F" strokeWidth="1.5"/>
+      <line x1="50" y1="42" x2="46" y2="46" stroke="#F1C40F" strokeWidth="1.5"/>
+    </svg>
+  )
+}
+
+function IconPlanning() {
+  return (
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+      <rect x="6" y="10" width="52" height="44" rx="4" fill="rgba(46,204,113,0.06)" stroke="rgba(46,204,113,0.3)" strokeWidth="1.5"/>
+      <line x1="6" y1="22" x2="58" y2="22" stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
+      <line x1="6" y1="34" x2="58" y2="34" stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
+      <line x1="6" y1="46" x2="58" y2="46" stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
+      <line x1="22" y1="10" x2="22" y2="54" stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
+      <line x1="40" y1="10" x2="40" y2="54" stroke="rgba(255,255,255,0.08)" strokeWidth="1"/>
+      <rect x="10" y="14" width="8" height="4" rx="1" fill="#2ECC71" opacity="0.5"/>
+      <rect x="26" y="26" width="10" height="4" rx="1" fill="#FF5C1B" opacity="0.5"/>
+      <rect x="44" y="38" width="8" height="4" rx="1" fill="#2ECC71" opacity="0.5"/>
+      <circle cx="50" cy="16" r="8" fill="#161920" stroke="#E74C3C" strokeWidth="1.5"/>
+      <line x1="47" y1="13" x2="53" y2="19" stroke="#E74C3C" strokeWidth="2"/>
+      <line x1="53" y1="13" x2="47" y2="19" stroke="#E74C3C" strokeWidth="2"/>
+    </svg>
+  )
+}
+
+function IconBusiness() {
+  return (
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+      <circle cx="12" cy="12" r="6" fill="rgba(255,92,27,0.15)" stroke="#FF5C1B" strokeWidth="1.5"/>
+      <circle cx="52" cy="18" r="5" fill="rgba(52,152,219,0.15)" stroke="#3498DB" strokeWidth="1.5"/>
+      <circle cx="20" cy="48" r="7" fill="rgba(241,196,15,0.15)" stroke="#F1C40F" strokeWidth="1.5"/>
+      <circle cx="50" cy="50" r="5" fill="rgba(155,89,182,0.15)" stroke="#9B59B6" strokeWidth="1.5"/>
+      <circle cx="34" cy="30" r="9" fill="rgba(46,204,113,0.08)" stroke="rgba(46,204,113,0.3)" strokeWidth="1.5" strokeDasharray="3 3"/>
+      <path d="M18 12 L30 26" stroke="#8A92A8" strokeWidth="1" strokeDasharray="2 2" opacity="0.5"/>
+      <path d="M47 20 L38 26" stroke="#8A92A8" strokeWidth="1" strokeDasharray="2 2" opacity="0.5"/>
+      <path d="M26 44 L30 36" stroke="#8A92A8" strokeWidth="1" strokeDasharray="2 2" opacity="0.5"/>
+      <path d="M46 47 L40 34" stroke="#8A92A8" strokeWidth="1" strokeDasharray="2 2" opacity="0.5"/>
+    </svg>
   )
 }
 

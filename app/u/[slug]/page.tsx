@@ -74,14 +74,20 @@ export default async function SlugPage({ params, searchParams }: Props) {
     .gte('date', rangeStart.toISOString().split('T')[0])
     .lte('date', rangeEnd.toISOString().split('T')[0])
 
-  // one feedback row per day (latest wins if duplicates exist from previous implementation)
-  const feedbacks = Object.fromEntries((feedbacksArr ?? []).map(f => [f.date, f]))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type DbRow = Record<string, any>
+  const feedbacksByDate: Record<string, { text: DbRow | null; voice: DbRow | null }> = {}
+  for (const fb of feedbacksArr ?? []) {
+    if (!feedbacksByDate[fb.date]) feedbacksByDate[fb.date] = { text: null, voice: null }
+    if (fb.source === 'voice') feedbacksByDate[fb.date].voice = fb
+    else feedbacksByDate[fb.date].text = fb
+  }
 
   return (
     <AthleteTodayPage
       athlete={athlete}
       sessions={sessions ?? []}
-      feedbacks={feedbacks}
+      feedbacks={feedbacksByDate}
       today={today}
     />
   )
