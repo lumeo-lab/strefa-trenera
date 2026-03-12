@@ -59,6 +59,7 @@ interface FeedbackData {
   intensity?: string
   notes?: string
   voiceTranscript?: string
+  watchLink?: string
 }
 
 function parseTranscript(t: string): FeedbackData {
@@ -75,10 +76,9 @@ function parseTranscript(t: string): FeedbackData {
 }
 
 function dbRowToFeedback(fb: DbRow): FeedbackData {
-  // ai_analysis = voice transcript (new); fallback: transcript for old voice-only rows
   const voice = fb.ai_analysis || (fb.source === 'voice' ? fb.transcript : '') || ''
   const textSummary = fb.source !== 'voice' ? (fb.transcript ?? '') : ''
-  return { ...parseTranscript(textSummary), voiceTranscript: voice || undefined }
+  return { ...parseTranscript(textSummary), voiceTranscript: voice || undefined, watchLink: fb.watch_link || undefined }
 }
 
 function FeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit: () => void }) {
@@ -108,6 +108,13 @@ function FeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit: ()
           {feedback.notes && <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>"{feedback.notes}"</p>}
         </div>
       )}
+      {feedback.watchLink && (
+        <a href={feedback.watchLink} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-2 text-sm mt-2"
+          style={{ color: '#FF5C1B' }}>
+          ⌚ <span className="underline truncate">{feedback.watchLink}</span>
+        </a>
+      )}
       {feedback.voiceTranscript && (
         <p className="text-sm italic"
           style={{ color: 'var(--text-muted)', marginTop: hasText ? '10px' : '0', paddingTop: hasText ? '10px' : '0', borderTop: hasText ? '1px solid var(--border)' : 'none' }}>
@@ -131,6 +138,7 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
   const [durationMin, setDurationMin] = useState('')
   const [intensity, setIntensity] = useState('')
   const [notes, setNotes] = useState('')
+  const [watchLink, setWatchLink] = useState('')
   const [recording, setRecording] = useState(false)
   const [recorded, setRecorded] = useState(false)
   const [voiceTranscript, setVoiceTranscript] = useState('')
@@ -166,12 +174,13 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
       setDurationMin(fd.durationMin ?? '')
       setIntensity(fd.intensity ?? '')
       setNotes(fd.notes ?? '')
+      setWatchLink(fd.watchLink ?? '')
       setVoiceTranscript(fd.voiceTranscript ?? '')
       setRecorded(!!(fd.voiceTranscript))
     } else {
       setFeeling(''); setTrainingType(''); setDistanceKm('')
       setDurationMin(''); setIntensity(''); setNotes('')
-      setVoiceTranscript('')
+      setWatchLink(''); setVoiceTranscript('')
       setRecorded(false)
     }
     setFeedbackOpen(true)
@@ -192,6 +201,7 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
     fd.set('intensity', intensity)
     fd.set('notes', notes)
     fd.set('voice_transcript', voiceTranscript)
+    fd.set('watch_link', watchLink)
     if (daySession?.id) fd.set('session_id', daySession.id)
 
     let result
@@ -204,7 +214,7 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
     setSubmitting(false)
     if (result?.error) { alert('Błąd zapisu: ' + result.error); return }
 
-    setOptimisticFeedback({ feeling, trainingType, distanceKm, durationMin, intensity, notes, voiceTranscript: voiceTranscript || undefined })
+    setOptimisticFeedback({ feeling, trainingType, distanceKm, durationMin, intensity, notes, watchLink: watchLink || undefined, voiceTranscript: voiceTranscript || undefined })
     setFeedbackOpen(false)
     setRecorded(false)
     setVoiceTranscript('')
@@ -248,7 +258,7 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
 
   function stopRecord() { recognitionRef.current?.stop() }
 
-  const canSave = !!(feeling || trainingType || distanceKm || durationMin || intensity || notes.trim() || voiceTranscript.trim())
+  const canSave = !!(feeling || trainingType || distanceKm || durationMin || intensity || notes.trim() || watchLink.trim() || voiceTranscript.trim())
 
   const modalFooter = (
     <Button className="w-full" onClick={submitFeedback} disabled={!canSave || submitting}>
@@ -471,6 +481,19 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
             <textarea value={notes} onChange={e => setNotes(e.target.value)}
               placeholder="Jak poszedł trening?" rows={2}
               className="w-full px-3 py-2.5 rounded-xl text-sm resize-none" style={INPUT_STYLE} />
+          </div>
+
+          {/* Watch link */}
+          <div>
+            <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>⌚ Link z zegarka (opcjonalnie)</label>
+            <input
+              type="url"
+              value={watchLink}
+              onChange={e => setWatchLink(e.target.value)}
+              placeholder="np. https://connect.garmin.com/..."
+              className="w-full px-3 py-2.5 rounded-xl text-sm"
+              style={INPUT_STYLE}
+            />
           </div>
 
           {/* Voice section divider */}

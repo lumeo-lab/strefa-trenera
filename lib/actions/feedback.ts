@@ -39,7 +39,9 @@ function buildFeedbackFields(formData: FormData) {
     ? `${feeling} — ${intensity || trainingType || 'trening'}`
     : (trainingType || (hasVoice ? 'Feedback głosowy' : 'Feedback'))
 
-  return { source, signal, transcript, ai_analysis: voiceTranscript, ai_summary: aiSummary }
+  const watchLink = (formData.get('watch_link') as string || '').trim() || null
+
+  return { source, signal, transcript, ai_analysis: voiceTranscript, ai_summary: aiSummary, watch_link: watchLink }
 }
 
 export async function createFeedback(formData: FormData) {
