@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logout } from '@/lib/actions/auth'
+import { Logo, LogoMark } from '@/components/ui/Logo'
 
 const navSections = [
   {
@@ -77,14 +78,14 @@ export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan }: Prop
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-5 border-b shrink-0" style={{ borderColor: 'var(--border)', minHeight: '72px' }}>
         {!collapsed && (
-          <Link href="/" className="text-lg font-black tracking-tight leading-tight" style={{ color: 'var(--text-primary)' }}>
-            Strefa<span style={{ color: '#FF5C1B' }}> Trenera</span>
-            <div className="text-xs font-normal mt-0.5" style={{ color: 'var(--text-muted)' }}>Panel trenera</div>
+          <Link href="/" className="flex flex-col gap-1.5">
+            <Logo size="sm" />
+            <div className="text-xs font-normal pl-0.5" style={{ color: 'var(--text-muted)' }}>Panel trenera</div>
           </Link>
         )}
         {collapsed && (
           <div className="w-full flex justify-center">
-            <span className="text-lg font-black" style={{ color: '#FF5C1B' }}>ST</span>
+            <LogoMark size={26} />
           </div>
         )}
         <button

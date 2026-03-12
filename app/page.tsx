@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { Logo } from '@/components/ui/Logo'
 
 export default function LandingPage() {
   const [isYearly, setIsYearly] = useState(false)
@@ -20,7 +21,7 @@ export default function LandingPage() {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all ${navScrolled ? 'py-2.5' : 'py-4'}`}
         style={{ background: 'rgba(13,15,20,0.9)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
-          <a href="#" className="text-xl font-black tracking-tight">Strefa<span style={{ color: '#FF5C1B' }}> Trenera</span></a>
+          <a href="#"><Logo size="md" /></a>
           <ul className="hidden md:flex items-center gap-8 text-sm" style={{ color: '#8A92A8' }}>
             {[['#features', 'Funkcje'], ['#comparison', 'Porównanie'], ['#pricing', 'Cennik'], ['#how', 'Jak zacząć']].map(([href, label]) => (
               <li key={href}><a href={href} className="hover:text-white transition-colors">{label}</a></li>
@@ -345,7 +346,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
             <div className="col-span-2 md:col-span-1">
-              <div className="text-xl font-black mb-4">Strefa<span style={{ color: '#FF5C1B' }}> Trenera</span></div>
+              <div className="mb-4"><Logo size="md" /></div>
               <p className="text-sm" style={{ color: '#8A92A8' }}>Platforma łącząca trenerów biegania i zawodników — planer, feedback i biznes w jednym miejscu.</p>
             </div>
             {[

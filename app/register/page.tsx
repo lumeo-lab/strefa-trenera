@@ -3,6 +3,7 @@
 import { useActionState } from 'react'
 import { register } from '@/lib/actions/auth'
 import Link from 'next/link'
+import { Logo } from '@/components/ui/Logo'
 
 export default function RegisterPage() {
   const [state, formAction, pending] = useActionState(register, null)
@@ -13,14 +14,9 @@ export default function RegisterPage() {
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ width: '52px', height: '52px', background: 'var(--orange)', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" style={{ width: '26px', height: '26px' }}>
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '14px' }}>
+            <Logo size="xl" />
           </div>
-          <h1 style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.5px' }}>
-            Strefa<span style={{ color: 'var(--orange)' }}> Trenera</span>
-          </h1>
           <p style={{ color: 'var(--text-muted)', marginTop: '6px', fontSize: '14px' }}>
             Dołącz bezpłatnie — zacznij w 60 sekund
           </p>
