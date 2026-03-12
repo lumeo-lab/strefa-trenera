@@ -59,7 +59,7 @@ export default function LandingPage() {
           {[
             { n: '8–12h', l: 'tygodniowo zaoszczędza trener', sub: 'mniej administracji' },
             { n: '<20s', l: 'zajmuje feedback zawodnika', sub: 'głosem lub tekstem' },
-            { n: '1', l: 'platforma zamiast 5 narzędzi', sub: 'wszystko w jednym miejscu' },
+            { n: '1 system', l: 'zamiast 5 narzędzi', sub: 'wszystko w jednym miejscu' },
             { n: '100%', l: 'historii treningowej pod ręką', sub: 'plan vs wykonanie' },
           ].map(({ n, l, sub }) => (
             <div key={n} className="text-center p-6 rounded-2xl relative overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -101,7 +101,7 @@ export default function LandingPage() {
               },
             ].map(p => (
               <div key={p.t} className="p-8 rounded-2xl" style={{ background: '#161920', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div className="mb-5">{p.icon}</div>
+                <div className="mb-5 flex justify-center">{p.icon}</div>
                 <h3 className="text-lg font-semibold mb-2">{p.t}</h3>
                 <p className="text-sm" style={{ color: '#8A92A8' }}>{p.d}</p>
               </div>
@@ -258,8 +258,8 @@ export default function LandingPage() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { name: 'Bezpłatny', desc: 'Na start — bez żadnych zobowiązań', price: 0, athletes: 'do 2 zawodników', features: ['Planer treningowy z kalendarzem', 'Feedback głosowy i tekstowy', 'Czat z zawodnikami', 'Profil zawodnika'], featured: false, free: true },
-              { name: 'Starter', desc: 'Dla trenerów stawiających pierwsze kroki online', price: prices.starter, athletes: 'do 15 zawodników', features: ['Wszystko z planu Bezpłatnego', 'Nieograniczona liczba treningów', 'Fakturowanie podstawowe', 'Historia i analityka'], featured: false, free: false },
-              { name: 'Pro', desc: 'Dla aktywnych trenerów z rosnącą bazą zawodników', price: prices.pro, athletes: 'do 50 zawodników', features: ['Wszystko ze Starter', 'CRM z listą klientów', 'Analityka retencji i alerty', 'Szablony i automatyzacje', 'Auto-przypomnienia płatności', 'Broadcast do grup zawodników'], featured: true, free: false },
+              { name: 'Starter', desc: 'Dla trenerów stawiających pierwsze kroki online', price: prices.starter, athletes: 'do 15 zawodników', features: ['Wszystko z planu Bezpłatnego', 'Nieograniczona liczba treningów', 'Fakturowanie podstawowe', 'Historia i analityka'], featured: true, free: false },
+              { name: 'Pro', desc: 'Dla aktywnych trenerów z rosnącą bazą zawodników', price: prices.pro, athletes: 'do 50 zawodników', features: ['Wszystko ze Starter', 'CRM z listą klientów', 'Analityka retencji i alerty', 'Szablony i automatyzacje', 'Auto-przypomnienia płatności', 'Broadcast do grup zawodników'], featured: false, free: false },
               { name: 'Studio', desc: 'Dla dużych trenerów i małych akademii biegowych', price: prices.studio, athletes: 'do 150 zawodników', features: ['Wszystko z Pro', 'Biały label (własne logo)', 'Priorytetowe wsparcie', 'Dostęp do API', 'Eksport danych', 'Zaawansowana analityka'], featured: false, free: false },
             ].map(plan => (
               <div key={plan.name} className="p-6 rounded-2xl relative" style={{ background: plan.featured ? 'rgba(255,92,27,0.08)' : '#161920', border: plan.featured ? '2px solid rgba(255,92,27,0.4)' : '1px solid rgba(255,255,255,0.07)' }}>
