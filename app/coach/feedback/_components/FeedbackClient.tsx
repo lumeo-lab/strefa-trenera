@@ -12,8 +12,22 @@ import { replyFeedback, markFeedbackRead } from '@/lib/actions/feedback'
 
 type Filter = 'all' | 'today' | 'unread' | 'alert'
 
-const sourceIcon: Record<string, string> = { voice: '🎤', text: '✏️', auto: '⌚' }
-const sourceLabel: Record<string, string> = { voice: 'Głosówka', text: 'Tekst', auto: 'Auto (zegarek)' }
+const FEELING_LABEL: Record<string, string> = {
+  '😫': 'Fatalnie', '😕': 'Słabo', '😐': 'Średnio', '😊': 'Dobrze', '🤩': 'Świetnie',
+}
+
+function parseTranscript(transcript: string) {
+  const result: Record<string, string> = {}
+  for (const part of (transcript ?? '').split(' | ')) {
+    if (part.startsWith('Samopoczucie: ')) result.feeling = part.slice(14)
+    else if (part.startsWith('Typ: ')) result.trainingType = part.slice(5)
+    else if (part.startsWith('Dystans: ')) result.distance = part.slice(9)
+    else if (part.startsWith('Czas: ')) result.duration = part.slice(6)
+    else if (part.startsWith('Intensywność: ')) result.intensity = part.slice(14)
+    else if (part.startsWith('Notatka: ')) result.notes = part.slice(9)
+  }
+  return result
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: any[] }) {
@@ -86,70 +100,130 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: any
         {/* Feed */}
         <div className="space-y-3">
           {filtered.length === 0 && (
-            <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>Brak feedbacków w tej kategorii</div>
+            <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
+              Brak feedbacków w tej kategorii
+            </div>
           )}
+
           {filtered.map(fb => {
             const athlete = fb.athletes
             const session = fb.training_sessions
             const isExpanded = expandedId === fb.id
             const isReplying = replyingId === fb.id
+            const isVoice = fb.source === 'voice'
+            const parsed = !isVoice ? parseTranscript(fb.transcript ?? '') : {}
+            const hasContent = isVoice
+              ? !!fb.ai_analysis
+              : !!(parsed.feeling || parsed.trainingType || parsed.distance || parsed.duration || parsed.intensity || parsed.notes)
 
             return (
               <Card key={fb.id} className={`overflow-hidden border-l-4 ${signalColor(fb.signal)} ${!fb.read ? 'ring-1 ring-white/5' : ''}`}>
                 <div className="p-4">
                   <div className="flex items-start gap-3">
                     <Avatar initials={athlete?.avatar || '?'} size="sm" />
+
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      {/* Name row */}
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                         <span className="font-semibold text-sm">{athlete?.name}</span>
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{sourceIcon[fb.source]} {sourceLabel[fb.source]}</span>
                         {!fb.read && <Badge variant="orange">Nowy</Badge>}
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${signalBg(fb.signal)}`}>
-                          {fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'} {fb.ai_summary}
-                        </span>
+                        {fb.ai_summary && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${signalBg(fb.signal)}`}>
+                            {fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'} {fb.ai_summary}
+                          </span>
+                        )}
+                        {fb.coach_reply && (
+                          <span className="text-xs" style={{ color: '#2ECC71' }}>✓ Odpowiedziano</span>
+                        )}
                       </div>
-                      {session && <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{session.title} · {formatDate(fb.date, { day: 'numeric', month: 'short' })}</div>}
+                      {/* Meta row */}
+                      <div className="flex items-center gap-1.5 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
+                        <span>{isVoice ? '🎤 Głosowy' : fb.source === 'auto' ? '⌚ Zegarek' : '✏️ Tekstowy'}</span>
+                        {session && <><span>·</span><span>{session.title}</span></>}
+                        <span>·</span>
+                        <span>{formatDate(fb.date, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      </div>
                     </div>
+
                     <Button variant="ghost" size="sm" onClick={() => handleExpand(fb.id, fb.read)}>
                       {isExpanded ? '▲ Zwiń' : '▼ Rozwiń'}
                     </Button>
                   </div>
 
+                  {/* Expanded */}
                   {isExpanded && (
-                    <div className="mt-4 space-y-3">
-                      <div className="p-3 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
-                        <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Transkrypcja zawodnika</div>
-                        <p className="text-sm italic">"{fb.transcript}"</p>
-                      </div>
-                      {fb.ai_analysis && (
-                        <div className="p-3 rounded-xl" style={{ background: 'rgba(255,92,27,0.06)', border: '1px solid rgba(255,92,27,0.15)' }}>
-                          <div className="text-xs font-semibold mb-2" style={{ color: '#FF5C1B' }}>🤖 Analiza AI</div>
-                          <p className="text-sm">{fb.ai_analysis}</p>
+                    <div className="mt-4 space-y-4 pl-11">
+
+                      {/* Text feedback — parsed fields */}
+                      {!isVoice && hasContent && (
+                        <div className="rounded-xl p-3 space-y-2" style={{ background: 'var(--bg-subtle)' }}>
+                          {parsed.feeling && (
+                            <Row label="Samopoczucie">
+                              <span>{parsed.feeling}</span>
+                              <span className="ml-1" style={{ color: 'var(--text-muted)' }}>{FEELING_LABEL[parsed.feeling] ?? ''}</span>
+                            </Row>
+                          )}
+                          {parsed.trainingType && <Row label="Typ treningu">{parsed.trainingType}</Row>}
+                          {parsed.distance && <Row label="Dystans">{parsed.distance}</Row>}
+                          {parsed.duration && <Row label="Czas">{parsed.duration}</Row>}
+                          {parsed.intensity && <Row label="Intensywność">{parsed.intensity}</Row>}
+                          {parsed.notes && (
+                            <div className="pt-1" style={{ borderTop: '1px solid var(--border)' }}>
+                              <p className="text-sm italic" style={{ color: 'var(--text-primary)' }}>"{parsed.notes}"</p>
+                            </div>
+                          )}
                         </div>
                       )}
-                      {fb.watch_data && (
-                        <div className="p-3 rounded-xl" style={{ background: 'var(--bg-subtle)' }}>
-                          <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>⌚ Dane z zegarka</div>
-                          <div className="grid grid-cols-3 gap-2">
-                            {([
-                              fb.watch_data.avgHR ? ['Tętno śr.', `${fb.watch_data.avgHR} bpm`] : null,
-                              fb.watch_data.maxHR ? ['Tętno max', `${fb.watch_data.maxHR} bpm`] : null,
-                              fb.watch_data.distance ? ['Dystans', `${fb.watch_data.distance} km`] : null,
-                            ] as Array<[string, string] | null>).filter((x): x is [string, string] => x !== null).map(([k, v]) => (
+
+                      {/* Voice transcript */}
+                      {isVoice && fb.ai_analysis && (
+                        <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)' }}>
+                          <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>🎤 Nagranie głosowe</div>
+                          <p className="text-sm italic">"{fb.ai_analysis}"</p>
+                        </div>
+                      )}
+
+                      {/* Watch link */}
+                      {fb.watch_link && (
+                        <a
+                          href={fb.watch_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm px-3 py-2.5 rounded-xl transition-opacity hover:opacity-80"
+                          style={{ background: 'rgba(255,92,27,0.08)', color: '#FF5C1B', border: '1px solid rgba(255,92,27,0.2)' }}
+                        >
+                          ⌚ <span className="underline truncate">{fb.watch_link}</span>
+                          <span className="shrink-0 ml-auto text-xs opacity-70">↗</span>
+                        </a>
+                      )}
+
+                      {/* Watch sensor data */}
+                      {fb.watch_data && (fb.watch_data.avgHR || fb.watch_data.maxHR || fb.watch_data.distance) && (
+                        <div className="grid grid-cols-3 gap-2">
+                          {([
+                            fb.watch_data.avgHR ? ['Tętno śr.', `${fb.watch_data.avgHR} bpm`] : null,
+                            fb.watch_data.maxHR ? ['Tętno max', `${fb.watch_data.maxHR} bpm`] : null,
+                            fb.watch_data.distance ? ['Dystans', `${fb.watch_data.distance} km`] : null,
+                          ] as Array<[string, string] | null>)
+                            .filter((x): x is [string, string] => x !== null)
+                            .map(([k, v]) => (
                               <div key={k} className="text-center p-2 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
-                                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{k}</div>
+                                <div className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>{k}</div>
                                 <div className="text-sm font-semibold">{v}</div>
                               </div>
                             ))}
-                          </div>
                         </div>
                       )}
-                      {fb.coach_reply && (
-                        <div className="p-3 rounded-xl" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
-                          <div className="text-xs font-semibold mb-2" style={{ color: '#2ECC71' }}>Twoja odpowiedź</div>
+
+                      {/* Coach reply (read-only) */}
+                      {fb.coach_reply && !isReplying && (
+                        <div className="rounded-xl p-3" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
+                          <div className="text-xs font-semibold mb-1.5" style={{ color: '#2ECC71' }}>Twoja odpowiedź</div>
                           <p className="text-sm">{fb.coach_reply}</p>
                         </div>
                       )}
+
+                      {/* Reply form */}
                       {isReplying ? (
                         <div className="space-y-2">
                           <textarea
@@ -169,10 +243,11 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: any
                           </div>
                         </div>
                       ) : (
-                        <Button variant="secondary" size="sm" onClick={() => setReplyingId(fb.id)}>
+                        <Button variant="secondary" size="sm" onClick={() => { setReplyingId(fb.id); setReplyText(fb.coach_reply ?? '') }}>
                           {fb.coach_reply ? '✏️ Edytuj odpowiedź' : '💬 Odpowiedz'}
                         </Button>
                       )}
+
                     </div>
                   )}
                 </div>
@@ -181,6 +256,15 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: any
           })}
         </div>
       </div>
+    </div>
+  )
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline gap-3 text-sm">
+      <span className="w-28 shrink-0 text-xs" style={{ color: 'var(--text-muted)' }}>{label}</span>
+      <span>{children}</span>
     </div>
   )
 }
