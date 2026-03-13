@@ -94,7 +94,7 @@ export function Logo({
             display: 'block',
             fontSize: sloganFS,
             fontWeight: 500,
-            color: '#6B7A8D',
+            color: '#A0AABF',
             letterSpacing: '0.05em',
             lineHeight: 1,
             paddingTop: Math.round(3 * s),
