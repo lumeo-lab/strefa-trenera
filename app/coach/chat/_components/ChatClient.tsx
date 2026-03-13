@@ -65,7 +65,7 @@ export function ChatClient({ athletes, messages, coachId, coachName }: { athlete
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen max-w-5xl mx-auto w-full" style={{ borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
       {/* Athlete list */}
       <div className="w-64 border-r flex flex-col shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
         <div className="px-4 py-4 border-b" style={{ borderColor: 'var(--border)' }}>

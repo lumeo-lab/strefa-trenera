@@ -80,7 +80,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: any
     <div>
       <CoachTopbar title="Feedback" subtitle={`${unreadCount} nieprzeczytanych`} />
 
-      <div className="p-6">
+      <div className="p-6 max-w-4xl mx-auto">
         {/* Filters */}
         <div className="flex items-center gap-2 mb-6">
           {filters.map(f => (
