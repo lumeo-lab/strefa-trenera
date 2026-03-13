@@ -41,7 +41,7 @@ export default async function AnalyticsPage() {
     <div>
       <CoachTopbar title="Analityka biznesowa" subtitle={currentMonth} />
 
-      <div className="p-6 space-y-6">
+      <div className="p-6 max-w-5xl mx-auto space-y-6">
         {/* KPI grid */}
         <div className="grid grid-cols-3 gap-4">
           {[
