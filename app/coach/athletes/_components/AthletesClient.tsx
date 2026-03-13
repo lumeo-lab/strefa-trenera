@@ -182,8 +182,8 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
               <input name="name" required placeholder="np. Katarzyna Wiśniewska" style={inputStyle} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
                 <label style={labelStyle}>Email</label>
                 <input name="email" type="email" placeholder="np. katarzyna@email.com" style={inputStyle} />
               </div>
@@ -198,18 +198,18 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
               <input name="goal" placeholder="np. Maraton sub 4h" style={inputStyle} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label style={labelStyle}>Wiek</label>
                 <input name="age" type="number" min={10} max={99} placeholder="np. 32" style={inputStyle} />
               </div>
-              <div>
+              <div className="col-span-2">
                 <label style={labelStyle}>Miasto</label>
                 <input name="city" placeholder="np. Warszawa" style={inputStyle} />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label style={labelStyle}>Wzrost (cm)</label>
                 <input name="height" type="number" min={100} max={250} placeholder="np. 175" style={inputStyle} />
@@ -218,6 +218,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                 <label style={labelStyle}>Waga (kg)</label>
                 <input name="weight" type="number" min={30} max={200} step={0.1} placeholder="np. 70" style={inputStyle} />
               </div>
+              <div />
             </div>
 
             <div>
