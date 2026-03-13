@@ -80,7 +80,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
     <div>
       <CoachTopbar
         title="Zawodnicy"
-        subtitle={`${athletes.length} ${athletes.length === 1 ? 'zawodnik' : athletes.length < 5 ? 'zawodników' : 'zawodników'}`}
+        subtitle={`${athletes.length} ${athletes.length === 1 ? 'zawodnik' : 'zawodników'}`}
       />
 
       <div className="p-6">
