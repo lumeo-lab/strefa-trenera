@@ -74,22 +74,26 @@ export function Logo({
 
   const wordmark = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: innerGap }}>
-      <span style={{ lineHeight: 1, letterSpacing: '-0.03em', whiteSpace: 'nowrap', display: 'block' }}>
+      {/* Name — its natural width sets the column width */}
+      <span style={{ display: 'block', lineHeight: 1, letterSpacing: '-0.03em', whiteSpace: 'nowrap' }}>
         <span style={{ fontSize: fS, fontWeight: 800, color: '#E8EAF0' }}>Strefa</span>
         <span style={{ fontSize: fS, fontWeight: 800, color: '#FF5C1B' }}> Trenera</span>
       </span>
+      {/* Slogan — 3 words spread across the same column width via space-between */}
       {showSlogan && (
-        <span style={{
-          fontSize: sloganFS,
-          fontWeight: 500,
-          color: '#8A92A8',
-          letterSpacing: '0.06em',
-          whiteSpace: 'nowrap',
-          lineHeight: 1,
-          display: 'block',
-        }}>
-          Plany. Postęp. Wyniki.
-        </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          {['Plany.', 'Postęp.', 'Wyniki.'].map(w => (
+            <span key={w} style={{
+              fontSize: sloganFS,
+              fontWeight: 500,
+              color: '#8A92A8',
+              letterSpacing: '0.03em',
+              lineHeight: 1,
+            }}>
+              {w}
+            </span>
+          ))}
+        </div>
       )}
     </div>
   )
