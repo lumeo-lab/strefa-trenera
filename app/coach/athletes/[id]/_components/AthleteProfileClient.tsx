@@ -17,7 +17,6 @@ import { SessionType } from '@/lib/types'
 import { createSession, updateSession, deleteSession as deleteSessionAction } from '@/lib/actions/sessions'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
-import { useCustomStatuses } from '@/lib/useCustomStatuses'
 import Link from 'next/link'
 
 const SESSION_TYPES: SessionType[] = ['easy', 'interval', 'tempo', 'long', 'gym', 'bike', 'rest']
@@ -255,7 +254,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     ? `${window.location.origin}/u/${athlete.slug}?t=${athlete.invite_token}`
     : `/u/${athlete.slug}?t=${athlete.invite_token}`
 
-  const { all: allStatuses } = useCustomStatuses()
 
   const tabs = [
     { id: 'plan', label: 'Plan' },
@@ -864,7 +862,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     ['Cel treningowy', dataEdit.goal],
                     ['Pakiet', dataEdit.package],
                     ['Cena', dataEdit.package_price ? `${dataEdit.package_price} zł/mies.` : ''],
-                    ['Status', ({ ok: 'OK', warning: 'Uwaga', alert: 'Alert', inactive: 'Nieaktywny' } as Record<string, string>)[dataEdit.status] ?? dataEdit.status],
                     ['Dołączył/a', dataEdit.join_date ? formatDate(dataEdit.join_date, { day: 'numeric', month: 'long', year: 'numeric' }) : '—'],
                   ] as [string, string][]).map(([label, value]) => (
                     <div key={label} className="flex justify-between">
@@ -919,19 +916,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                         {packages.map(p => <option key={p.id} value={p.name}>{p.name} — {formatCurrency(p.price)}</option>)}
                       </select>
                     )}
-                  </div>
-                  <div>
-                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Status</label>
-                    <select
-                      value={dataEdit.status}
-                      onChange={e => setDataEdit(d => ({ ...d, status: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
-                      style={inputStyle}
-                    >
-                      {allStatuses.map(s => (
-                        <option key={s.key} value={s.key}>{s.label}</option>
-                      ))}
-                    </select>
                   </div>
                   <div>
                     <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Data dołączenia</label>

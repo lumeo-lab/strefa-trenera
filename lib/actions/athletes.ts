@@ -74,6 +74,7 @@ export async function createAthlete(_: unknown, formData: FormData) {
     city: city || '',
     height,
     weight,
+    status: 'ok',
   }).select('id, slug').single()
 
   if (error) return { error: error.message }
