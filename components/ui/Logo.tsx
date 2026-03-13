@@ -28,8 +28,8 @@ export function Logo({
 }: LogoProps) {
   const uid    = useId().replace(/:/g, '')
   const s      = size === 'sm' ? 0.75 : size === 'lg' ? 1.25 : size === 'xl' ? 1.6 : 1
-  const iW     = Math.round(38 * s)
-  const iH     = Math.round(34 * s)
+  const iW     = Math.round(27 * s)
+  const iH     = Math.round(24 * s)
   const fS     = Math.round(19 * s)
   const gap    = Math.round(11 * s)
   const gId    = `g-${uid}`
