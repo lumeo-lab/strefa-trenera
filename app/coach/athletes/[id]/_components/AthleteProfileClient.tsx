@@ -709,9 +709,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 ))}
                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${intensityColor('rest')}`}>{sessionTypeLabel('rest')}</span>
               </div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: 'rgba(255,92,27,0.08)', border: '1px solid rgba(255,92,27,0.2)', color: '#FF5C1B' }}>
-                💬 Gdy zawodnik doda feedback, pojawi się jako przycisk <strong>&quot;Feedback&quot;</strong> pod kafelkiem dnia
-              </div>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                💬 Gdy zawodnik doda feedback, pojawi się jako przycisk &quot;Feedback&quot; pod kafelkiem dnia
+              </p>
             </div>
           </div>
         )}

@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect, useActionState } from 'react'
+import { useState, useEffect, useActionState, startTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { createAthlete } from '@/lib/actions/athletes'
-import { useCustomStatuses, DEFAULT_STATUSES, StatusDef } from '@/lib/useCustomStatuses'
+import { createAthlete, updateAthlete } from '@/lib/actions/athletes'
+import { useCustomStatuses, StatusDef } from '@/lib/useCustomStatuses'
 import Link from 'next/link'
 
 interface Athlete {
@@ -66,7 +67,8 @@ const ORDER_KEY = 'coach_athlete_order'
 const PRESET_COLORS = ['#2ECC71', '#F1C40F', '#E74C3C', '#6B7280', '#3B82F6', '#8B5CF6', '#EC4899', '#F97316']
 
 export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packages }: Props) {
-  const { all: allStatuses, custom: customStatuses, saveCustom } = useCustomStatuses()
+  const router = useRouter()
+  const { all: allStatuses, saveAll } = useCustomStatuses()
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -87,16 +89,31 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
   const [newStatusLabel, setNewStatusLabel] = useState('')
   const [newStatusColor, setNewStatusColor] = useState(PRESET_COLORS[4])
 
+  // Inline status edit
+  const [editingStatusFor, setEditingStatusFor] = useState<string | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+
   function openStatusModal() {
-    setEditingStatuses(customStatuses.map(s => ({ ...s })))
+    setEditingStatuses(allStatuses.map(s => ({ ...s })))
     setNewStatusLabel('')
     setNewStatusColor(PRESET_COLORS[4])
     setStatusModalOpen(true)
   }
 
   function saveStatuses() {
-    saveCustom(editingStatuses)
+    saveAll(editingStatuses)
     setStatusModalOpen(false)
+  }
+
+  async function handleStatusChange(athleteId: string, newStatus: string) {
+    setUpdatingStatus(true)
+    const fd = new FormData()
+    fd.set('id', athleteId)
+    fd.set('status', newStatus)
+    await updateAthlete(null, fd)
+    setEditingStatusFor(null)
+    setUpdatingStatus(false)
+    startTransition(() => router.refresh())
   }
 
   function addStatus() {
@@ -293,7 +310,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
 
         {/* Table */}
         {displayed.length > 0 && (
-          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
@@ -320,8 +337,8 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                       onDrop={() => handleDrop(athlete.id)}
                       onDragEnd={() => { setDraggingId(null); setDragOverId(null) }}
                       style={{
-                        borderBottom: i < displayed.length - 1 ? '1px solid var(--bg-subtle)' : 'none',
-                        background: isDraggingOver ? 'rgba(255,92,27,0.06)' : draggingId === athlete.id ? 'rgba(255,92,27,0.03)' : i % 2 === 0 ? 'rgba(255,255,255,0.01)' : undefined,
+                        borderBottom: i < displayed.length - 1 ? '1px solid var(--border)' : 'none',
+                        background: isDraggingOver ? 'rgba(255,92,27,0.06)' : draggingId === athlete.id ? 'rgba(255,92,27,0.03)' : i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-elevated)',
                         opacity: draggingId === athlete.id ? 0.5 : 1,
                         outline: isDraggingOver ? '2px solid rgba(255,92,27,0.4)' : 'none',
                         transition: 'background 0.1s',
@@ -353,11 +370,26 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                       <td className="px-5 py-4">
                         <Badge variant="gray">{athlete.package || '—'}</Badge>
                       </td>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: statusDef.color }} />
-                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{statusDef.label}</span>
-                        </div>
+                      <td className="px-5 py-4" onClick={e => { e.stopPropagation(); setEditingStatusFor(athlete.id) }}>
+                        {editingStatusFor === athlete.id ? (
+                          <select
+                            autoFocus
+                            defaultValue={athlete.status}
+                            onChange={e => handleStatusChange(athlete.id, e.target.value)}
+                            onBlur={() => setEditingStatusFor(null)}
+                            disabled={updatingStatus}
+                            onClick={e => e.stopPropagation()}
+                            className="px-2 py-1 rounded-lg text-xs cursor-pointer"
+                            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                          >
+                            {allStatuses.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                          </select>
+                        ) : (
+                          <div className="flex items-center gap-2 cursor-pointer hover:opacity-70 transition-opacity" title="Kliknij aby zmienić status">
+                            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: statusDef.color }} />
+                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{statusDef.label}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-5 py-4" style={{ color: 'var(--text-muted)' }}>
                         {lastSession ? formatDate(lastSession, { day: 'numeric', month: 'short' }) : '—'}
@@ -450,42 +482,23 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
         }
       >
         <div className="space-y-4">
-          {/* Default statuses (read-only) */}
-          <div>
-            <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Domyślne statusy</div>
-            <div className="space-y-2">
-              {DEFAULT_STATUSES.map(s => (
-                <div key={s.key} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'var(--bg-elevated)' }}>
-                  <div className="w-3 h-3 rounded-full shrink-0" style={{ background: s.color }} />
-                  <span className="text-sm font-medium flex-1">{s.label}</span>
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>domyślny</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Custom statuses */}
-          {editingStatuses.length > 0 && (
-            <div>
-              <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Własne statusy</div>
-              <div className="space-y-2">
-                {editingStatuses.map((s, idx) => (
-                  <div key={s.key} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full shrink-0" style={{ background: s.color }} />
-                    <input
-                      value={s.label}
-                      onChange={e => setEditingStatuses(prev => prev.map((x, i) => i === idx ? { ...x, label: e.target.value } : x))}
-                      className="flex-1 px-3 py-2 rounded-xl text-sm"
-                      style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
-                    />
-                    <button onClick={() => setEditingStatuses(prev => prev.filter((_, i) => i !== idx))}
-                      className="text-xs px-2.5 py-2 rounded-xl cursor-pointer"
-                      style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>✕</button>
-                  </div>
-                ))}
+          {/* All statuses — unified editable list */}
+          <div className="space-y-2">
+            {editingStatuses.map((s, idx) => (
+              <div key={s.key} className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ background: s.color }} />
+                <input
+                  value={s.label}
+                  onChange={e => setEditingStatuses(prev => prev.map((x, i) => i === idx ? { ...x, label: e.target.value } : x))}
+                  className="flex-1 px-3 py-2 rounded-xl text-sm"
+                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                />
+                <button onClick={() => setEditingStatuses(prev => prev.filter((_, i) => i !== idx))}
+                  className="text-xs px-2.5 py-2 rounded-xl cursor-pointer"
+                  style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>✕</button>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
 
           {/* Add new status */}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>

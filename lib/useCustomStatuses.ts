@@ -11,26 +11,22 @@ export const DEFAULT_STATUSES = [
 
 export type StatusDef = { key: string; label: string; color: string }
 
-const STORAGE_KEY = 'coach_custom_statuses'
+const STORAGE_KEY = 'coach_statuses_v2'
 
 export function useCustomStatuses() {
-  const [custom, setCustom] = useState<StatusDef[]>([])
+  const [all, setAll] = useState<StatusDef[]>(DEFAULT_STATUSES)
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) setCustom(JSON.parse(saved))
+      if (saved) setAll(JSON.parse(saved))
     } catch { /* ignore */ }
   }, [])
 
-  function saveCustom(statuses: StatusDef[]) {
-    setCustom(statuses)
+  function saveAll(statuses: StatusDef[]) {
+    setAll(statuses)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(statuses))
   }
 
-  return {
-    all: [...DEFAULT_STATUSES, ...custom] as StatusDef[],
-    custom,
-    saveCustom,
-  }
+  return { all, saveAll }
 }
