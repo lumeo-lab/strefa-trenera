@@ -45,7 +45,7 @@ export default async function AnalyticsPage() {
         {/* KPI grid */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'MRR', value: formatCurrency(mrr), trend: 'Miesięczny przychód', up: true },
+            { label: 'Przychód miesięczny', value: formatCurrency(mrr), trend: 'Suma pakietów aktywnych zawodników', up: true },
             { label: 'Aktywni zawodnicy', value: activeAthletes, trend: `${allAthletes.length} łącznie`, up: true },
             { label: 'Oczekujące płatności', value: formatCurrency(pendingAmount), trend: 'Do opłacenia', up: false },
             { label: 'Zaległości', value: formatCurrency(overdueAmount), trend: 'Przeterminowane faktury', up: false },
@@ -109,20 +109,29 @@ export default async function AnalyticsPage() {
         {/* Package distribution */}
         <Card className="p-5">
           <h3 className="font-semibold mb-4">Zawodnicy według pakietów</h3>
-          <div className="grid grid-cols-3 gap-4">
-            {['Pro', 'Standard', 'Starter'].map(pkg => {
-              const count = allAthletes.filter(a => a.package === pkg).length
-              return (
-                <div key={pkg} className="text-center p-4 rounded-xl" style={{ background: 'var(--bg-elevated)' }}>
-                  <div className="text-2xl font-bold mb-1">{count}</div>
-                  <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{pkg}</div>
-                  <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                    {allAthletes.length > 0 ? Math.round((count / allAthletes.length) * 100) : 0}%
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          {(() => {
+            const pkgNames = Array.from(new Set(allAthletes.map(a => a.package).filter(Boolean))).sort()
+            const colClass = pkgNames.length <= 2 ? 'grid-cols-2' : pkgNames.length <= 4 ? 'grid-cols-4' : 'grid-cols-3'
+            if (pkgNames.length === 0) return (
+              <p className="text-sm text-center py-4" style={{ color: 'var(--text-muted)' }}>Brak zawodników z przypisanym pakietem</p>
+            )
+            return (
+              <div className={`grid ${colClass} gap-4`}>
+                {pkgNames.map(pkg => {
+                  const count = allAthletes.filter(a => a.package === pkg).length
+                  return (
+                    <div key={pkg} className="text-center p-4 rounded-xl" style={{ background: 'var(--bg-elevated)' }}>
+                      <div className="text-2xl font-bold mb-1">{count}</div>
+                      <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{pkg}</div>
+                      <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                        {Math.round((count / allAthletes.length) * 100)}%
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </Card>
       </div>
     </div>
