@@ -42,11 +42,19 @@ export default async function AthletesPage() {
     weeklyLoadMap[s.athlete_id] = (weeklyLoadMap[s.athlete_id] ?? 0) + km
   }
 
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: packages } = await supabase
+    .from('packages')
+    .select('id, name, price')
+    .eq('coach_id', user!.id)
+    .order('name')
+
   return (
     <AthletesClient
       athletes={athletes ?? []}
       lastSessionMap={lastSessionMap}
       weeklyLoadMap={weeklyLoadMap}
+      packages={packages ?? []}
     />
   )
 }

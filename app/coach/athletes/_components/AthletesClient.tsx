@@ -7,7 +7,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { statusColor, formatDate } from '@/lib/utils'
+import { statusColor, formatDate, formatCurrency } from '@/lib/utils'
 import { createAthlete } from '@/lib/actions/athletes'
 import Link from 'next/link'
 
@@ -26,15 +26,44 @@ interface Athlete {
   created_at: string
 }
 
+interface Package {
+  id: string
+  name: string
+  price: number
+}
+
 interface Props {
   athletes: Athlete[]
   lastSessionMap: Record<string, string>
   weeklyLoadMap: Record<string, number>
+  packages: Package[]
 }
 
-export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap }: Props) {
+const inputStyle = {
+  width: '100%',
+  padding: '9px 12px',
+  background: 'var(--bg-elevated)',
+  border: '1px solid var(--border-mid)',
+  borderRadius: 10,
+  color: 'var(--text-primary)',
+  fontSize: 14,
+  outline: 'none',
+  boxSizing: 'border-box' as const,
+}
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: 12,
+  fontWeight: 600,
+  color: 'var(--text-muted)',
+  marginBottom: 5,
+}
+
+export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packages }: Props) {
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [showExtra, setShowExtra] = useState(false)
+  const [selectedPkg, setSelectedPkg] = useState<Package | null>(packages[0] ?? null)
   const [state, formAction, pending] = useActionState(createAthlete, null)
 
   const filtered = athletes.filter(a =>
@@ -43,11 +72,17 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap }: Prop
     a.package.toLowerCase().includes(search.toLowerCase())
   )
 
+  function openModal() {
+    setShowExtra(false)
+    setSelectedPkg(packages[0] ?? null)
+    setModalOpen(true)
+  }
+
   return (
     <div>
       <CoachTopbar
         title="Zawodnicy"
-        subtitle={`${athletes.length} ${athletes.length === 1 ? 'zawodnik' : 'zawodników'}`}
+        subtitle={`${athletes.length} ${athletes.length === 1 ? 'zawodnik' : athletes.length < 5 ? 'zawodników' : 'zawodników'}`}
       />
 
       <div className="p-6">
@@ -60,7 +95,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap }: Prop
             className="max-w-sm px-4 py-2.5 rounded-xl text-sm flex-1"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
           />
-          <Button size="sm" onClick={() => setModalOpen(true)}>+ Dodaj zawodnika</Button>
+          <Button size="sm" onClick={openModal}>+ Dodaj zawodnika</Button>
         </div>
 
         {/* Empty state */}
@@ -69,7 +104,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap }: Prop
             <div className="text-5xl mb-4">👟</div>
             <div className="text-lg font-semibold mb-2">Brak zawodników</div>
             <div className="text-sm mb-6">Dodaj pierwszego zawodnika i wyślij mu link zaproszenia</div>
-            <Button onClick={() => setModalOpen(true)}>+ Dodaj zawodnika</Button>
+            <Button onClick={openModal}>+ Dodaj zawodnika</Button>
           </div>
         )}
 
@@ -113,9 +148,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap }: Prop
                         )}
                       </td>
                       <td className="px-5 py-4">
-                        <Badge variant={athlete.package === 'Pro' ? 'orange' : athlete.package === 'Standard' ? 'blue' : 'gray'}>
-                          {athlete.package}
-                        </Badge>
+                        <Badge variant="gray">{athlete.package || '—'}</Badge>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
@@ -138,59 +171,97 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap }: Prop
       </div>
 
       {/* Add Athlete Modal */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Dodaj zawodnika">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Dodaj zawodnika" size="sm">
         <form action={async (fd) => {
+          // inject package_price from selected package
+          if (selectedPkg) fd.set('package_price', selectedPkg.price.toString())
           await formAction(fd)
           if (!state?.error) setModalOpen(false)
         }}>
           <div className="space-y-4">
+
+            {/* Required: name */}
             <div>
-              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Imię i nazwisko *</label>
-              <input name="name" required placeholder="np. Katarzyna Wiśniewska"
-                className="w-full px-3 py-2 rounded-xl text-sm"
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }} />
+              <label style={labelStyle}>Imię i nazwisko *</label>
+              <input name="name" required placeholder="np. Katarzyna Wiśniewska" style={inputStyle} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Email</label>
-                <input name="email" type="email" placeholder="np. katarzyna@email.com"
-                  className="w-full px-3 py-2 rounded-xl text-sm"
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }} />
-              </div>
-              <div>
-                <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Telefon</label>
-                <input name="phone" placeholder="np. 600 123 456"
-                  className="w-full px-3 py-2 rounded-xl text-sm"
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }} />
-              </div>
-            </div>
+
+            {/* Package selection */}
             <div>
-              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Cel treningowy</label>
-              <input name="goal" placeholder="np. Maraton sub 4h"
-                className="w-full px-3 py-2 rounded-xl text-sm"
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Pakiet</label>
-                <select name="package" className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}>
-                  <option value="Starter">Starter</option>
-                  <option value="Standard">Standard</option>
-                  <option value="Pro">Pro</option>
+              <label style={labelStyle}>Pakiet</label>
+              {packages.length === 0 ? (
+                <div className="px-3 py-2.5 rounded-xl text-sm" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-muted)' }}>
+                  Brak pakietów —{' '}
+                  <a href="/coach/packages" style={{ color: '#FF5C1B' }} className="underline">
+                    dodaj pakiet w zakładce Pakiety
+                  </a>
+                </div>
+              ) : (
+                <select
+                  name="package"
+                  value={selectedPkg?.name ?? ''}
+                  onChange={e => {
+                    const pkg = packages.find(p => p.name === e.target.value) ?? null
+                    setSelectedPkg(pkg)
+                  }}
+                  style={inputStyle}
+                  className="cursor-pointer"
+                >
+                  {packages.map(p => (
+                    <option key={p.id} value={p.name}>
+                      {p.name} — {formatCurrency(p.price)}
+                    </option>
+                  ))}
                 </select>
-              </div>
-              <div>
-                <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Cena (zł/mies.)</label>
-                <input name="package_price" type="number" defaultValue="249" min="0"
-                  className="w-full px-3 py-2 rounded-xl text-sm"
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }} />
-              </div>
+              )}
             </div>
-            {state?.error && (
-              <p className="text-xs text-red-400">{state.error}</p>
+
+            {/* Expand toggle */}
+            <button
+              type="button"
+              onClick={() => setShowExtra(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm cursor-pointer transition-opacity hover:opacity-80"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+            >
+              <span>{showExtra ? '▲ Ukryj dodatkowe dane' : '▼ Dodaj więcej danych (opcjonalnie)'}</span>
+              {!showExtra && <span className="text-xs opacity-60">możesz uzupełnić później z profilu</span>}
+            </button>
+
+            {/* Expandable extra fields */}
+            {showExtra && (
+              <div className="space-y-3 pt-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label style={labelStyle}>Email</label>
+                    <input name="email" type="email" placeholder="np. katarzyna@email.com" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Telefon</label>
+                    <input name="phone" placeholder="np. 600 123 456" style={inputStyle} />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Cel treningowy</label>
+                  <input name="goal" placeholder="np. Maraton sub 4h" style={inputStyle} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label style={labelStyle}>Wiek</label>
+                    <input name="age" type="number" min={10} max={99} placeholder="np. 32" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Miasto</label>
+                    <input name="city" placeholder="np. Warszawa" style={inputStyle} />
+                  </div>
+                </div>
+              </div>
             )}
-            <div className="flex gap-2 pt-2">
+
+            {state?.error && (
+              <p className="text-xs" style={{ color: '#f87171' }}>{state.error}</p>
+            )}
+
+            <div className="flex gap-2 pt-1">
               <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Anuluj</Button>
               <Button type="submit" disabled={pending}>{pending ? 'Dodawanie...' : 'Dodaj zawodnika'}</Button>
             </div>
