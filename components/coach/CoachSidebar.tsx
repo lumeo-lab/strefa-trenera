@@ -7,7 +7,7 @@ import { Logo, LogoMark } from '@/components/ui/Logo'
 
 const navSections = [
   {
-    label: 'Planer treningowy',
+    label: 'Zawodnicy',
     items: [
       { href: '/coach/athletes', icon: '👟', label: 'Zawodnicy' },
       { href: '/coach/feedback', icon: '📥', label: 'Feedback' },
@@ -15,9 +15,8 @@ const navSections = [
     ],
   },
   {
-    label: 'Biznes',
+    label: 'Finanse',
     items: [
-      { href: '/coach/packages', icon: '📦', label: 'Pakiety' },
       { href: '/coach/invoices', icon: '💳', label: 'Faktury' },
       { href: '/coach/analytics', icon: '📊', label: 'Analityka' },
     ],
@@ -25,6 +24,7 @@ const navSections = [
 ]
 
 const bottomItems = [
+  { href: '/coach/settings', icon: '⚙️', label: 'Ustawienia' },
   { href: '/coach/help', icon: '❓', label: 'Pomoc' },
 ]
 
@@ -136,6 +136,11 @@ export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan, coachA
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 flex flex-col gap-4">
+        {/* Dashboard */}
+        <ul className="space-y-0.5">
+          <li><NavLink href="/coach/dashboard" icon="🏠" label="Dashboard" collapsed={collapsed} /></li>
+        </ul>
+
         {/* Sections */}
         <div className="space-y-4">
           {navSections.map(section => (
