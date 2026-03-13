@@ -87,17 +87,19 @@ export function Logo({
         <>
           {/* Thin rule — full width of name, adds visual structure */}
           <div style={{ height: 1, background: 'rgba(255,255,255,0.1)' }} />
-          {/* Slogan — uppercase + letter-spacing distributes space evenly
-              across all characters instead of two large word gaps */}
+          {/* Slogan — justify stretches text to exactly the container width
+              (= name width via flex align-items:stretch).
+              text-align-last:justify applies justify to a single line. */}
           <span style={{
             display: 'block',
             fontSize: sloganFS,
             fontWeight: 500,
             color: '#6B7A8D',
-            letterSpacing: '0.15em',
+            letterSpacing: '0.05em',
             lineHeight: 1,
             paddingTop: Math.round(3 * s),
-            paddingRight: '0.15em', /* compensate trailing letter-spacing */
+            textAlign: 'justify',
+            textAlignLast: 'justify',
           }}>
             PLANY · POSTĘP · WYNIKI
           </span>
