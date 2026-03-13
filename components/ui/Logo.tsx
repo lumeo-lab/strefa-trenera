@@ -34,10 +34,9 @@ export function Logo({
   const innerGap   = Math.round(3 * s)          // gap between name and slogan
   const gap        = Math.round(11 * s)          // gap between mark and wordmark
 
-  // Mark height = combined height of name + (gap + slogan) if shown,
-  // or a comfortable fixed height at sm.
+  // Mark height = name + paddingBottom(4) + rule(1) + paddingTop(3) + slogan
   const iH = showSlogan
-    ? fS + innerGap + sloganFS
+    ? fS + Math.round(4 * s) + 1 + Math.round(3 * s) + sloganFS
     : Math.round(24 * s)
   const iW = Math.round(iH * 38 / 34)
 
@@ -73,27 +72,36 @@ export function Logo({
   )
 
   const wordmark = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: innerGap }}>
-      {/* Name — its natural width sets the column width */}
-      <span style={{ display: 'block', lineHeight: 1, letterSpacing: '-0.03em', whiteSpace: 'nowrap' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <span style={{
+        display: 'block',
+        lineHeight: 1,
+        letterSpacing: '-0.03em',
+        whiteSpace: 'nowrap',
+        paddingBottom: Math.round(4 * s),
+      }}>
         <span style={{ fontSize: fS, fontWeight: 800, color: '#E8EAF0' }}>Strefa</span>
         <span style={{ fontSize: fS, fontWeight: 800, color: '#FF5C1B' }}> Trenera</span>
       </span>
-      {/* Slogan — 3 words spread across the same column width via space-between */}
       {showSlogan && (
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          {['Plany.', 'Postęp.', 'Wyniki.'].map(w => (
-            <span key={w} style={{
-              fontSize: sloganFS,
-              fontWeight: 500,
-              color: '#8A92A8',
-              letterSpacing: '0.03em',
-              lineHeight: 1,
-            }}>
-              {w}
-            </span>
-          ))}
-        </div>
+        <>
+          {/* Thin rule — full width of name, adds visual structure */}
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.1)' }} />
+          {/* Slogan — uppercase + letter-spacing distributes space evenly
+              across all characters instead of two large word gaps */}
+          <span style={{
+            display: 'block',
+            fontSize: sloganFS,
+            fontWeight: 500,
+            color: '#6B7A8D',
+            letterSpacing: '0.15em',
+            lineHeight: 1,
+            paddingTop: Math.round(3 * s),
+            paddingRight: '0.15em', /* compensate trailing letter-spacing */
+          }}>
+            PLANY · POSTĘP · WYNIKI
+          </span>
+        </>
       )}
     </div>
   )
