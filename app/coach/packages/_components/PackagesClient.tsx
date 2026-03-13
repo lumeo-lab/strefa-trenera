@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useActionState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Modal } from '@/components/ui/Modal'
 import { createPackage, updatePackage, deletePackage } from '@/lib/actions/packages'
@@ -13,31 +13,49 @@ type Package = {
   price: number
 }
 
-const emptyForm = { id: '', name: '', description: '', price: '' }
-
 export function PackagesClient({ packages }: { packages: Package[] }) {
   const router = useRouter()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Package | null>(null)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const action = editing ? updatePackage : createPackage
-  const [state, formAction, pending] = useActionState(action, null)
-
   function openCreate() {
     setEditing(null)
+    setError(null)
     setModalOpen(true)
   }
 
   function openEdit(pkg: Package) {
     setEditing(pkg)
+    setError(null)
     setModalOpen(true)
   }
 
   function closeModal() {
     setModalOpen(false)
     setEditing(null)
+    setError(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setPending(true)
+    setError(null)
+    const fd = new FormData(e.currentTarget)
+    if (editing) fd.set('id', editing.id)
+    const result = editing
+      ? await updatePackage(null, fd)
+      : await createPackage(null, fd)
+    setPending(false)
+    if (result?.error) {
+      setError(result.error)
+    } else {
+      closeModal()
+      router.refresh()
+    }
   }
 
   async function handleDelete(id: string) {
@@ -48,24 +66,16 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
     router.refresh()
   }
 
-  // Close modal and refresh on success
-  if (state?.success && modalOpen) {
-    closeModal()
-    router.refresh()
-  }
-
   return (
     <>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Zarządzaj pakietami — możesz je przypisywać zawodnikom w zakładce Dane.
-          </p>
-        </div>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          Zarządzaj pakietami — możesz je przypisywać zawodnikom w zakładce Dane.
+        </p>
         <button
           onClick={openCreate}
-          className="px-4 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer transition-opacity hover:opacity-90"
+          className="px-4 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer transition-opacity hover:opacity-90 shrink-0 ml-4"
           style={{ background: '#FF5C1B' }}
         >
           + Dodaj pakiet
@@ -81,52 +91,54 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
         </div>
       )}
 
-      {/* Grid */}
+      {/* Single-column list */}
       {packages.length > 0 && (
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+        <div className="flex flex-col gap-3">
           {packages.map(pkg => (
             <div
               key={pkg.id}
-              className="rounded-2xl p-5 flex flex-col gap-3"
+              className="flex items-center gap-4 rounded-2xl px-5 py-4"
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-base truncate" style={{ color: 'var(--text-primary)' }}>
-                    {pkg.name}
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-base" style={{ color: 'var(--text-primary)' }}>
+                  {pkg.name}
+                </div>
+                {pkg.description && (
+                  <div className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {pkg.description}
                   </div>
-                  {pkg.description && (
-                    <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                      {pkg.description}
-                    </div>
-                  )}
-                </div>
-                <div className="text-lg font-bold shrink-0" style={{ color: '#FF5C1B' }}>
-                  {formatCurrency(pkg.price)}
-                </div>
+                )}
               </div>
 
-              <div className="flex gap-2 pt-1 border-t" style={{ borderColor: 'var(--border)' }}>
+              {/* Price */}
+              <div className="text-lg font-bold shrink-0" style={{ color: '#FF5C1B' }}>
+                {formatCurrency(pkg.price)}<span className="text-xs font-normal ml-1" style={{ color: 'var(--text-muted)' }}>/mies.</span>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 shrink-0">
                 <button
                   onClick={() => openEdit(pkg)}
-                  className="flex-1 py-1.5 rounded-lg text-sm cursor-pointer transition-opacity hover:opacity-80"
+                  className="px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-opacity hover:opacity-80"
                   style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
                 >
                   Edytuj
                 </button>
                 {deleteConfirm === pkg.id ? (
-                  <div className="flex gap-1.5 flex-1">
+                  <div className="flex gap-1.5">
                     <button
                       onClick={() => handleDelete(pkg.id)}
                       disabled={deleting}
-                      className="flex-1 py-1.5 rounded-lg text-sm font-medium text-white cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg text-sm font-medium text-white cursor-pointer"
                       style={{ background: '#ef4444', opacity: deleting ? 0.7 : 1 }}
                     >
                       {deleting ? '...' : 'Potwierdź'}
                     </button>
                     <button
                       onClick={() => setDeleteConfirm(null)}
-                      className="flex-1 py-1.5 rounded-lg text-sm cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg text-sm cursor-pointer"
                       style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
                     >
                       Anuluj
@@ -135,7 +147,7 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
                 ) : (
                   <button
                     onClick={() => setDeleteConfirm(pkg.id)}
-                    className="flex-1 py-1.5 rounded-lg text-sm cursor-pointer transition-opacity hover:opacity-80"
+                    className="px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-opacity hover:opacity-80"
                     style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}
                   >
                     Usuń
@@ -153,35 +165,31 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
         onClose={closeModal}
         title={editing ? 'Edytuj pakiet' : 'Nowy pakiet'}
         size="sm"
-        footer={
-          <form action={formAction}>
-            {editing && <input type="hidden" name="id" value={editing.id} />}
-            <PackageFormFields editing={editing} />
-            {state?.error && (
-              <p className="text-xs mt-2" style={{ color: '#f87171' }}>{state.error}</p>
-            )}
-            <div className="flex gap-2 mt-4">
-              <button
-                type="button"
-                onClick={closeModal}
-                className="flex-1 py-2.5 rounded-xl text-sm cursor-pointer"
-                style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
-              >
-                Anuluj
-              </button>
-              <button
-                type="submit"
-                disabled={pending}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white cursor-pointer"
-                style={{ background: '#FF5C1B', opacity: pending ? 0.7 : 1 }}
-              >
-                {pending ? 'Zapisywanie...' : editing ? 'Zapisz' : 'Utwórz'}
-              </button>
-            </div>
-          </form>
-        }
       >
-        <div />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <PackageFormFields editing={editing} />
+          {error && (
+            <p className="text-xs" style={{ color: '#f87171' }}>{error}</p>
+          )}
+          <div className="flex gap-2 mt-2">
+            <button
+              type="button"
+              onClick={closeModal}
+              className="flex-1 py-2.5 rounded-xl text-sm cursor-pointer"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+            >
+              Anuluj
+            </button>
+            <button
+              type="submit"
+              disabled={pending}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white cursor-pointer"
+              style={{ background: '#FF5C1B', opacity: pending ? 0.7 : 1 }}
+            >
+              {pending ? 'Zapisywanie...' : editing ? 'Zapisz' : 'Utwórz'}
+            </button>
+          </div>
+        </form>
       </Modal>
     </>
   )
@@ -199,49 +207,27 @@ function PackageFormFields({ editing }: { editing: Package | null }) {
     outline: 'none',
     boxSizing: 'border-box' as const,
   }
-  const labelStyle = {
-    display: 'block' as const,
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
     fontSize: 12,
-    fontWeight: 600 as const,
-    color: 'var(--text-muted)' as const,
+    fontWeight: 600,
+    color: 'var(--text-muted)',
     marginBottom: 5,
   }
-
   return (
-    <div className="flex flex-col gap-4">
+    <>
       <div>
         <label style={labelStyle}>Nazwa *</label>
-        <input
-          name="name"
-          required
-          defaultValue={editing?.name ?? ''}
-          placeholder="np. Plan Premium"
-          style={inputStyle}
-        />
+        <input name="name" required defaultValue={editing?.name ?? ''} placeholder="np. Plan Premium" style={inputStyle} />
       </div>
       <div>
         <label style={labelStyle}>Opis (opcjonalny)</label>
-        <textarea
-          name="description"
-          defaultValue={editing?.description ?? ''}
-          placeholder="Krótki opis pakietu..."
-          rows={2}
-          style={{ ...inputStyle, resize: 'none' }}
-        />
+        <textarea name="description" defaultValue={editing?.description ?? ''} placeholder="Krótki opis pakietu..." rows={2} style={{ ...inputStyle, resize: 'none' }} />
       </div>
       <div>
         <label style={labelStyle}>Kwota miesięczna (PLN) *</label>
-        <input
-          name="price"
-          type="number"
-          required
-          min={0}
-          step={1}
-          defaultValue={editing?.price ?? ''}
-          placeholder="np. 299"
-          style={inputStyle}
-        />
+        <input name="price" type="number" required min={0} step={1} defaultValue={editing?.price ?? ''} placeholder="np. 299" style={inputStyle} />
       </div>
-    </div>
+    </>
   )
 }

@@ -82,12 +82,11 @@ export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan }: Prop
         style={{ borderColor: 'var(--border)', minHeight: '72px' }}
       >
         {!collapsed && (
-          <Link href="/" className="flex flex-col gap-1.5">
-            <Logo size="sm" />
-            <div className="text-xs font-normal pl-0.5" style={{ color: 'var(--text-muted)' }}>Panel trenera</div>
+          <Link href="/">
+            <Logo size="md" />
           </Link>
         )}
-        {collapsed && <LogoMark size={26} />}
+        {collapsed && <LogoMark size={28} />}
         <button
           onClick={onToggle}
           className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors"

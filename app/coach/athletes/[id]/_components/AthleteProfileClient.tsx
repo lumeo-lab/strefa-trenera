@@ -820,9 +820,13 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       />
                     </div>
                   ))}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Pakiet</label>
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Pakiet</label>
+                    {packages.length === 0 ? (
+                      <div className="px-3 py-2.5 rounded-xl text-sm" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-muted)' }}>
+                        Brak pakietów — <a href="/coach/packages" className="underline" style={{ color: '#FF5C1B' }}>dodaj pakiet w zakładce Pakiety</a>
+                      </div>
+                    ) : (
                       <select
                         value={dataEdit.package}
                         onChange={e => {
@@ -836,22 +840,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                         className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
                         style={inputStyle}
                       >
-                        {packages.length === 0
-                          ? <option value={dataEdit.package}>{dataEdit.package || '— Brak pakietów —'}</option>
-                          : packages.map(p => <option key={p.id} value={p.name}>{p.name} — {formatCurrency(p.price)}</option>)
-                        }
+                        {packages.map(p => <option key={p.id} value={p.name}>{p.name} — {formatCurrency(p.price)}</option>)}
                       </select>
-                    </div>
-                    <div>
-                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Cena (zł/mies.)</label>
-                      <input
-                        type="number"
-                        value={dataEdit.package_price}
-                        onChange={e => setDataEdit(d => ({ ...d, package_price: e.target.value }))}
-                        className="w-full px-3 py-2 rounded-xl text-sm"
-                        style={inputStyle}
-                      />
-                    </div>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Status</label>
