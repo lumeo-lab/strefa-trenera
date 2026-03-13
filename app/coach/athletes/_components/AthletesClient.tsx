@@ -196,7 +196,15 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
     return allStatuses.find(s => s.key === key) ?? { key, label: key, color: '#6B7280' }
   }
 
-  function SortHeader({ label, sk }: { label: string; sk: SortKey }) {
+  // Close status dropdown on outside click
+  useEffect(() => {
+    if (!editingStatusFor) return
+    function close() { setEditingStatusFor(null) }
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [editingStatusFor])
+
+  function SortHeader({ label, sk, hint }: { label: string; sk: SortKey; hint?: string }) {
     const isActive = sortKey === sk
     return (
       <th
@@ -204,8 +212,8 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
         style={{ color: isActive ? '#FF5C1B' : 'var(--text-muted)' }}
         onClick={() => handleSort(sk)}
       >
-        {label}
-        {isActive && <span className="ml-1 text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+        <div>{label}{isActive && <span className="ml-1 text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>}</div>
+        {hint && <div className="font-normal mt-0.5" style={{ fontSize: 10, opacity: 0.5 }}>{hint}</div>}
       </th>
     )
   }
@@ -319,7 +327,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                   <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Cel</th>
                   <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Obciążenie (7 dni)</th>
                   <SortHeader label="Pakiet" sk="package" />
-                  <SortHeader label="Status" sk="status" />
+                  <SortHeader label="Status" sk="status" hint="kliknij aby zmienić" />
                   <SortHeader label="Ostatni trening" sk="last_session" />
                 </tr>
               </thead>
@@ -338,7 +346,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                       onDragEnd={() => { setDraggingId(null); setDragOverId(null) }}
                       style={{
                         borderBottom: i < displayed.length - 1 ? '1px solid var(--border)' : 'none',
-                        background: isDraggingOver ? 'rgba(255,92,27,0.06)' : draggingId === athlete.id ? 'rgba(255,92,27,0.03)' : i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-elevated)',
+                        background: isDraggingOver ? 'rgba(255,92,27,0.06)' : draggingId === athlete.id ? 'rgba(255,92,27,0.03)' : i % 2 === 0 ? 'var(--bg-elevated)' : 'var(--bg-card)',
                         opacity: draggingId === athlete.id ? 0.5 : 1,
                         outline: isDraggingOver ? '2px solid rgba(255,92,27,0.4)' : 'none',
                         transition: 'background 0.1s',
@@ -370,24 +378,46 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                       <td className="px-5 py-4">
                         <Badge variant="gray">{athlete.package || '—'}</Badge>
                       </td>
-                      <td className="px-5 py-4" onClick={e => { e.stopPropagation(); setEditingStatusFor(athlete.id) }}>
-                        {editingStatusFor === athlete.id ? (
-                          <select
-                            autoFocus
-                            defaultValue={athlete.status}
-                            onChange={e => handleStatusChange(athlete.id, e.target.value)}
-                            onBlur={() => setEditingStatusFor(null)}
-                            disabled={updatingStatus}
+                      <td className="px-5 py-4" style={{ position: 'relative' }}
+                        onClick={e => { e.stopPropagation(); setEditingStatusFor(prev => prev === athlete.id ? null : athlete.id) }}>
+                        <div className="flex items-center gap-2 cursor-pointer select-none hover:opacity-70 transition-opacity">
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: statusDef.color }} />
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{statusDef.label}</span>
+                          <span className="text-xs opacity-30">▾</span>
+                        </div>
+                        {editingStatusFor === athlete.id && (
+                          <div
                             onClick={e => e.stopPropagation()}
-                            className="px-2 py-1 rounded-lg text-xs cursor-pointer"
-                            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                            style={{
+                              position: 'absolute',
+                              top: 'calc(100% + 2px)',
+                              left: '12px',
+                              zIndex: 100,
+                              background: 'var(--bg-raised)',
+                              border: '1px solid var(--border)',
+                              borderRadius: 12,
+                              padding: '4px',
+                              minWidth: 180,
+                              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                            }}
                           >
-                            {allStatuses.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-                          </select>
-                        ) : (
-                          <div className="flex items-center gap-2 cursor-pointer hover:opacity-70 transition-opacity" title="Kliknij aby zmienić status">
-                            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: statusDef.color }} />
-                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{statusDef.label}</span>
+                            {allStatuses.map(s => (
+                              <button
+                                key={s.key}
+                                disabled={updatingStatus}
+                                onClick={() => handleStatusChange(athlete.id, s.key)}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left cursor-pointer transition-opacity hover:opacity-70"
+                                style={{
+                                  background: s.key === athlete.status ? 'rgba(255,92,27,0.08)' : 'transparent',
+                                  color: s.key === athlete.status ? '#FF5C1B' : 'var(--text-primary)',
+                                  opacity: updatingStatus ? 0.6 : 1,
+                                }}
+                              >
+                                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
+                                {s.label}
+                                {s.key === athlete.status && <span className="ml-auto text-xs">✓</span>}
+                              </button>
+                            ))}
                           </div>
                         )}
                       </td>
