@@ -18,8 +18,9 @@ import { createSession, updateSession, deleteSession as deleteSessionAction } fr
 import { updateAthlete } from '@/lib/actions/athletes'
 import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
 import Link from 'next/link'
+import { useCustomSessionTypes, BUILTIN_SESSION_TYPE_KEYS, SessionTypeDef } from '@/lib/useCustomSessionTypes'
 
-const SESSION_TYPES: SessionType[] = ['easy', 'interval', 'tempo', 'long', 'gym', 'bike', 'rest']
+const PRESET_TYPE_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F97316', '#10B981', '#EF4444', '#F59E0B', '#06B6D4']
 
 // ── Feedback display helpers ───────────────────────────────────────────────
 
@@ -114,12 +115,12 @@ function getMonthCalendar(monthStr: string): (string | null)[][] {
 }
 
 interface SessionDraft {
-  title: string; type: SessionType; description: string
-  plannedDistance: string; plannedDuration: string; plannedPace: string; url: string
+  title: string; type: string; description: string
+  plannedDistance: string; plannedDuration: string; plannedPace: string; url: string; urlLabel: string
 }
 
 const emptyDraft = (): SessionDraft => ({
-  title: '', type: 'easy', description: '', plannedDistance: '', plannedDuration: '', plannedPace: '', url: '',
+  title: '', type: 'easy', description: '', plannedDistance: '', plannedDuration: '', plannedPace: '', url: '', urlLabel: '',
 })
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,6 +157,16 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
+
+  // ── Session types hook ──
+  const { all: allSessionTypes, custom: customSessionTypes, labelOverrides, saveAll: saveSessionTypes } = useCustomSessionTypes()
+
+  // ── Session type editor modal ──
+  const [sessionTypeModalOpen, setSessionTypeModalOpen] = useState(false)
+  const [editingBuiltinLabels, setEditingBuiltinLabels] = useState<Record<string, string>>({})
+  const [editingCustomTypes, setEditingCustomTypes] = useState<SessionTypeDef[]>([])
+  const [newTypeLabel, setNewTypeLabel] = useState('')
+  const [newTypeColor, setNewTypeColor] = useState(PRESET_TYPE_COLORS[0])
 
   // ── Session modal ──
   const [sessionModalOpen, setSessionModalOpen] = useState(false)
@@ -269,6 +280,38 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const totalPaid = athleteInvoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0)
 
   // ── Session modal handlers ──
+  // ── Session type color helpers ──
+  function typeClass(type: string): string {
+    if (customSessionTypes.find(t => t.key === type)) return ''
+    return intensityColor(type as SessionType)
+  }
+  function typeStyle(type: string): React.CSSProperties {
+    const c = customSessionTypes.find(t => t.key === type)
+    return c?.color ? { background: c.color + '33', color: c.color } : {}
+  }
+  function typeLabel(type: string): string {
+    return allSessionTypes.find(t => t.key === type)?.label ?? sessionTypeLabel(type as SessionType)
+  }
+
+  // ── Session type editor ──
+  function openSessionTypeModal() {
+    setEditingBuiltinLabels({ ...labelOverrides })
+    setEditingCustomTypes(customSessionTypes.map(t => ({ ...t })))
+    setNewTypeLabel('')
+    setNewTypeColor(PRESET_TYPE_COLORS[0])
+    setSessionTypeModalOpen(true)
+  }
+  function saveSessionTypeEdits() {
+    saveSessionTypes(editingBuiltinLabels, editingCustomTypes)
+    setSessionTypeModalOpen(false)
+  }
+  function addCustomType() {
+    if (!newTypeLabel.trim()) return
+    const key = `custom_${Date.now()}`
+    setEditingCustomTypes(prev => [...prev, { key, label: newTypeLabel.trim(), color: newTypeColor, isBuiltin: false }])
+    setNewTypeLabel('')
+  }
+
   function openNewSession(date: string) {
     setDraftDate(date)
     setDraft(emptyDraft())
@@ -280,12 +323,13 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     setDraftDate(session.date)
     setDraft({
       title: session.title,
-      type: session.type as SessionType,
+      type: session.type,
       description: session.description || '',
       plannedDistance: session.planned_distance?.toString() ?? '',
       plannedDuration: session.planned_duration?.toString() ?? '',
       plannedPace: session.planned_pace ?? '',
       url: session.url ?? '',
+      urlLabel: session.url_label ?? '',
     })
     setEditingSessionId(session.id)
     setSessionModalOpen(true)
@@ -308,11 +352,13 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       fd.set('planned_duration', draft.plannedDuration)
       fd.set('planned_pace', draft.plannedPace)
       fd.set('url', draft.url)
+      fd.set('url_label', draft.urlLabel)
     } else {
       if (draft.plannedDistance) fd.set('planned_distance', draft.plannedDistance)
       if (draft.plannedDuration) fd.set('planned_duration', draft.plannedDuration)
       if (draft.plannedPace) fd.set('planned_pace', draft.plannedPace)
       if (draft.url) fd.set('url', draft.url)
+      if (draft.urlLabel) fd.set('url_label', draft.urlLabel)
     }
 
     if (editingSessionId) {
@@ -564,7 +610,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                         )}
                         {daySessions.map(session => (
                           <div key={session.id} onClick={() => openEditSession(session)}
-                            className={`p-2 rounded-xl cursor-pointer transition-opacity hover:opacity-80 ${intensityColor(session.type)}`}>
+                            className={`p-2 rounded-xl cursor-pointer transition-opacity hover:opacity-80 ${typeClass(session.type)}`}
+                            style={typeStyle(session.type)}>
                             <div className="font-semibold text-xs leading-tight mb-1">{session.title}</div>
                             {session.description && <div className="text-xs opacity-60 leading-tight mb-1">{session.description}</div>}
                             <div className="flex flex-col gap-0.5 text-xs opacity-75">
@@ -572,6 +619,13 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                               {session.planned_duration && <span>⏱ {session.planned_duration} min</span>}
                               {session.planned_pace && <span>⚡ {session.planned_pace}/km</span>}
                             </div>
+                            {session.url && (
+                              <a href={session.url} target="_blank" rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                className="flex items-center gap-1 mt-1.5 text-xs opacity-80 hover:opacity-100">
+                                🔗 <span className="underline">{session.url_label || 'Link'}</span>
+                              </a>
+                            )}
                             {session.completed && (
                               <div className="mt-1.5">
                                 <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">✓</span>
@@ -640,7 +694,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                             <div className="space-y-1">
                               {daySessions.slice(0, 3).map(s => (
                                 <div key={s.id} onClick={() => openEditSession(s)}
-                                  className={`px-1.5 py-1 rounded-lg cursor-pointer hover:opacity-80 ${intensityColor(s.type)}`}>
+                                  className={`px-1.5 py-1 rounded-lg cursor-pointer hover:opacity-80 ${typeClass(s.type)}`}
+                                  style={typeStyle(s.type)}>
                                   <div className="text-xs font-semibold leading-tight">{s.title}</div>
                                   {s.description && <div className="text-xs opacity-60 leading-tight mt-0.5">{s.description}</div>}
                                   <div className="flex flex-wrap gap-x-2 mt-0.5" style={{ fontSize: '10px', opacity: 0.75 }}>
@@ -648,6 +703,14 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                                     {s.planned_duration && <span>⏱ {s.planned_duration}min</span>}
                                     {s.planned_pace && <span>⚡ {s.planned_pace}/km</span>}
                                   </div>
+                                  {s.url && (
+                                    <a href={s.url} target="_blank" rel="noopener noreferrer"
+                                      onClick={e => e.stopPropagation()}
+                                      className="flex items-center gap-0.5 mt-0.5 underline opacity-80 hover:opacity-100"
+                                      style={{ fontSize: '10px' }}>
+                                      🔗 {s.url_label || 'Link'}
+                                    </a>
+                                  )}
                                   {s.completed && <div className="text-green-400 mt-0.5" style={{ fontSize: '10px' }}>✓ wykonany</div>}
                                 </div>
                               ))}
@@ -679,7 +742,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     ) : (
                       <div className="space-y-2">
                         {initialSessions.filter(s => s.date === selectedDay).map(session => (
-                          <div key={session.id} className={`flex items-center gap-4 p-3 rounded-xl ${intensityColor(session.type)}`}>
+                          <div key={session.id} className={`flex items-center gap-4 p-3 rounded-xl ${typeClass(session.type)}`}
+                            style={typeStyle(session.type)}>
                             <div className="flex-1">
                               <div className="font-semibold text-sm">{session.title}</div>
                               <div className="flex gap-4 text-xs opacity-70 mt-1">
@@ -687,6 +751,13 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                                 {session.planned_duration && <span>⏱️ {session.planned_duration} min</span>}
                                 {session.planned_pace && <span>⚡ {session.planned_pace}/km</span>}
                               </div>
+                              {session.url && (
+                                <a href={session.url} target="_blank" rel="noopener noreferrer"
+                                  onClick={e => e.stopPropagation()}
+                                  className="flex items-center gap-1 mt-1.5 text-xs opacity-80 hover:opacity-100 underline">
+                                  🔗 {session.url_label || 'Link'}
+                                </a>
+                              )}
                             </div>
                             <button onClick={() => openEditSession(session)} className="p-1.5 rounded-lg cursor-pointer text-sm" style={{ background: 'rgba(0,0,0,0.2)' }}>✏️</button>
                           </div>
@@ -699,15 +770,25 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             )}
 
             {/* Rodzaj treningu */}
-            <div className="mt-5 space-y-2 pb-32">
-              <div className="flex flex-wrap gap-2 items-center">
-                <span className="text-xs font-medium mr-1" style={{ color: 'var(--text-muted)' }}>Rodzaj treningu:</span>
-                {SESSION_TYPES.filter(t => t !== 'rest').map(t => (
-                  <span key={t} className={`text-xs px-2.5 py-1 rounded-full font-medium ${intensityColor(t)}`}>{sessionTypeLabel(t)}</span>
-                ))}
-                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${intensityColor('rest')}`}>{sessionTypeLabel('rest')}</span>
+            <div className="mt-5 pb-32">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>Rodzaj treningu:</span>
+                <button onClick={openSessionTypeModal}
+                  className="text-xs px-2.5 py-1 rounded-lg cursor-pointer transition-opacity hover:opacity-80"
+                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                  ⚙ Edytuj
+                </button>
               </div>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              <div className="flex flex-wrap gap-2">
+                {allSessionTypes.map(t => (
+                  <span key={t.key}
+                    className={`text-xs px-2.5 py-1 rounded-full font-medium ${t.isBuiltin ? intensityColor(t.key as SessionType) : ''}`}
+                    style={!t.isBuiltin && t.color ? { background: t.color + '33', color: t.color } : {}}>
+                    {t.label}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs mt-4" style={{ color: '#B0B8CC' }}>
                 💬 Gdy zawodnik doda feedback, pojawi się jako przycisk &quot;Feedback&quot; pod kafelkiem dnia
               </p>
             </div>
@@ -772,7 +853,10 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                           <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(session.date, { day: 'numeric', month: 'short' })}</td>
                           <td className="px-4 py-3 font-medium text-xs">{session.title}</td>
                           <td className="px-4 py-3">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${intensityColor(session.type)}`}>{sessionTypeLabel(session.type)}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${typeClass(session.type)}`}
+                              style={typeStyle(session.type)}>
+                              {typeLabel(session.type)}
+                            </span>
                           </td>
                           <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                             {session.actual_distance ? `${session.actual_distance} km` : session.planned_distance ? `(${session.planned_distance} km)` : '—'}
@@ -1232,11 +1316,16 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           <div>
             <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Typ treningu</label>
             <div className="flex flex-wrap gap-2">
-              {SESSION_TYPES.map(t => (
-                <button key={t} onClick={() => setDraft(d => ({ ...d, type: t }))}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all ${intensityColor(t)}`}
-                  style={{ opacity: draft.type === t ? 1 : 0.4, outline: draft.type === t ? '2px solid currentColor' : 'none', outlineOffset: '1px' }}>
-                  {sessionTypeLabel(t)}
+              {allSessionTypes.map(t => (
+                <button key={t.key} onClick={() => setDraft(d => ({ ...d, type: t.key }))}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all ${t.isBuiltin ? intensityColor(t.key as SessionType) : ''}`}
+                  style={{
+                    opacity: draft.type === t.key ? 1 : 0.4,
+                    outline: draft.type === t.key ? '2px solid currentColor' : 'none',
+                    outlineOffset: '1px',
+                    ...(!t.isBuiltin && t.color ? { background: t.color + '33', color: t.color } : {}),
+                  }}>
+                  {t.label}
                 </button>
               ))}
             </div>
@@ -1276,8 +1365,99 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           <div>
             <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Link (opcjonalny)</label>
             <input value={draft.url} onChange={e => setDraft(d => ({ ...d, url: e.target.value }))}
-              placeholder="np. https://www.strava.com/..."
+              placeholder="np. https://www.trainerroad.com/..."
               className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+          </div>
+          {draft.url && (
+            <div>
+              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Opis linku (opcjonalny)</label>
+              <input value={draft.urlLabel} onChange={e => setDraft(d => ({ ...d, urlLabel: e.target.value }))}
+                placeholder="np. Plan treningu w TrainerRoad"
+                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* ── Session Type Editor Modal ── */}
+      <Modal
+        open={sessionTypeModalOpen}
+        onClose={() => setSessionTypeModalOpen(false)}
+        title="Rodzaj treningu"
+        size="sm"
+        footer={
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setSessionTypeModalOpen(false)}>Anuluj</Button>
+            <Button onClick={saveSessionTypeEdits}>Zapisz</Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {/* Built-in types — rename only */}
+          <div>
+            <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Wbudowane typy</div>
+            <div className="space-y-2">
+              {BUILTIN_SESSION_TYPE_KEYS.map(key => (
+                <div key={key} className="flex items-center gap-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${intensityColor(key)}`}
+                    style={{ minWidth: 52, textAlign: 'center' }}>
+                    ●
+                  </span>
+                  <input
+                    value={editingBuiltinLabels[key] ?? labelOverrides[key] ?? sessionTypeLabel(key)}
+                    onChange={e => setEditingBuiltinLabels(prev => ({ ...prev, [key]: e.target.value }))}
+                    className="flex-1 px-3 py-2 rounded-xl text-sm"
+                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom types */}
+          {editingCustomTypes.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Własne typy</div>
+              <div className="space-y-2">
+                {editingCustomTypes.map((t, idx) => (
+                  <div key={t.key} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ background: t.color }} />
+                    <input
+                      value={t.label}
+                      onChange={e => setEditingCustomTypes(prev => prev.map((x, i) => i === idx ? { ...x, label: e.target.value } : x))}
+                      className="flex-1 px-3 py-2 rounded-xl text-sm"
+                      style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                    />
+                    <button onClick={() => setEditingCustomTypes(prev => prev.filter((_, i) => i !== idx))}
+                      className="text-xs px-2.5 py-2 rounded-xl cursor-pointer"
+                      style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add new */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+            <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Dodaj własny typ</div>
+            <input
+              value={newTypeLabel}
+              onChange={e => setNewTypeLabel(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addCustomType()}
+              placeholder="Nazwa (np. Pływanie)"
+              className="w-full px-3 py-2 rounded-xl text-sm mb-2"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+            />
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1.5 flex-wrap">
+                {PRESET_TYPE_COLORS.map(c => (
+                  <button key={c} type="button" onClick={() => setNewTypeColor(c)}
+                    className="w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110"
+                    style={{ background: c, outline: newTypeColor === c ? '2px solid white' : 'none', outlineOffset: 2, boxShadow: newTypeColor === c ? `0 0 0 3px ${c}` : 'none' }} />
+                ))}
+              </div>
+              <Button size="sm" onClick={addCustomType} disabled={!newTypeLabel.trim()}>+ Dodaj</Button>
+            </div>
           </div>
         </div>
       </Modal>
