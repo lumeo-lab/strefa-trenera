@@ -90,7 +90,7 @@ export async function updateAthlete(_: unknown, formData: FormData) {
   const id = formData.get('id') as string
   const updates: Record<string, unknown> = {}
 
-  const fields = ['name', 'email', 'phone', 'goal', 'package', 'city', 'coach_notes'] as const
+  const fields = ['name', 'email', 'phone', 'goal', 'package', 'city', 'coach_notes', 'join_date'] as const
   for (const field of fields) {
     const val = formData.get(field)
     if (val !== null) updates[field] = val as string

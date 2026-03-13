@@ -16,6 +16,7 @@ export async function createSession(_: unknown, formData: FormData) {
   const plannedDistance = formData.get('planned_distance') ? parseFloat(formData.get('planned_distance') as string) : null
   const plannedDuration = formData.get('planned_duration') ? parseInt(formData.get('planned_duration') as string) : null
   const plannedPace = formData.get('planned_pace') as string || null
+  const url = formData.get('url') as string || null
 
   if (!athleteId || !date || !type || !title) return { error: 'Brak wymaganych pól' }
 
@@ -29,6 +30,7 @@ export async function createSession(_: unknown, formData: FormData) {
     planned_distance: plannedDistance,
     planned_duration: plannedDuration,
     planned_pace: plannedPace,
+    url,
   }).select('id').single()
 
   if (error) return { error: error.message }
@@ -46,7 +48,7 @@ export async function updateSession(_: unknown, formData: FormData) {
   const athleteId = formData.get('athlete_id') as string
 
   const updates: Record<string, unknown> = {}
-  const stringFields = ['date', 'type', 'title', 'description'] as const
+  const stringFields = ['date', 'type', 'title', 'description', 'url'] as const
   for (const f of stringFields) {
     const v = formData.get(f)
     if (v !== null) updates[f] = v

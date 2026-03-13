@@ -16,7 +16,7 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
 
   if (!athlete) notFound()
 
-  const [{ data: sessions }, { data: feedbacks }, { data: invoices }, { data: packages }] = await Promise.all([
+  const [{ data: sessions }, { data: feedbacks }, { data: invoices }, { data: packages }, { data: races }] = await Promise.all([
     supabase
       .from('training_sessions')
       .select('*')
@@ -37,6 +37,11 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
       .select('id, name, description, price')
       .eq('coach_id', user!.id)
       .order('name'),
+    supabase
+      .from('athlete_races')
+      .select('*')
+      .eq('athlete_id', id)
+      .order('date', { ascending: true }),
   ])
 
   return (
@@ -46,6 +51,7 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
       feedbacks={feedbacks ?? []}
       invoices={invoices ?? []}
       packages={packages ?? []}
+      races={races ?? []}
     />
   )
 }

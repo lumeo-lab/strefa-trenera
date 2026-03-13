@@ -1,4 +1,4 @@
-export type SessionType = 'easy' | 'interval' | 'tempo' | 'long' | 'rest' | 'gym'
+export type SessionType = 'easy' | 'interval' | 'tempo' | 'long' | 'rest' | 'gym' | 'bike'
 export type FeedbackSource = 'voice' | 'text' | 'auto'
 export type FeedbackSignal = 'green' | 'yellow' | 'red'
 export type InvoiceStatus = 'pending' | 'paid' | 'overdue' | 'cancelled'

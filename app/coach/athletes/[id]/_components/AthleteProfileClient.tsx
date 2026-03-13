@@ -16,9 +16,10 @@ import {
 import { SessionType } from '@/lib/types'
 import { createSession, updateSession, deleteSession as deleteSessionAction } from '@/lib/actions/sessions'
 import { updateAthlete } from '@/lib/actions/athletes'
+import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
 import Link from 'next/link'
 
-const SESSION_TYPES: SessionType[] = ['easy', 'interval', 'tempo', 'long', 'rest', 'gym']
+const SESSION_TYPES: SessionType[] = ['easy', 'interval', 'tempo', 'long', 'gym', 'bike', 'rest']
 
 // ── Feedback display helpers ───────────────────────────────────────────────
 
@@ -114,11 +115,11 @@ function getMonthCalendar(monthStr: string): (string | null)[][] {
 
 interface SessionDraft {
   title: string; type: SessionType; description: string
-  plannedDistance: string; plannedDuration: string; plannedPace: string
+  plannedDistance: string; plannedDuration: string; plannedPace: string; url: string
 }
 
 const emptyDraft = (): SessionDraft => ({
-  title: '', type: 'easy', description: '', plannedDistance: '', plannedDuration: '', plannedPace: '',
+  title: '', type: 'easy', description: '', plannedDistance: '', plannedDuration: '', plannedPace: '', url: '',
 })
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -126,17 +127,20 @@ type DbRow = Record<string, any>
 
 type Package = { id: string; name: string; description: string | null; price: number }
 
+interface RaceDraft { name: string; date: string; distance: string; goalTime: string; notes: string }
+
 interface Props {
   athlete: DbRow
   sessions: DbRow[]
   feedbacks: DbRow[]
   invoices: DbRow[]
   packages: Package[]
+  races: DbRow[]
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages }: Props) {
+export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('plan')
   const [saving, setSaving] = useState(false)
@@ -194,7 +198,15 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     status: athlete.status ?? 'ok',
     height: athlete.height?.toString() ?? '',
     weight: athlete.weight?.toString() ?? '',
+    join_date: athlete.join_date ?? '',
   })
+
+  // ── Races state ──
+  const [raceModalOpen, setRaceModalOpen] = useState(false)
+  const [editingRaceId, setEditingRaceId] = useState<string | null>(null)
+  const [raceDraft, setRaceDraft] = useState<RaceDraft>({ name: '', date: '', distance: '', goalTime: '', notes: '' })
+  const [raceSaving, setRaceSaving] = useState(false)
+  const [confirmDeleteRaceId, setConfirmDeleteRaceId] = useState<string | null>(null)
   const [dataSaving, setDataSaving] = useState(false)
   const [dataSaved, setDataSaved] = useState(false)
 
@@ -245,8 +257,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const tabs = [
     { id: 'plan', label: 'Plan' },
     { id: 'history', label: 'Historia' },
-    { id: 'data', label: 'Dane' },
     { id: 'notes', label: 'Notatki' },
+    { id: 'data', label: 'Dane' },
     { id: 'finance', label: 'Finanse' },
   ]
 
@@ -271,6 +283,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       plannedDistance: session.planned_distance?.toString() ?? '',
       plannedDuration: session.planned_duration?.toString() ?? '',
       plannedPace: session.planned_pace ?? '',
+      url: session.url ?? '',
     })
     setEditingSessionId(session.id)
     setSessionModalOpen(true)
@@ -292,10 +305,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       fd.set('planned_distance', draft.plannedDistance)
       fd.set('planned_duration', draft.plannedDuration)
       fd.set('planned_pace', draft.plannedPace)
+      fd.set('url', draft.url)
     } else {
       if (draft.plannedDistance) fd.set('planned_distance', draft.plannedDistance)
       if (draft.plannedDuration) fd.set('planned_duration', draft.plannedDuration)
       if (draft.plannedPace) fd.set('planned_pace', draft.plannedPace)
+      if (draft.url) fd.set('url', draft.url)
     }
 
     if (editingSessionId) {
@@ -327,6 +342,47 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     await updateAthlete(null, fd)
     setNotesSaved(true)
     setTimeout(() => setNotesSaved(false), 2000)
+    startTransition(() => router.refresh())
+  }
+
+  // ── Race handlers ──
+  function openNewRace() {
+    setRaceDraft({ name: '', date: '', distance: '', goalTime: '', notes: '' })
+    setEditingRaceId(null)
+    setRaceModalOpen(true)
+  }
+
+  function openEditRace(race: DbRow) {
+    setRaceDraft({ name: race.name, date: race.date, distance: race.distance ?? '', goalTime: race.goal_time ?? '', notes: race.notes ?? '' })
+    setEditingRaceId(race.id)
+    setRaceModalOpen(true)
+  }
+
+  async function saveRace() {
+    if (!raceDraft.name.trim() || !raceDraft.date || raceSaving) return
+    setRaceSaving(true)
+    const fd = new FormData()
+    fd.set('athlete_id', athlete.id)
+    fd.set('name', raceDraft.name)
+    fd.set('date', raceDraft.date)
+    fd.set('distance', raceDraft.distance)
+    fd.set('goal_time', raceDraft.goalTime)
+    fd.set('notes', raceDraft.notes)
+    if (editingRaceId) {
+      fd.set('id', editingRaceId)
+      await updateRace(null, fd)
+    } else {
+      await createRace(null, fd)
+    }
+    setRaceModalOpen(false)
+    setRaceSaving(false)
+    startTransition(() => router.refresh())
+  }
+
+  async function handleDeleteRace(id: string) {
+    await deleteRace(id, athlete.id)
+    setConfirmDeleteRaceId(null)
+    setRaceModalOpen(false)
     startTransition(() => router.refresh())
   }
 
@@ -395,10 +451,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 {athlete.age && <span>🎂 {athlete.age} lat</span>}
                 <span>📅 Od {formatDate(athlete.join_date, { month: 'long', year: 'numeric' })}</span>
               </div>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="text-2xl font-bold">{totalKm.toFixed(0)} km</div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>łącznie</div>
             </div>
           </div>
 
@@ -644,13 +696,18 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               </div>
             )}
 
-            {/* Legenda */}
-            <div className="mt-5 flex flex-wrap gap-2 items-center pb-32">
-              <span className="text-xs font-medium mr-1" style={{ color: 'var(--text-muted)' }}>Legenda:</span>
-              {SESSION_TYPES.filter(t => t !== 'rest').map(t => (
-                <span key={t} className={`text-xs px-2.5 py-1 rounded-full font-medium ${intensityColor(t)}`}>{sessionTypeLabel(t)}</span>
-              ))}
-              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${intensityColor('rest')}`}>{sessionTypeLabel('rest')}</span>
+            {/* Rodzaj treningu */}
+            <div className="mt-5 space-y-2 pb-32">
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-xs font-medium mr-1" style={{ color: 'var(--text-muted)' }}>Rodzaj treningu:</span>
+                {SESSION_TYPES.filter(t => t !== 'rest').map(t => (
+                  <span key={t} className={`text-xs px-2.5 py-1 rounded-full font-medium ${intensityColor(t)}`}>{sessionTypeLabel(t)}</span>
+                ))}
+                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${intensityColor('rest')}`}>{sessionTypeLabel('rest')}</span>
+              </div>
+              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                💬 Gdy zawodnik doda feedback do sesji, pojawi się jako przycisk "Feedback" pod kafelkiem
+              </div>
             </div>
           </div>
         )}
@@ -795,7 +852,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     ['Pakiet', dataEdit.package],
                     ['Cena', dataEdit.package_price ? `${dataEdit.package_price} zł/mies.` : ''],
                     ['Status', ({ ok: 'OK', warning: 'Uwaga', alert: 'Alert', inactive: 'Nieaktywny' } as Record<string, string>)[dataEdit.status] ?? dataEdit.status],
-                    ['Dołączył/a', formatDate(athlete.join_date, { day: 'numeric', month: 'long', year: 'numeric' })],
+                    ['Dołączył/a', dataEdit.join_date ? formatDate(dataEdit.join_date, { day: 'numeric', month: 'long', year: 'numeric' }) : '—'],
                   ] as [string, string][]).map(([label, value]) => (
                     <div key={label} className="flex justify-between">
                       <span style={{ color: 'var(--text-muted)' }}>{label}</span>
@@ -863,6 +920,16 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       <option value="alert">Alert</option>
                       <option value="inactive">Nieaktywny</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Data dołączenia</label>
+                    <input
+                      type="date"
+                      value={dataEdit.join_date}
+                      onChange={e => setDataEdit(d => ({ ...d, join_date: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl text-sm"
+                      style={inputStyle}
+                    />
                   </div>
                 </div>
               )}
@@ -934,7 +1001,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
         {/* ── Notatki ── */}
         {activeTab === 'notes' && (
-          <div>
+          <div className="space-y-5">
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Notatki trenera</h3>
@@ -970,6 +1037,53 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   className="w-full px-4 py-3 rounded-xl text-sm resize-none"
                   style={inputStyle}
                 />
+              )}
+            </Card>
+
+            {/* Planowane starty */}
+            <Card className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">🏁 Planowane starty</h3>
+                <button
+                  onClick={openNewRace}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                  style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
+                >+ Dodaj start</button>
+              </div>
+              {initialRaces.length === 0 ? (
+                <div className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>
+                  Brak zaplanowanych startów. Kliknij &quot;+ Dodaj start&quot;, aby dodać.
+                </div>
+              ) : (
+                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+                        {['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Notatki', ''].map(h => (
+                          <th key={h} className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {initialRaces.map((race, i) => (
+                        <tr key={race.id} style={{ borderBottom: i < initialRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
+                          <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                            {formatDate(race.date, { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </td>
+                          <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
+                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
+                          <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
+                          <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>{race.notes || '—'}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button onClick={() => openEditRace(race)}
+                              className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
+                              style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>✏️</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </Card>
           </div>
@@ -1032,6 +1146,71 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         {feedbackModalData && <FeedbackDetail fb={feedbackModalData} />}
       </Modal>
 
+      {/* ── Race Modal ── */}
+      <Modal
+        open={raceModalOpen}
+        onClose={() => { setRaceModalOpen(false); setConfirmDeleteRaceId(null) }}
+        title={editingRaceId ? 'Edytuj start' : 'Nowy planowany start'}
+        footer={
+          <div className="flex gap-3">
+            {editingRaceId && (
+              confirmDeleteRaceId === editingRaceId ? (
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Na pewno usunąć?</span>
+                  <button onClick={() => handleDeleteRace(editingRaceId)}
+                    className="px-3 py-2 rounded-xl text-sm font-medium cursor-pointer"
+                    style={{ background: 'rgba(231,76,60,0.15)', color: '#E74C3C' }}>Tak, usuń</button>
+                  <button onClick={() => setConfirmDeleteRaceId(null)}
+                    className="px-3 py-2 rounded-xl text-sm cursor-pointer"
+                    style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Nie</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDeleteRaceId(editingRaceId)}
+                  className="px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer"
+                  style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>🗑 Usuń</button>
+              )
+            )}
+            <Button className="flex-1" onClick={saveRace} disabled={!raceDraft.name.trim() || !raceDraft.date || raceSaving}>
+              {raceSaving ? 'Zapisywanie...' : editingRaceId ? 'Zapisz zmiany' : 'Dodaj start'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Nazwa zawodów *</label>
+            <input value={raceDraft.name} onChange={e => setRaceDraft(d => ({ ...d, name: e.target.value }))}
+              placeholder="np. Maraton Warszawski 2026"
+              className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+          </div>
+          <div>
+            <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Data *</label>
+            <input type="date" value={raceDraft.date} onChange={e => setRaceDraft(d => ({ ...d, date: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Dystans</label>
+              <input value={raceDraft.distance} onChange={e => setRaceDraft(d => ({ ...d, distance: e.target.value }))}
+                placeholder="np. Maraton, 10 km"
+                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+            </div>
+            <div>
+              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Cel czasowy</label>
+              <input value={raceDraft.goalTime} onChange={e => setRaceDraft(d => ({ ...d, goalTime: e.target.value }))}
+                placeholder="np. 3:30:00"
+                className="w-full px-3 py-2 rounded-xl text-sm font-mono" style={inputStyle} />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Notatki</label>
+            <textarea value={raceDraft.notes} onChange={e => setRaceDraft(d => ({ ...d, notes: e.target.value }))}
+              placeholder="Dodatkowe informacje..."
+              rows={3} className="w-full px-3 py-2 rounded-xl text-sm resize-none" style={inputStyle} />
+          </div>
+        </div>
+      </Modal>
+
       {/* ── Session Modal ── */}
       <Modal
         open={sessionModalOpen}
@@ -1088,6 +1267,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 placeholder="np. 5:30"
                 className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
             </div>
+          </div>
+          <div>
+            <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Link (opcjonalny)</label>
+            <input value={draft.url} onChange={e => setDraft(d => ({ ...d, url: e.target.value }))}
+              placeholder="np. https://www.strava.com/..."
+              className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
           </div>
         </div>
       </Modal>

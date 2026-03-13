@@ -52,8 +52,9 @@ export function intensityColor(type: SessionType): string {
     long: 'session-long',
     rest: 'session-rest',
     gym: 'session-gym',
+    bike: 'session-bike',
   }
-  return map[type]
+  return map[type] ?? 'session-easy'
 }
 
 export function sessionTypeLabel(type: SessionType): string {
@@ -64,8 +65,9 @@ export function sessionTypeLabel(type: SessionType): string {
     long: 'Long Run',
     rest: 'Odpoczynek',
     gym: 'Siłownia',
+    bike: 'Rower',
   }
-  return map[type]
+  return map[type] ?? type
 }
 
 export function statusColor(status: AthleteStatus): string {
