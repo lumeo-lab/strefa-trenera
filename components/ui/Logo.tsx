@@ -12,13 +12,13 @@ interface LogoProps {
 /**
  * Strefa Trenera — logo
  *
- * Mark: three diagonal bars at irregular heights (18 / 30 / 34 px),
- * suggesting a training-load chart.  All three are clipped to one
- * horizontal gradient so they read as a single cohesive mark.
- * Bars tilt ~16° right; height jumps (+12 / +4) feel data-driven,
- * not mechanical.
+ * Mark: three diagonal bars at irregular heights (18 / 30 / 34 px).
+ * Mark height = height of the full wordmark stack (name + slogan),
+ * so the mark and text are visually the same size.
+ * Slogan hidden at size="sm" (sidebar) to avoid crowding.
  *
- * Wordmark: "Strefa" #E8EAF0 800 · "Trenera" #FF5C1B 800.
+ * Wordmark: "Strefa" #E8EAF0 800 · "Trenera" #FF5C1B 800
+ * Slogan:   "Plany. Postęp. Wyniki."  #8A92A8 500
  */
 export function Logo({
   size = 'md',
@@ -26,12 +26,21 @@ export function Logo({
   iconOnly = false,
   stacked = false,
 }: LogoProps) {
-  const uid    = useId().replace(/:/g, '')
-  const s      = size === 'sm' ? 0.75 : size === 'lg' ? 1.25 : size === 'xl' ? 1.6 : 1
-  const iW     = Math.round(27 * s)
-  const iH     = Math.round(24 * s)
-  const fS     = Math.round(19 * s)
-  const gap    = Math.round(11 * s)
+  const uid        = useId().replace(/:/g, '')
+  const s          = size === 'sm' ? 0.75 : size === 'lg' ? 1.25 : size === 'xl' ? 1.6 : 1
+  const showSlogan = size !== 'sm'
+  const fS         = Math.round(19 * s)
+  const sloganFS   = Math.round(9 * s)
+  const innerGap   = Math.round(3 * s)          // gap between name and slogan
+  const gap        = Math.round(11 * s)          // gap between mark and wordmark
+
+  // Mark height = combined height of name + (gap + slogan) if shown,
+  // or a comfortable fixed height at sm.
+  const iH = showSlogan
+    ? fS + innerGap + sloganFS
+    : Math.round(24 * s)
+  const iW = Math.round(iH * 38 / 34)
+
   const gId    = `g-${uid}`
   const clipId = `c-${uid}`
 
@@ -45,31 +54,17 @@ export function Logo({
       style={{ display: 'block', flexShrink: 0 }}
     >
       <defs>
-        {/* Gradient runs full mark width — left bar darkest, right bar lightest */}
         <linearGradient id={gId} x1="0" y1="0" x2="38" y2="0" gradientUnits="userSpaceOnUse">
           <stop offset="0%"   stopColor="#B83200" />
           <stop offset="45%"  stopColor="#FF5C1B" />
           <stop offset="100%" stopColor="#FF8C50" />
         </linearGradient>
-
-        {/*
-          Three right-leaning (/) parallelogram bars.
-          Bar widths = 7 px each, gaps = 4 px, tilt proportional to height.
-          Heights: 18 / 30 / 34 — intentionally irregular (jumps +12 / +4).
-
-          Tilt per bar = 9 * h / 34  (full-height bar shifts 9 px right).
-
-          Bar 1  h=18  tilt≈5  → (0,34)(7,34)(12,16)(5,16)
-          Bar 2  h=30  tilt≈8  → (11,34)(18,34)(26,4)(19,4)
-          Bar 3  h=34  tilt=9  → (22,34)(29,34)(38,0)(31,0)
-        */}
         <clipPath id={clipId}>
           <polygon points="0,34 7,34 12,16 5,16" />
           <polygon points="11,34 18,34 26,4 19,4" />
           <polygon points="22,34 29,34 38,0 31,0" />
         </clipPath>
       </defs>
-
       <rect x="0" y="0" width="38" height="34"
         fill={`url(#${gId})`}
         clipPath={`url(#${clipId})`}
@@ -78,10 +73,25 @@ export function Logo({
   )
 
   const wordmark = (
-    <span style={{ lineHeight: 1.05, letterSpacing: '-0.03em', whiteSpace: 'nowrap' }}>
-      <span style={{ fontSize: fS, fontWeight: 800, color: '#E8EAF0' }}>Strefa</span>
-      <span style={{ fontSize: fS, fontWeight: 800, color: '#FF5C1B' }}> Trenera</span>
-    </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: innerGap }}>
+      <span style={{ lineHeight: 1, letterSpacing: '-0.03em', whiteSpace: 'nowrap', display: 'block' }}>
+        <span style={{ fontSize: fS, fontWeight: 800, color: '#E8EAF0' }}>Strefa</span>
+        <span style={{ fontSize: fS, fontWeight: 800, color: '#FF5C1B' }}> Trenera</span>
+      </span>
+      {showSlogan && (
+        <span style={{
+          fontSize: sloganFS,
+          fontWeight: 500,
+          color: '#8A92A8',
+          letterSpacing: '0.06em',
+          whiteSpace: 'nowrap',
+          lineHeight: 1,
+          display: 'block',
+        }}>
+          Plany. Postęp. Wyniki.
+        </span>
+      )}
+    </div>
   )
 
   if (iconOnly) return mark
