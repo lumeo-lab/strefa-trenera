@@ -19,29 +19,21 @@ const inputStyle = {
   color: 'var(--text-primary)',
 }
 
-const COLORS = [
-  { key: 'orange', label: 'Pomarańczowy', tw: 'from-orange-500 to-orange-600' },
-  { key: 'blue',   label: 'Niebieski',    tw: 'from-blue-500 to-blue-600' },
-  { key: 'green',  label: 'Zielony',      tw: 'from-green-500 to-green-600' },
-  { key: 'purple', label: 'Fioletowy',    tw: 'from-purple-500 to-purple-600' },
-  { key: 'pink',   label: 'Różowy',       tw: 'from-pink-500 to-pink-600' },
-  { key: 'red',    label: 'Czerwony',     tw: 'from-red-500 to-red-600' },
-  { key: 'teal',   label: 'Morski',       tw: 'from-teal-500 to-teal-600' },
-  { key: 'yellow', label: 'Żółty',        tw: 'from-yellow-500 to-yellow-600' },
+// Predefined avatar graphics — sports & coaching themed
+const AVATAR_EMOJIS = [
+  '🏃', '🚴', '🏊', '🏋️', '⛹️', '🤸',
+  '🧘', '🏄', '🏇', '🤺', '🥊', '⛷️',
+  '🎯', '🏆', '🔥', '💪', '⚡', '🦁',
+  '🌟', '🎽', '🧗', '🚣', '🏌️', '⚽',
 ]
-
-function getCurrentColor(avatar: string): string {
-  if (avatar.startsWith('color:')) return avatar.slice(6)
-  if (avatar.startsWith('http')) return ''
-  return 'orange'
-}
-
-function getGradient(colorKey: string): string {
-  return COLORS.find(c => c.key === colorKey)?.tw ?? 'from-orange-500 to-orange-600'
-}
 
 function initials(n: string) {
   return n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+}
+
+function currentEmoji(avatar: string): string {
+  if (avatar.startsWith('emoji:')) return avatar.slice(6)
+  return ''
 }
 
 export function SettingsClient({ email, name, plan, avatar }: Props) {
@@ -50,7 +42,7 @@ export function SettingsClient({ email, name, plan, avatar }: Props) {
   const [passState, passAction, passPending] = useActionState(updateCoachPassword, null)
   const [avatarState, avatarAction, avatarPending] = useActionState(updateCoachAvatar, null)
 
-  const [selectedColor, setSelectedColor] = useState<string>(getCurrentColor(avatar))
+  const [selectedEmoji, setSelectedEmoji] = useState<string>(currentEmoji(avatar))
   const [previewUrl, setPreviewUrl] = useState<string | null>(avatar.startsWith('http') ? avatar : null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -58,10 +50,30 @@ export function SettingsClient({ email, name, plan, avatar }: Props) {
     const file = e.target.files?.[0]
     if (!file) return
     setPreviewUrl(URL.createObjectURL(file))
-    setSelectedColor('')
+    setSelectedEmoji('')
   }
 
-  const avatarInitials = initials(name)
+  // What the preview shows
+  function PreviewAvatar() {
+    if (previewUrl) {
+      // eslint-disable-next-line @next/next/no-img-element
+      return <img src={previewUrl} alt="avatar" className="w-20 h-20 rounded-full object-cover" />
+    }
+    if (selectedEmoji) {
+      return (
+        <div className="w-20 h-20 rounded-full flex items-center justify-center text-5xl"
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+          {selectedEmoji}
+        </div>
+      )
+    }
+    // Default initials
+    return (
+      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-2xl text-white">
+        {initials(name)}
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -71,35 +83,34 @@ export function SettingsClient({ email, name, plan, avatar }: Props) {
 
         {/* Avatar */}
         <Card className="p-5">
-          <h3 className="font-semibold mb-4">Zdjęcie profilowe</h3>
+          <h3 className="font-semibold mb-5">Zdjęcie profilowe</h3>
           <div className="flex items-start gap-6">
 
             {/* Current preview */}
-            <div className="shrink-0">
-              {previewUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={previewUrl} alt="avatar" className="w-20 h-20 rounded-full object-cover" />
-              ) : (
-                <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${getGradient(selectedColor || 'orange')} flex items-center justify-center font-bold text-2xl text-white`}>
-                  {avatarInitials}
-                </div>
-              )}
+            <div className="shrink-0 flex flex-col items-center gap-2">
+              <PreviewAvatar />
+              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Podgląd</div>
             </div>
 
-            <div className="flex-1 space-y-4">
-              {/* Color picker */}
+            <div className="flex-1 space-y-5">
+              {/* Emoji avatar grid */}
               <div>
-                <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Kolor tła</div>
-                <div className="flex flex-wrap gap-2">
-                  {COLORS.map(c => (
+                <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Wybierz grafikę</div>
+                <div className="grid grid-cols-8 gap-1.5">
+                  {AVATAR_EMOJIS.map(em => (
                     <button
-                      key={c.key}
+                      key={em}
                       type="button"
-                      title={c.label}
-                      onClick={() => { setSelectedColor(c.key); setPreviewUrl(null); if (fileRef.current) fileRef.current.value = '' }}
-                      className={`w-8 h-8 rounded-full bg-gradient-to-br ${c.tw} cursor-pointer transition-transform hover:scale-110`}
-                      style={{ outline: selectedColor === c.key && !previewUrl ? '3px solid white' : 'none', outlineOffset: '2px', boxShadow: selectedColor === c.key && !previewUrl ? '0 0 0 4px #FF5C1B' : 'none' }}
-                    />
+                      onClick={() => { setSelectedEmoji(em); setPreviewUrl(null); if (fileRef.current) fileRef.current.value = '' }}
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-xl cursor-pointer transition-all hover:scale-110"
+                      style={{
+                        background: selectedEmoji === em && !previewUrl ? 'rgba(255,92,27,0.15)' : 'var(--bg-elevated)',
+                        border: selectedEmoji === em && !previewUrl ? '2px solid #FF5C1B' : '1px solid var(--border)',
+                      }}
+                      title={em}
+                    >
+                      {em}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -121,9 +132,9 @@ export function SettingsClient({ email, name, plan, avatar }: Props) {
                   📷 Wybierz plik
                 </label>
                 {previewUrl && (
-                  <button type="button" onClick={() => { setPreviewUrl(null); setSelectedColor('orange'); if (fileRef.current) fileRef.current.value = '' }}
+                  <button type="button" onClick={() => { setPreviewUrl(null); if (fileRef.current) fileRef.current.value = '' }}
                     className="ml-2 text-xs px-3 py-2 rounded-xl cursor-pointer"
-                    style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)' }}>
+                    style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
                     ✕ Usuń
                   </button>
                 )}
@@ -136,9 +147,9 @@ export function SettingsClient({ email, name, plan, avatar }: Props) {
             if (previewUrl && fileRef.current?.files?.[0]) {
               fd.set('avatar_file', fileRef.current.files[0])
             }
-            fd.set('avatar_type', selectedColor ? `color:${selectedColor}` : '')
+            fd.set('avatar_type', selectedEmoji ? `emoji:${selectedEmoji}` : '')
             await avatarAction(fd)
-          }} className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+          }} className="mt-5 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
             {avatarState?.error && <p className="text-xs text-red-400 mb-2">{avatarState.error}</p>}
             {avatarState?.success && <p className="text-xs text-green-400 mb-2">✓ Zapisano awatar</p>}
             <Button type="submit" size="sm" disabled={avatarPending}>
@@ -197,9 +208,7 @@ export function SettingsClient({ email, name, plan, avatar }: Props) {
               style={inputStyle}
             />
             {emailState?.error && <p className="text-xs text-red-400">{emailState.error}</p>}
-            {emailState?.success && (
-              <p className="text-xs text-green-400">✓ {emailState.message}</p>
-            )}
+            {emailState?.success && <p className="text-xs text-green-400">✓ {emailState.message}</p>}
             <Button type="submit" size="sm" disabled={emailPending}>
               {emailPending ? 'Wysyłanie...' : 'Zmień email'}
             </Button>
@@ -212,26 +221,13 @@ export function SettingsClient({ email, name, plan, avatar }: Props) {
           <form action={passAction} className="space-y-3">
             <div>
               <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Nowe hasło</label>
-              <input
-                name="password"
-                type="password"
-                placeholder="Minimum 6 znaków"
-                required
-                minLength={6}
-                className="w-full px-3 py-2.5 rounded-xl text-sm"
-                style={inputStyle}
-              />
+              <input name="password" type="password" placeholder="Minimum 6 znaków" required minLength={6}
+                className="w-full px-3 py-2.5 rounded-xl text-sm" style={inputStyle} />
             </div>
             <div>
               <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Powtórz hasło</label>
-              <input
-                name="confirm_password"
-                type="password"
-                placeholder="Powtórz nowe hasło"
-                required
-                className="w-full px-3 py-2.5 rounded-xl text-sm"
-                style={inputStyle}
-              />
+              <input name="confirm_password" type="password" placeholder="Powtórz nowe hasło" required
+                className="w-full px-3 py-2.5 rounded-xl text-sm" style={inputStyle} />
             </div>
             {passState?.error && <p className="text-xs text-red-400">{passState.error}</p>}
             {passState?.success && <p className="text-xs text-green-400">✓ Hasło zostało zmienione</p>}

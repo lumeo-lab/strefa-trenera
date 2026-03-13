@@ -17,6 +17,7 @@ import { SessionType } from '@/lib/types'
 import { createSession, updateSession, deleteSession as deleteSessionAction } from '@/lib/actions/sessions'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
+import { useCustomStatuses } from '@/lib/useCustomStatuses'
 import Link from 'next/link'
 
 const SESSION_TYPES: SessionType[] = ['easy', 'interval', 'tempo', 'long', 'gym', 'bike', 'rest']
@@ -254,9 +255,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     ? `${window.location.origin}/u/${athlete.slug}?t=${athlete.invite_token}`
     : `/u/${athlete.slug}?t=${athlete.invite_token}`
 
+  const { all: allStatuses } = useCustomStatuses()
+
   const tabs = [
     { id: 'plan', label: 'Plan' },
     { id: 'history', label: 'Historia' },
+    { id: 'races', label: 'Zawody' },
     { id: 'notes', label: 'Notatki' },
     { id: 'data', label: 'Dane' },
     { id: 'finance', label: 'Finanse' },
@@ -705,8 +709,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 ))}
                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${intensityColor('rest')}`}>{sessionTypeLabel('rest')}</span>
               </div>
-              <div className="px-3 py-2.5 rounded-xl text-xs font-medium" style={{ background: 'rgba(255,92,27,0.08)', border: '1px solid rgba(255,92,27,0.2)', color: '#FF5C1B' }}>
-                💬 Gdy zawodnik doda feedback do sesji, pojawi się jako przycisk <strong>&quot;Feedback&quot;</strong> pod kafelkiem dnia
+              <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: 'rgba(255,92,27,0.08)', border: '1px solid rgba(255,92,27,0.2)', color: '#FF5C1B' }}>
+                💬 Gdy zawodnik doda feedback, pojawi się jako przycisk <strong>&quot;Feedback&quot;</strong> pod kafelkiem dnia
               </div>
             </div>
           </div>
@@ -924,10 +928,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
                       style={inputStyle}
                     >
-                      <option value="ok">OK</option>
-                      <option value="warning">Uwaga</option>
-                      <option value="alert">Alert</option>
-                      <option value="inactive">Nieaktywny</option>
+                      {allStatuses.map(s => (
+                        <option key={s.key} value={s.key}>{s.label}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -1008,94 +1011,103 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           </div>
         )}
 
+        {/* ── Zawody ── */}
+        {activeTab === 'races' && (
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">🏁 Planowane starty</h3>
+              <button
+                onClick={openNewRace}
+                className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
+              >+ Dodaj start</button>
+            </div>
+            {initialRaces.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-4xl mb-3">🏁</div>
+                <div className="text-sm font-medium mb-1">Brak zaplanowanych startów</div>
+                <div className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+                  Dodaj nadchodzące zawody, aby śledzić cele i przygotowania zawodnika
+                </div>
+                <button onClick={openNewRace}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                  style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+                  + Dodaj pierwszy start
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+                      {['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Notatki', ''].map(h => (
+                        <th key={h} className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {initialRaces.map((race, i) => (
+                      <tr key={race.id} style={{ borderBottom: i < initialRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
+                        <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                          {formatDate(race.date, { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
+                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
+                        <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
+                        <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>{race.notes || '—'}</td>
+                        <td className="px-4 py-3 text-right">
+                          <button onClick={() => openEditRace(race)}
+                            className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
+                            style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>✏️</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        )}
+
         {/* ── Notatki ── */}
         {activeTab === 'notes' && (
-          <div className="space-y-5">
-            <Card className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Notatki trenera</h3>
-                {!notesEditing ? (
-                  <button
-                    onClick={() => setNotesEditing(true)}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
-                    style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
-                  >Edytuj</button>
-                ) : (
-                  <div className="flex gap-2">
-                    <button onClick={() => setNotesEditing(false)}
-                      className="px-3 py-2 rounded-xl text-sm cursor-pointer"
-                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Anuluj</button>
-                    <button
-                      onClick={async () => { await saveNotes(); setNotesEditing(false) }}
-                      className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
-                      style={{ background: notesSaved ? 'rgba(46,204,113,0.15)' : '#FF5C1B', color: notesSaved ? '#2ECC71' : 'white' }}
-                    >{notesSaved ? '✓ Zapisano' : 'Zapisz'}</button>
-                  </div>
-                )}
-              </div>
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Notatki trenera</h3>
               {!notesEditing ? (
-                <div className="text-sm whitespace-pre-wrap min-h-16" style={{ color: coachNotes ? 'var(--text-primary)' : 'var(--text-muted)', lineHeight: 1.7 }}>
-                  {coachNotes || 'Brak notatek. Kliknij Edytuj, aby dodać.'}
-                </div>
-              ) : (
-                <textarea
-                  value={coachNotes}
-                  onChange={e => setCoachNotes(e.target.value)}
-                  placeholder="Zapisz obserwacje, uwagi, przemyślenia o zawodniku..."
-                  rows={12}
-                  className="w-full px-4 py-3 rounded-xl text-sm resize-none"
-                  style={inputStyle}
-                />
-              )}
-            </Card>
-
-            {/* Planowane starty */}
-            <Card className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">🏁 Planowane starty</h3>
                 <button
-                  onClick={openNewRace}
+                  onClick={() => setNotesEditing(true)}
                   className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
                   style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
-                >+ Dodaj start</button>
-              </div>
-              {initialRaces.length === 0 ? (
-                <div className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>
-                  Brak zaplanowanych startów. Kliknij &quot;+ Dodaj start&quot;, aby dodać.
-                </div>
+                >Edytuj</button>
               ) : (
-                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
-                        {['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Notatki', ''].map(h => (
-                          <th key={h} className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {initialRaces.map((race, i) => (
-                        <tr key={race.id} style={{ borderBottom: i < initialRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
-                          <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
-                            {formatDate(race.date, { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </td>
-                          <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
-                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
-                          <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
-                          <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>{race.notes || '—'}</td>
-                          <td className="px-4 py-3 text-right">
-                            <button onClick={() => openEditRace(race)}
-                              className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
-                              style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>✏️</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="flex gap-2">
+                  <button onClick={() => setNotesEditing(false)}
+                    className="px-3 py-2 rounded-xl text-sm cursor-pointer"
+                    style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Anuluj</button>
+                  <button
+                    onClick={async () => { await saveNotes(); setNotesEditing(false) }}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                    style={{ background: notesSaved ? 'rgba(46,204,113,0.15)' : '#FF5C1B', color: notesSaved ? '#2ECC71' : 'white' }}
+                  >{notesSaved ? '✓ Zapisano' : 'Zapisz'}</button>
                 </div>
               )}
-            </Card>
-          </div>
+            </div>
+            {!notesEditing ? (
+              <div className="text-sm whitespace-pre-wrap min-h-16" style={{ color: coachNotes ? 'var(--text-primary)' : 'var(--text-muted)', lineHeight: 1.7 }}>
+                {coachNotes || 'Brak notatek. Kliknij Edytuj, aby dodać.'}
+              </div>
+            ) : (
+              <textarea
+                value={coachNotes}
+                onChange={e => setCoachNotes(e.target.value)}
+                placeholder="Zapisz obserwacje, uwagi, przemyślenia o zawodniku..."
+                rows={12}
+                className="w-full px-4 py-3 rounded-xl text-sm resize-none"
+                style={inputStyle}
+              />
+            )}
+          </Card>
         )}
 
         {/* ── Finanse ── */}

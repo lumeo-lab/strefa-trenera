@@ -54,9 +54,19 @@ const GRADIENT_MAP: Record<string, string> = {
 function CoachAvatarEl({ avatar, name, size }: { avatar: string; name: string; size: 'sm' | 'lg' }) {
   const wh = size === 'sm' ? 'w-9 h-9' : 'w-16 h-16'
   const font = size === 'sm' ? 'text-sm' : 'text-xl'
+  const emojiSize = size === 'sm' ? 'text-xl' : 'text-4xl'
   if (avatar.startsWith('http')) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={avatar} alt={name} className={`${wh} rounded-full object-cover shrink-0`} />
+  }
+  if (avatar.startsWith('emoji:')) {
+    const emoji = avatar.slice(6)
+    return (
+      <div className={`${wh} rounded-full flex items-center justify-center shrink-0 ${emojiSize}`}
+        style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+        {emoji}
+      </div>
+    )
   }
   const color = avatar.startsWith('color:') ? avatar.slice(6) : 'orange'
   const gradient = GRADIENT_MAP[color] ?? GRADIENT_MAP.orange

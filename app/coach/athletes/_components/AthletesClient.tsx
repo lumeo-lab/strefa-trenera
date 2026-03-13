@@ -6,8 +6,9 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { statusColor, formatDate, formatCurrency } from '@/lib/utils'
+import { formatDate, formatCurrency } from '@/lib/utils'
 import { createAthlete } from '@/lib/actions/athletes'
+import { useCustomStatuses, DEFAULT_STATUSES, StatusDef } from '@/lib/useCustomStatuses'
 import Link from 'next/link'
 
 interface Athlete {
@@ -58,27 +59,52 @@ const labelStyle: React.CSSProperties = {
   marginBottom: 5,
 }
 
-type StatusFilter = 'all' | 'ok' | 'warning' | 'alert' | 'inactive'
 type SortKey = 'name' | 'package' | 'status' | 'join_date' | 'last_session' | null
 
 const ORDER_KEY = 'coach_athlete_order'
 
-function statusLabel(s: string) {
-  const map: Record<string, string> = { ok: 'OK', warning: 'Uwaga', alert: 'Alert', inactive: 'Nieaktywny' }
-  return map[s] ?? s
-}
+const PRESET_COLORS = ['#2ECC71', '#F1C40F', '#E74C3C', '#6B7280', '#3B82F6', '#8B5CF6', '#EC4899', '#F97316']
 
 export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packages }: Props) {
+  const { all: allStatuses, custom: customStatuses, saveCustom } = useCustomStatuses()
+
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [sortKey, setSortKey] = useState<SortKey>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [masterOrder, setMasterOrder] = useState<string[]>([])
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+
+  // Add athlete modal
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedPkg, setSelectedPkg] = useState<Package | null>(packages[0] ?? null)
   const [state, formAction, pending] = useActionState(createAthlete, null)
+
+  // Status editor modal
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [editingStatuses, setEditingStatuses] = useState<StatusDef[]>([])
+  const [newStatusLabel, setNewStatusLabel] = useState('')
+  const [newStatusColor, setNewStatusColor] = useState(PRESET_COLORS[4])
+
+  function openStatusModal() {
+    setEditingStatuses(customStatuses.map(s => ({ ...s })))
+    setNewStatusLabel('')
+    setNewStatusColor(PRESET_COLORS[4])
+    setStatusModalOpen(true)
+  }
+
+  function saveStatuses() {
+    saveCustom(editingStatuses)
+    setStatusModalOpen(false)
+  }
+
+  function addStatus() {
+    if (!newStatusLabel.trim()) return
+    const key = `custom_${Date.now()}`
+    setEditingStatuses(prev => [...prev, { key, label: newStatusLabel.trim(), color: newStatusColor }])
+    setNewStatusLabel('')
+  }
 
   // Load custom order from localStorage
   useEffect(() => {
@@ -149,6 +175,10 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
     setDragOverId(null)
   }
 
+  function getStatusDef(key: string): StatusDef {
+    return allStatuses.find(s => s.key === key) ?? { key, label: key, color: '#6B7280' }
+  }
+
   function SortHeader({ label, sk }: { label: string; sk: SortKey }) {
     const isActive = sortKey === sk
     return (
@@ -162,16 +192,6 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
       </th>
     )
   }
-
-  const statusCounts = {
-    all: athletes.length,
-    ok: athletes.filter(a => a.status === 'ok').length,
-    warning: athletes.filter(a => a.status === 'warning').length,
-    alert: athletes.filter(a => a.status === 'alert').length,
-    inactive: athletes.filter(a => a.status === 'inactive').length,
-  }
-
-  const dotColor: Record<string, string> = { all: '#8A92A8', ok: '#2ECC71', warning: '#F1C40F', alert: '#E74C3C', inactive: '#6B7280' }
 
   return (
     <div>
@@ -195,25 +215,53 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
           </Button>
         </div>
 
-        {/* Status filter chips */}
+        {/* Status filter row */}
         {athletes.length > 0 && (
           <div className="flex items-center gap-2 mb-5 flex-wrap">
-            {(['all', 'ok', 'warning', 'alert', 'inactive'] as StatusFilter[]).map(s => (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
-                style={{
-                  background: statusFilter === s ? 'rgba(255,92,27,0.12)' : 'var(--bg-card)',
-                  color: statusFilter === s ? '#FF5C1B' : 'var(--text-muted)',
-                  border: statusFilter === s ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
-                }}
-              >
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dotColor[s] }} />
-                {s === 'all' ? 'Wszyscy' : statusLabel(s)}
-                <span className="opacity-60 ml-0.5">{statusCounts[s]}</span>
-              </button>
-            ))}
+            <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--text-muted)' }}>Status:</span>
+
+            <button
+              onClick={() => setStatusFilter('all')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
+              style={{
+                background: statusFilter === 'all' ? 'rgba(255,92,27,0.12)' : 'var(--bg-card)',
+                color: statusFilter === 'all' ? '#FF5C1B' : 'var(--text-muted)',
+                border: statusFilter === 'all' ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
+              }}
+            >
+              Wszyscy <span className="opacity-60">{athletes.length}</span>
+            </button>
+
+            {allStatuses.map(s => {
+              const count = athletes.filter(a => a.status === s.key).length
+              if (count === 0 && statusFilter !== s.key) return null
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => setStatusFilter(s.key)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
+                  style={{
+                    background: statusFilter === s.key ? 'rgba(255,92,27,0.12)' : 'var(--bg-card)',
+                    color: statusFilter === s.key ? '#FF5C1B' : 'var(--text-muted)',
+                    border: statusFilter === s.key ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
+                  {s.label}
+                  <span className="opacity-60">{count}</span>
+                </button>
+              )
+            })}
+
+            <button
+              onClick={openStatusModal}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs cursor-pointer"
+              style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+              title="Edytuj statusy"
+            >
+              ⚙ Edytuj
+            </button>
+
             {sortKey && (
               <button
                 onClick={() => { setSortKey(null); setSortDir('asc') }}
@@ -236,7 +284,6 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
           </div>
         )}
 
-        {/* No results for filter */}
         {athletes.length > 0 && displayed.length === 0 && (
           <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
             <div className="text-3xl mb-3">🔍</div>
@@ -250,9 +297,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
-                  {!sortKey && (
-                    <th className="px-3 py-4 w-8" style={{ color: 'var(--text-muted)' }} title="Przeciągnij, aby zmienić kolejność" />
-                  )}
+                  {!sortKey && <th className="px-3 py-4 w-8" style={{ color: 'var(--text-muted)' }} />}
                   <SortHeader label="Zawodnik" sk="name" />
                   <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Cel</th>
                   <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Obciążenie (7 dni)</th>
@@ -265,6 +310,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                 {displayed.map((athlete, i) => {
                   const lastSession = lastSessionMap[athlete.id]
                   const isDraggingOver = dragOverId === athlete.id && draggingId !== athlete.id
+                  const statusDef = getStatusDef(athlete.status)
                   return (
                     <tr
                       key={athlete.id}
@@ -283,8 +329,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                     >
                       {!sortKey && (
                         <td className="pl-3 pr-1 py-4 text-center cursor-grab active:cursor-grabbing select-none"
-                          style={{ color: 'var(--text-muted)', fontSize: 16 }}
-                          title="Przeciągnij, aby zmienić kolejność">
+                          style={{ color: 'var(--text-muted)', fontSize: 16 }}>
                           ⠿
                         </td>
                       )}
@@ -310,10 +355,8 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${statusColor(athlete.status as 'ok' | 'warning' | 'alert' | 'inactive')}`} />
-                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                            {statusLabel(athlete.status)}
-                          </span>
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: statusDef.color }} />
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{statusDef.label}</span>
                         </div>
                       </td>
                       <td className="px-5 py-4" style={{ color: 'var(--text-muted)' }}>
@@ -324,12 +367,6 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                 })}
               </tbody>
             </table>
-
-            {!sortKey && athletes.length > 1 && (
-              <div className="px-5 py-2 text-xs text-center" style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                Przeciągnij ⠿ aby zmienić kolejność zawodników
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -342,27 +379,22 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
           if (!state?.error) setModalOpen(false)
         }}>
           <div className="space-y-3">
-
             <div>
               <label style={labelStyle}>Imię i nazwisko *</label>
               <input name="name" required placeholder="np. Katarzyna Wiśniewska" style={inputStyle} />
             </div>
-
             <div>
               <label style={labelStyle}>Email</label>
               <input name="email" type="email" placeholder="np. katarzyna@email.com" style={inputStyle} />
             </div>
-
             <div>
               <label style={labelStyle}>Telefon</label>
               <input name="phone" placeholder="np. 600 123 456" style={inputStyle} />
             </div>
-
             <div>
               <label style={labelStyle}>Cel treningowy</label>
               <input name="goal" placeholder="np. Maraton sub 4h" style={inputStyle} />
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label style={labelStyle}>Wiek</label>
@@ -373,7 +405,6 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                 <input name="city" placeholder="np. Warszawa" style={inputStyle} />
               </div>
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label style={labelStyle}>Wzrost (cm)</label>
@@ -384,43 +415,103 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                 <input name="weight" type="number" min={30} max={200} step={0.1} placeholder="np. 70" style={inputStyle} />
               </div>
             </div>
-
             <div>
               <label style={labelStyle}>Pakiet</label>
               {packages.length === 0 ? (
                 <div className="px-3 py-2.5 rounded-xl text-sm" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-muted)' }}>
-                  Brak pakietów —{' '}
-                  <a href="/coach/packages" style={{ color: '#FF5C1B' }} className="underline">
-                    dodaj pakiet w zakładce Pakiety
-                  </a>
+                  Brak pakietów — <a href="/coach/packages" style={{ color: '#FF5C1B' }} className="underline">dodaj pakiet w zakładce Pakiety</a>
                 </div>
               ) : (
-                <select
-                  name="package"
-                  value={selectedPkg?.name ?? ''}
-                  onChange={e => setSelectedPkg(packages.find(p => p.name === e.target.value) ?? null)}
-                  style={inputStyle}
-                  className="cursor-pointer"
-                >
-                  {packages.map(p => (
-                    <option key={p.id} value={p.name}>
-                      {p.name} — {formatCurrency(p.price)}
-                    </option>
-                  ))}
+                <select name="package" value={selectedPkg?.name ?? ''} onChange={e => setSelectedPkg(packages.find(p => p.name === e.target.value) ?? null)} style={inputStyle} className="cursor-pointer">
+                  {packages.map(p => <option key={p.id} value={p.name}>{p.name} — {formatCurrency(p.price)}</option>)}
                 </select>
               )}
             </div>
-
-            {state?.error && (
-              <p className="text-xs" style={{ color: '#f87171' }}>{state.error}</p>
-            )}
-
+            {state?.error && <p className="text-xs" style={{ color: '#f87171' }}>{state.error}</p>}
             <div className="flex gap-2 pt-1">
               <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Anuluj</Button>
               <Button type="submit" disabled={pending}>{pending ? 'Dodawanie...' : 'Dodaj zawodnika'}</Button>
             </div>
           </div>
         </form>
+      </Modal>
+
+      {/* Status editor modal */}
+      <Modal
+        open={statusModalOpen}
+        onClose={() => setStatusModalOpen(false)}
+        title="Edytuj statusy"
+        size="sm"
+        footer={
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setStatusModalOpen(false)}>Anuluj</Button>
+            <Button onClick={saveStatuses}>Zapisz</Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {/* Default statuses (read-only) */}
+          <div>
+            <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Domyślne statusy</div>
+            <div className="space-y-2">
+              {DEFAULT_STATUSES.map(s => (
+                <div key={s.key} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'var(--bg-elevated)' }}>
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ background: s.color }} />
+                  <span className="text-sm font-medium flex-1">{s.label}</span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>domyślny</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom statuses */}
+          {editingStatuses.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Własne statusy</div>
+              <div className="space-y-2">
+                {editingStatuses.map((s, idx) => (
+                  <div key={s.key} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ background: s.color }} />
+                    <input
+                      value={s.label}
+                      onChange={e => setEditingStatuses(prev => prev.map((x, i) => i === idx ? { ...x, label: e.target.value } : x))}
+                      className="flex-1 px-3 py-2 rounded-xl text-sm"
+                      style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                    />
+                    <button onClick={() => setEditingStatuses(prev => prev.filter((_, i) => i !== idx))}
+                      className="text-xs px-2.5 py-2 rounded-xl cursor-pointer"
+                      style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add new status */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+            <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Dodaj nowy status</div>
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                value={newStatusLabel}
+                onChange={e => setNewStatusLabel(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addStatus()}
+                placeholder="Nazwa statusu (np. Kontuzja)"
+                className="flex-1 px-3 py-2 rounded-xl text-sm"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1.5">
+                {PRESET_COLORS.map(c => (
+                  <button key={c} type="button" onClick={() => setNewStatusColor(c)}
+                    className="w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110"
+                    style={{ background: c, outline: newStatusColor === c ? '2px solid white' : 'none', outlineOffset: '2px', boxShadow: newStatusColor === c ? `0 0 0 3px ${c}` : 'none' }} />
+                ))}
+              </div>
+              <Button size="sm" onClick={addStatus} disabled={!newStatusLabel.trim()}>+ Dodaj</Button>
+            </div>
+          </div>
+        </div>
       </Modal>
     </div>
   )
