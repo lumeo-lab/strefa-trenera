@@ -17,6 +17,7 @@ const navSections = [
   {
     label: 'Biznes',
     items: [
+      { href: '/coach/packages', icon: '📦', label: 'Pakiety' },
       { href: '/coach/invoices', icon: '💳', label: 'Faktury' },
       { href: '/coach/analytics', icon: '📊', label: 'Analityka' },
     ],
@@ -76,21 +77,20 @@ export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan }: Prop
       style={{ width: w, background: 'var(--bg-card)', borderRight: '1px solid var(--border)' }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-5 border-b shrink-0" style={{ borderColor: 'var(--border)', minHeight: '72px' }}>
+      <div
+        className={`flex border-b shrink-0 ${collapsed ? 'flex-col items-center justify-center gap-2 py-3 px-2' : 'items-center justify-between px-4 py-5'}`}
+        style={{ borderColor: 'var(--border)', minHeight: '72px' }}
+      >
         {!collapsed && (
           <Link href="/" className="flex flex-col gap-1.5">
             <Logo size="sm" />
             <div className="text-xs font-normal pl-0.5" style={{ color: 'var(--text-muted)' }}>Panel trenera</div>
           </Link>
         )}
-        {collapsed && (
-          <div className="w-full flex justify-center">
-            <LogoMark size={26} />
-          </div>
-        )}
+        {collapsed && <LogoMark size={26} />}
         <button
           onClick={onToggle}
-          className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors ml-1"
+          className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
           style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
           title={collapsed ? 'Rozwiń menu' : 'Zwiń menu'}
         >

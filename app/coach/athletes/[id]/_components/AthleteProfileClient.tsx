@@ -124,16 +124,19 @@ const emptyDraft = (): SessionDraft => ({
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DbRow = Record<string, any>
 
+type Package = { id: string; name: string; description: string | null; price: number }
+
 interface Props {
   athlete: DbRow
   sessions: DbRow[]
   feedbacks: DbRow[]
   invoices: DbRow[]
+  packages: Package[]
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices }: Props) {
+export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('plan')
   const [saving, setSaving] = useState(false)
@@ -822,11 +825,21 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Pakiet</label>
                       <select
                         value={dataEdit.package}
-                        onChange={e => setDataEdit(d => ({ ...d, package: e.target.value }))}
+                        onChange={e => {
+                          const pkg = packages.find(p => p.name === e.target.value)
+                          setDataEdit(d => ({
+                            ...d,
+                            package: e.target.value,
+                            package_price: pkg ? pkg.price.toString() : d.package_price,
+                          }))
+                        }}
                         className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
                         style={inputStyle}
                       >
-                        {['Starter', 'Standard', 'Pro'].map(p => <option key={p}>{p}</option>)}
+                        {packages.length === 0
+                          ? <option value={dataEdit.package}>{dataEdit.package || '— Brak pakietów —'}</option>
+                          : packages.map(p => <option key={p.id} value={p.name}>{p.name} — {formatCurrency(p.price)}</option>)
+                        }
                       </select>
                     </div>
                     <div>

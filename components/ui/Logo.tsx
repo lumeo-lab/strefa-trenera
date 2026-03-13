@@ -1,6 +1,7 @@
 'use client'
 
 import { useId } from 'react'
+import { useTheme } from '@/lib/theme'
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl'
@@ -26,6 +27,7 @@ export function Logo({
   iconOnly = false,
   stacked = false,
 }: LogoProps) {
+  const { theme }  = useTheme()
   const uid        = useId().replace(/:/g, '')
   const s          = size === 'sm' ? 0.75 : size === 'lg' ? 1.25 : size === 'xl' ? 1.6 : 1
   const showSlogan = size !== 'sm'
@@ -80,7 +82,7 @@ export function Logo({
         whiteSpace: 'nowrap',
         paddingBottom: Math.round(4 * s),
       }}>
-        <span style={{ fontSize: fS, fontWeight: 800, color: '#E8EAF0' }}>Strefa</span>
+        <span style={{ fontSize: fS, fontWeight: 800, color: theme === 'light' ? '#0D0F14' : '#E8EAF0' }}>Strefa</span>
         <span style={{ fontSize: fS, fontWeight: 800, color: '#FF5C1B' }}> Trenera</span>
       </span>
       {showSlogan && (

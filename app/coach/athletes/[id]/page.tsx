@@ -6,6 +6,8 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
   const { id } = await params
   const supabase = await createClient()
 
+  const { data: { user } } = await supabase.auth.getUser()
+
   const { data: athlete } = await supabase
     .from('athletes')
     .select('*')
@@ -14,7 +16,7 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
 
   if (!athlete) notFound()
 
-  const [{ data: sessions }, { data: feedbacks }, { data: invoices }] = await Promise.all([
+  const [{ data: sessions }, { data: feedbacks }, { data: invoices }, { data: packages }] = await Promise.all([
     supabase
       .from('training_sessions')
       .select('*')
@@ -30,6 +32,11 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
       .select('*')
       .eq('athlete_id', id)
       .order('date', { ascending: false }),
+    supabase
+      .from('packages')
+      .select('id, name, description, price')
+      .eq('coach_id', user!.id)
+      .order('name'),
   ])
 
   return (
@@ -38,6 +45,7 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
       sessions={sessions ?? []}
       feedbacks={feedbacks ?? []}
       invoices={invoices ?? []}
+      packages={packages ?? []}
     />
   )
 }

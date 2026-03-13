@@ -1,5 +1,6 @@
 'use client'
 import { useTheme } from '@/lib/theme'
+import { NotificationBell } from './NotificationBell'
 
 interface CoachTopbarProps {
   title: string
@@ -26,10 +27,7 @@ export function CoachTopbar({ title, subtitle, actions }: CoachTopbarProps) {
         >
           {theme === 'dark' ? '☀️' : '🌙'}
         </button>
-        <button className="relative p-2 rounded-xl transition-colors" style={{ color: 'var(--text-muted)' }}>
-          🔔
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-orange-500" />
-        </button>
+        <NotificationBell />
       </div>
     </header>
   )

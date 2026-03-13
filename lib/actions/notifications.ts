@@ -1,0 +1,41 @@
+'use server'
+
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+
+export async function getUnreadNotifications() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data } = await supabase
+    .from('feedbacks')
+    .select('id, created_at, source, ai_summary, athletes(name)')
+    .eq('coach_id', user.id)
+    .eq('read', false)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  return (data ?? []).map((fb: any) => ({
+    id: fb.id as string,
+    athlete_name: (fb.athletes as any)?.name as string ?? 'Zawodnik',
+    source: fb.source as string,
+    ai_summary: fb.ai_summary as string,
+    created_at: fb.created_at as string,
+  }))
+}
+
+export async function markNotificationsRead(ids: string[]) {
+  if (!ids.length) return
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  await supabase
+    .from('feedbacks')
+    .update({ read: true })
+    .in('id', ids)
+    .eq('coach_id', user.id)
+
+  revalidatePath('/coach/feedback')
+}
