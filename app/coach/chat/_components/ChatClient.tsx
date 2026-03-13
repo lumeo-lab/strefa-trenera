@@ -65,105 +65,112 @@ export function ChatClient({ athletes, messages, coachId, coachName }: { athlete
   }
 
   return (
-    <div className="flex h-screen max-w-5xl mx-auto w-full" style={{ borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
-      {/* Athlete list */}
-      <div className="w-64 border-r flex flex-col shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
-        <div className="px-4 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
-          <div className="font-semibold text-sm">Czat</div>
-          <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Rozmowy z zawodnikami</div>
-        </div>
-        <div className="overflow-y-auto flex-1">
-          {athletes.map(athlete => {
-            const isActive = athlete.id === selectedAthleteId
-            const lastMsg = messages.filter(m => m.athlete_id === athlete.id).at(-1)
-            return (
-              <button key={athlete.id} onClick={() => setSelectedAthleteId(athlete.id)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer"
-                style={{ background: isActive ? 'rgba(255,92,27,0.08)' : undefined, borderLeft: isActive ? '2px solid #FF5C1B' : '2px solid transparent' }}>
-                <Avatar initials={athlete.avatar} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{athlete.name}</div>
-                  <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-                    {lastMsg ? lastMsg.content.slice(0, 30) + (lastMsg.content.length > 30 ? '...' : '') : athlete.goal || 'Brak wiadomości'}
-                  </div>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
+    <div className="p-5 h-screen flex flex-col">
+      <div className="flex-1 max-w-5xl w-full mx-auto flex min-h-0 rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
 
-      {/* Chat area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-base)' }}>
-          {selectedAthlete && (
-            <>
-              <Avatar initials={selectedAthlete.avatar} size="sm" />
-              <div>
-                <div className="font-semibold text-sm">{selectedAthlete.name}</div>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{selectedAthlete.package} · {selectedAthlete.goal}</div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Push notification prompt */}
-        {permission === 'default' && (
-          <div className="px-6 pt-3">
-            <button onClick={subscribe}
-              className="px-4 py-2.5 rounded-xl text-sm cursor-pointer w-full text-left"
-              style={{ background: 'rgba(255,92,27,0.1)', border: '1px solid rgba(255,92,27,0.3)', color: '#FF5C1B' }}>
-              🔔 Włącz powiadomienia o nowych wiadomościach
-            </button>
+        {/* Athlete list */}
+        <div className="w-60 border-r flex flex-col shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
+          <div className="px-4 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+            <div className="font-semibold text-sm">Zawodnicy</div>
+            <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{athletes.length} rozmów</div>
           </div>
-        )}
+          <div className="overflow-y-auto flex-1">
+            {athletes.map(athlete => {
+              const isActive = athlete.id === selectedAthleteId
+              const lastMsg = messages.filter(m => m.athlete_id === athlete.id).at(-1)
+              return (
+                <button key={athlete.id} onClick={() => setSelectedAthleteId(athlete.id)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer"
+                  style={{ background: isActive ? 'rgba(255,92,27,0.08)' : undefined, borderLeft: isActive ? '2px solid #FF5C1B' : '2px solid transparent' }}>
+                  <Avatar initials={athlete.avatar} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{athlete.name}</div>
+                    <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                      {lastMsg ? lastMsg.content.slice(0, 32) + (lastMsg.content.length > 32 ? '…' : '') : 'Brak wiadomości'}
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {threadMessages.length === 0 && (
-            <div className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
-              Brak wiadomości. Napisz pierwszą!
+        {/* Chat area */}
+        <div className="flex-1 flex flex-col min-w-0" style={{ background: 'var(--bg-base)' }}>
+          {/* Header */}
+          <div className="flex items-center gap-3 px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
+            {selectedAthlete && (
+              <>
+                <Avatar initials={selectedAthlete.avatar} size="sm" />
+                <div>
+                  <div className="font-semibold text-sm">{selectedAthlete.name}</div>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{selectedAthlete.package}{selectedAthlete.goal ? ` · ${selectedAthlete.goal}` : ''}</div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Push notification prompt */}
+          {permission === 'default' && (
+            <div className="px-6 pt-3 shrink-0">
+              <button onClick={subscribe}
+                className="px-4 py-2.5 rounded-xl text-sm cursor-pointer w-full text-left"
+                style={{ background: 'rgba(255,92,27,0.1)', border: '1px solid rgba(255,92,27,0.3)', color: '#FF5C1B' }}>
+                🔔 Włącz powiadomienia o nowych wiadomościach
+              </button>
             </div>
           )}
-          {threadMessages.map(msg => {
-            const isCoach = msg.sender_type === 'coach'
-            return (
-              <div key={msg.id} className={`flex gap-3 ${isCoach ? 'flex-row-reverse' : ''}`}>
-                <Avatar initials={isCoach ? (coachName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?') : (selectedAthlete?.avatar || '?')} size="sm" />
-                <div className={`max-w-sm ${isCoach ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
-                  <div className="px-4 py-3 rounded-2xl text-sm"
-                    style={{
-                      background: isCoach ? '#FF5C1B' : 'var(--bg-elevated)',
-                      color: isCoach ? 'white' : 'var(--text-primary)',
-                      borderRadius: isCoach ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
-                    }}>
-                    {msg.content}
-                  </div>
-                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDateTime(msg.created_at)}</div>
-                </div>
-              </div>
-            )
-          })}
-          <div ref={bottomRef} />
-        </div>
 
-        {/* Input */}
-        <div className="px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--border)' }}>
-          <div className="flex items-center gap-3">
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-              placeholder={`Napisz do ${selectedAthlete?.name ?? 'zawodnika'}...`}
-              className="flex-1 px-4 py-3 rounded-2xl text-sm"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
-            />
-            <Button onClick={handleSend} disabled={!input.trim() || sending}>
-              {sending ? '...' : 'Wyślij'}
-            </Button>
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-h-0">
+            {threadMessages.length === 0 && (
+              <div className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
+                Brak wiadomości. Napisz pierwszą!
+              </div>
+            )}
+            {threadMessages.map(msg => {
+              const isCoach = msg.sender_type === 'coach'
+              const initials = isCoach
+                ? (coachName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || '?')
+                : (selectedAthlete?.avatar || '?')
+              return (
+                <div key={msg.id} className={`flex gap-3 ${isCoach ? 'flex-row-reverse' : ''}`}>
+                  <Avatar initials={initials} size="sm" />
+                  <div className={`max-w-sm flex flex-col gap-1 ${isCoach ? 'items-end' : 'items-start'}`}>
+                    <div className="px-4 py-3 text-sm leading-relaxed"
+                      style={{
+                        background: isCoach ? '#FF5C1B' : 'var(--bg-elevated)',
+                        color: isCoach ? 'white' : 'var(--text-primary)',
+                        borderRadius: isCoach ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                      }}>
+                      {msg.content}
+                    </div>
+                    <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>{formatDateTime(msg.created_at)}</div>
+                  </div>
+                </div>
+              )
+            })}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Input */}
+          <div className="px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
+            <div className="flex items-center gap-3">
+              <input
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                placeholder={`Napisz do ${selectedAthlete?.name ?? 'zawodnika'}…`}
+                className="flex-1 px-4 py-3 rounded-2xl text-sm"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+              />
+              <Button onClick={handleSend} disabled={!input.trim() || sending}>
+                {sending ? '…' : 'Wyślij'}
+              </Button>
+            </div>
           </div>
         </div>
+
       </div>
     </div>
   )
