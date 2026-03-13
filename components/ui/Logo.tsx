@@ -12,16 +12,15 @@ interface LogoProps {
 /**
  * Strefa Trenera — logo
  *
- * Mark: a geometric running figure mid-stride (float phase — both feet off ground).
- *   • Bold body stroke (thicker) anchors the composition
- *   • Front leg reaches forward, back leg kicks up — maximum dynamism
- *   • Three motion lines on the left balance the composition and signal speed
- *   • Single diagonal gradient: deep red-orange (ground/effort) → warm peach (air/peak)
+ * Mark: geometric side-profile of a running shoe (heel left, toe right).
+ * The silhouette is reduced to the essential: tall heel collar, arched instep,
+ * deep cushioned midsole with a characteristic outsole notch, toe spring.
+ * Two-tone split (upper lighter, midsole deeper) via a shared vertical gradient.
+ * Subtle sole-separator line gives instant shoe readability at any size.
  *
- * Wordmark: "Strefa" (white 800) + "Trenera" (orange 800) — two-colour, sharp, modern.
- *
- * Centering: figure's visual centre of mass sits at ~48% of SVG height,
- * so `align-items:center` lines it up naturally with cap-height text.
+ * Wordmark: "Strefa" white 800 · "Trenera" orange 800.
+ * Flex align-items:center — shoe's visual mass sits ~48 % from top, aligning
+ * naturally with cap-height text centre.
  */
 export function Logo({
   size = 'md',
@@ -29,76 +28,114 @@ export function Logo({
   iconOnly = false,
   stacked = false,
 }: LogoProps) {
-  const uid = useId().replace(/:/g, '')
-  const s   = size === 'sm' ? 0.75 : size === 'lg' ? 1.25 : size === 'xl' ? 1.8 : 1
+  const uid  = useId().replace(/:/g, '')
+  const s    = size === 'sm' ? 0.75 : size === 'lg' ? 1.25 : size === 'xl' ? 1.8 : 1
 
-  const iW  = Math.round(38 * s)   // mark natural width
-  const iH  = Math.round(40 * s)   // mark natural height
+  const iW  = Math.round(56 * s)
+  const iH  = Math.round(34 * s)
   const fS  = Math.round(20 * s)
-  const gap = Math.round(10 * s)
-  const gId = `rg-${uid}`
+  const gap = Math.round(12 * s)
+
+  const gFill   = `gf-${uid}`   // gradient for the filled shoe body
+  const gUpper  = `gu-${uid}`   // lighter overlay for the upper
+  const clipId  = `cl-${uid}`
 
   const mark = (
     <svg
       width={iW}
       height={iH}
-      viewBox="0 0 38 40"
+      viewBox="0 0 56 34"
       fill="none"
       aria-hidden="true"
       style={{ display: 'block', flexShrink: 0 }}
     >
       <defs>
-        {/* Diagonal gradient: bottom-left = deep effort, top-right = peak/air */}
-        <linearGradient id={gId} x1="0" y1="40" x2="38" y2="0" gradientUnits="userSpaceOnUse">
-          <stop offset="0%"   stopColor="#A83000" />
-          <stop offset="45%"  stopColor="#FF5C1B" />
-          <stop offset="80%"  stopColor="#FF7C40" />
-          <stop offset="100%" stopColor="#FFAA70" />
+        {/* Main body gradient — darker at sole, lighter at heel collar & toe tip */}
+        <linearGradient id={gFill} x1="0" y1="32" x2="56" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0%"   stopColor="#8C2800" />
+          <stop offset="35%"  stopColor="#E84E0A" />
+          <stop offset="65%"  stopColor="#FF6A28" />
+          <stop offset="100%" stopColor="#FFA060" />
         </linearGradient>
+
+        {/* Lighter overlay for the upper zone (top portion of shoe) */}
+        <linearGradient id={gUpper} x1="0" y1="22" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0%"   stopColor="rgba(255,255,255,0)"   />
+          <stop offset="100%" stopColor="rgba(255,255,255,0.18)"/>
+        </linearGradient>
+
+        {/* Clip to shoe outline so the overlay stays inside */}
+        <clipPath id={clipId}>
+          <path d="
+            M 5,26
+            C 1,26 0,23 0,20
+            C 0,13 1,7 4,4
+            C 6,2 10,1 14,3
+            C 17,4 20,8 22,10
+            C 25,8 30,5 37,6
+            C 43,7 49,11 52,17
+            C 54,20 54,24 52,27
+            C 50,29 46,31 38,31
+            C 28,32 16,31 10,29
+            C 7,28 5,27 5,26 Z
+          " />
+        </clipPath>
       </defs>
 
-      {/* ── Motion lines (left side, progressively fading) ── */}
-      <line x1="0" y1="16" x2="9"  y2="16" stroke={`url(#${gId})`} strokeWidth="2.5" strokeLinecap="round" opacity="0.35"/>
-      <line x1="0" y1="22" x2="11" y2="22" stroke={`url(#${gId})`} strokeWidth="2.5" strokeLinecap="round" opacity="0.55"/>
-      <line x1="0" y1="28" x2="9"  y2="28" stroke={`url(#${gId})`} strokeWidth="2.5" strokeLinecap="round" opacity="0.35"/>
-
-      {/* ── Head ── */}
-      <circle cx="24" cy="5.5" r="4.5" fill={`url(#${gId})`} />
-
-      {/* ── Body (lean forward — ~20° off vertical) ── */}
-      <line
-        x1="24" y1="10"
-        x2="27" y2="23"
-        stroke={`url(#${gId})`} strokeWidth="4.5" strokeLinecap="round"
+      {/* ── Main shoe silhouette ── */}
+      {/*
+        Heel on LEFT (x≈0–6), toe on RIGHT (x≈52).
+        Heel collar: tall (~y 2–4), instep dips to y≈10,
+        saddle/lace area rises to y≈5–6, toe box curves down to y≈17,
+        toe tip rounds at y≈27. Midsole bottom has characteristic
+        outsole arch (concave notch y≈31–32 in the middle).
+      */}
+      <path
+        d="
+          M 5,26
+          C 1,26 0,23 0,20
+          C 0,13 1,7 4,4
+          C 6,2 10,1 14,3
+          C 17,4 20,8 22,10
+          C 25,8 30,5 37,6
+          C 43,7 49,11 52,17
+          C 54,20 54,24 52,27
+          C 50,29 46,31 38,31
+          C 28,32 16,31 10,29
+          C 7,28 5,27 5,26 Z
+        "
+        fill={`url(#${gFill})`}
       />
 
-      {/* ── Front leg — reaching forward ── */}
-      <line
-        x1="27" y1="23"
-        x2="36" y2="38"
-        stroke={`url(#${gId})`} strokeWidth="3" strokeLinecap="round"
+      {/* ── Upper highlight overlay (above sole-line) ── */}
+      <rect
+        x="0" y="0" width="56" height="21"
+        fill={`url(#${gUpper})`}
+        clipPath={`url(#${clipId})`}
       />
 
-      {/* ── Back leg — kicked high behind ── */}
-      <line
-        x1="27" y1="23"
-        x2="16" y2="13"
-        stroke={`url(#${gId})`} strokeWidth="3" strokeLinecap="round"
+      {/* ── Sole separator — thin line between upper and midsole ── */}
+      {/*
+        The sole-separator runs from near the heel (~x 5, y 21)
+        horizontally to the toe area (~x 50, y 21).
+        Adds immediate shoe-readability at small sizes.
+      */}
+      <path
+        d="M 5,21 C 14,20 28,20 38,21 C 43,21 48,21 50,21"
+        stroke="rgba(0,0,0,0.20)"
+        strokeWidth="1"
+        strokeLinecap="round"
       />
 
-      {/* ── Front arm — swinging forward-up ── */}
-      <line
-        x1="25" y1="15"
-        x2="34" y2="9"
-        stroke={`url(#${gId})`} strokeWidth="2.5" strokeLinecap="round"
-      />
-
-      {/* ── Back arm — swinging back ── */}
-      <line
-        x1="25" y1="15"
-        x2="16" y2="20"
-        stroke={`url(#${gId})`} strokeWidth="2" strokeLinecap="round" opacity="0.7"
-      />
+      {/* ── Lace holes — 3 tiny dots across the instep ── */}
+      {/*
+        Minimal detail: 3 small filled circles in a row on the instep.
+        Makes the upper unmistakably "shoe" at medium-large sizes.
+        At small sizes they reduce to a subtle texture and are invisible.
+      */}
+      {[21, 27, 33].map((cx) => (
+        <circle key={cx} cx={cx} cy={9} r={1.4} fill="rgba(0,0,0,0.18)" />
+      ))}
     </svg>
   )
 
@@ -134,40 +171,35 @@ export function Logo({
   )
 }
 
-/** Standalone mark — for collapsed sidebar, favicons, etc. */
-export function LogoMark({ size = 36 }: { size?: number }) {
-  const uid = useId().replace(/:/g, '')
-  const gId = `mgr-${uid}`
-  const h   = Math.round(size * 40 / 38)
+/** Standalone mark only — for collapsed sidebar, favicons, etc. */
+export function LogoMark({ size = 40 }: { size?: number }) {
+  const uid  = useId().replace(/:/g, '')
+  const gF   = `mgf-${uid}`
+  const gU   = `mgu-${uid}`
+  const cl   = `mcl-${uid}`
+  const h    = Math.round(size * 34 / 56)
 
   return (
-    <svg
-      width={size}
-      height={h}
-      viewBox="0 0 38 40"
-      fill="none"
-      aria-hidden="true"
-      style={{ display: 'block' }}
-    >
+    <svg width={size} height={h} viewBox="0 0 56 34" fill="none" aria-hidden="true" style={{ display: 'block' }}>
       <defs>
-        <linearGradient id={gId} x1="0" y1="40" x2="38" y2="0" gradientUnits="userSpaceOnUse">
-          <stop offset="0%"   stopColor="#A83000" />
-          <stop offset="45%"  stopColor="#FF5C1B" />
-          <stop offset="80%"  stopColor="#FF7C40" />
-          <stop offset="100%" stopColor="#FFAA70" />
+        <linearGradient id={gF} x1="0" y1="32" x2="56" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0%"   stopColor="#8C2800" />
+          <stop offset="35%"  stopColor="#E84E0A" />
+          <stop offset="65%"  stopColor="#FF6A28" />
+          <stop offset="100%" stopColor="#FFA060" />
         </linearGradient>
+        <linearGradient id={gU} x1="0" y1="22" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0%"   stopColor="rgba(255,255,255,0)"   />
+          <stop offset="100%" stopColor="rgba(255,255,255,0.18)"/>
+        </linearGradient>
+        <clipPath id={cl}>
+          <path d="M 5,26 C 1,26 0,23 0,20 C 0,13 1,7 4,4 C 6,2 10,1 14,3 C 17,4 20,8 22,10 C 25,8 30,5 37,6 C 43,7 49,11 52,17 C 54,20 54,24 52,27 C 50,29 46,31 38,31 C 28,32 16,31 10,29 C 7,28 5,27 5,26 Z" />
+        </clipPath>
       </defs>
-
-      <line x1="0" y1="16" x2="9"  y2="16" stroke={`url(#${gId})`} strokeWidth="2.5" strokeLinecap="round" opacity="0.35"/>
-      <line x1="0" y1="22" x2="11" y2="22" stroke={`url(#${gId})`} strokeWidth="2.5" strokeLinecap="round" opacity="0.55"/>
-      <line x1="0" y1="28" x2="9"  y2="28" stroke={`url(#${gId})`} strokeWidth="2.5" strokeLinecap="round" opacity="0.35"/>
-
-      <circle cx="24" cy="5.5" r="4.5" fill={`url(#${gId})`} />
-      <line x1="24" y1="10" x2="27" y2="23" stroke={`url(#${gId})`} strokeWidth="4.5" strokeLinecap="round"/>
-      <line x1="27" y1="23" x2="36" y2="38" stroke={`url(#${gId})`} strokeWidth="3"   strokeLinecap="round"/>
-      <line x1="27" y1="23" x2="16" y2="13" stroke={`url(#${gId})`} strokeWidth="3"   strokeLinecap="round"/>
-      <line x1="25" y1="15" x2="34" y2="9"  stroke={`url(#${gId})`} strokeWidth="2.5" strokeLinecap="round"/>
-      <line x1="25" y1="15" x2="16" y2="20" stroke={`url(#${gId})`} strokeWidth="2"   strokeLinecap="round" opacity="0.7"/>
+      <path d="M 5,26 C 1,26 0,23 0,20 C 0,13 1,7 4,4 C 6,2 10,1 14,3 C 17,4 20,8 22,10 C 25,8 30,5 37,6 C 43,7 49,11 52,17 C 54,20 54,24 52,27 C 50,29 46,31 38,31 C 28,32 16,31 10,29 C 7,28 5,27 5,26 Z" fill={`url(#${gF})`} />
+      <rect x="0" y="0" width="56" height="21" fill={`url(#${gU})`} clipPath={`url(#${cl})`} />
+      <path d="M 5,21 C 14,20 28,20 38,21 C 43,21 48,21 50,21" stroke="rgba(0,0,0,0.20)" strokeWidth="1" strokeLinecap="round" />
+      {[21, 27, 33].map((cx) => <circle key={cx} cx={cx} cy={9} r={1.4} fill="rgba(0,0,0,0.18)" />)}
     </svg>
   )
 }
