@@ -192,6 +192,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     package: athlete.package ?? 'Starter',
     package_price: athlete.package_price?.toString() ?? '',
     status: athlete.status ?? 'ok',
+    height: athlete.height?.toString() ?? '',
+    weight: athlete.weight?.toString() ?? '',
   })
   const [dataSaving, setDataSaving] = useState(false)
   const [dataSaved, setDataSaved] = useState(false)
@@ -786,6 +788,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     ['Email', dataEdit.email],
                     ['Telefon', dataEdit.phone],
                     ['Wiek', dataEdit.age ? `${dataEdit.age} lat` : ''],
+                    ['Wzrost', dataEdit.height ? `${dataEdit.height} cm` : ''],
+                    ['Waga', dataEdit.weight ? `${dataEdit.weight} kg` : ''],
                     ['Miasto', dataEdit.city],
                     ['Cel treningowy', dataEdit.goal],
                     ['Pakiet', dataEdit.package],
@@ -806,6 +810,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     ['Email', 'email', 'email'],
                     ['Telefon', 'phone', 'text'],
                     ['Wiek', 'age', 'number'],
+                    ['Wzrost (cm)', 'height', 'number'],
+                    ['Waga (kg)', 'weight', 'number'],
                     ['Miasto', 'city', 'text'],
                     ['Cel treningowy', 'goal', 'text'],
                   ] as const).map(([label, field, type]) => (

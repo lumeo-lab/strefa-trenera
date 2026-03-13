@@ -62,7 +62,6 @@ const labelStyle: React.CSSProperties = {
 export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packages }: Props) {
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
-  const [showExtra, setShowExtra] = useState(false)
   const [selectedPkg, setSelectedPkg] = useState<Package | null>(packages[0] ?? null)
   const [state, formAction, pending] = useActionState(createAthlete, null)
 
@@ -73,7 +72,6 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
   )
 
   function openModal() {
-    setShowExtra(false)
     setSelectedPkg(packages[0] ?? null)
     setModalOpen(true)
   }
@@ -173,20 +171,55 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
       {/* Add Athlete Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Dodaj zawodnika" size="sm">
         <form action={async (fd) => {
-          // inject package_price from selected package
           if (selectedPkg) fd.set('package_price', selectedPkg.price.toString())
           await formAction(fd)
           if (!state?.error) setModalOpen(false)
         }}>
-          <div className="space-y-4">
+          <div className="space-y-3">
 
-            {/* Required: name */}
             <div>
               <label style={labelStyle}>Imię i nazwisko *</label>
               <input name="name" required placeholder="np. Katarzyna Wiśniewska" style={inputStyle} />
             </div>
 
-            {/* Package selection */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label style={labelStyle}>Email</label>
+                <input name="email" type="email" placeholder="np. katarzyna@email.com" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Telefon</label>
+                <input name="phone" placeholder="np. 600 123 456" style={inputStyle} />
+              </div>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Cel treningowy</label>
+              <input name="goal" placeholder="np. Maraton sub 4h" style={inputStyle} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label style={labelStyle}>Wiek</label>
+                <input name="age" type="number" min={10} max={99} placeholder="np. 32" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Miasto</label>
+                <input name="city" placeholder="np. Warszawa" style={inputStyle} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label style={labelStyle}>Wzrost (cm)</label>
+                <input name="height" type="number" min={100} max={250} placeholder="np. 175" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Waga (kg)</label>
+                <input name="weight" type="number" min={30} max={200} step={0.1} placeholder="np. 70" style={inputStyle} />
+              </div>
+            </div>
+
             <div>
               <label style={labelStyle}>Pakiet</label>
               {packages.length === 0 ? (
@@ -215,47 +248,6 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
                 </select>
               )}
             </div>
-
-            {/* Expand toggle */}
-            <button
-              type="button"
-              onClick={() => setShowExtra(v => !v)}
-              className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm cursor-pointer transition-opacity hover:opacity-80"
-              style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-            >
-              <span>{showExtra ? '▲ Ukryj dodatkowe dane' : '▼ Dodaj więcej danych (opcjonalnie)'}</span>
-              {!showExtra && <span className="text-xs opacity-60">możesz uzupełnić później z profilu</span>}
-            </button>
-
-            {/* Expandable extra fields */}
-            {showExtra && (
-              <div className="space-y-3 pt-1">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label style={labelStyle}>Email</label>
-                    <input name="email" type="email" placeholder="np. katarzyna@email.com" style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Telefon</label>
-                    <input name="phone" placeholder="np. 600 123 456" style={inputStyle} />
-                  </div>
-                </div>
-                <div>
-                  <label style={labelStyle}>Cel treningowy</label>
-                  <input name="goal" placeholder="np. Maraton sub 4h" style={inputStyle} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label style={labelStyle}>Wiek</label>
-                    <input name="age" type="number" min={10} max={99} placeholder="np. 32" style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Miasto</label>
-                    <input name="city" placeholder="np. Warszawa" style={inputStyle} />
-                  </div>
-                </div>
-              </div>
-            )}
 
             {state?.error && (
               <p className="text-xs" style={{ color: '#f87171' }}>{state.error}</p>

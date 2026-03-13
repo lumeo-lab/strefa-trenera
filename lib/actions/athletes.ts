@@ -35,6 +35,8 @@ export async function createAthlete(_: unknown, formData: FormData) {
   const packagePrice = parseFloat(formData.get('package_price') as string) || 249
   const age = parseInt(formData.get('age') as string) || null
   const city = formData.get('city') as string
+  const height = parseInt(formData.get('height') as string) || null
+  const weight = parseFloat(formData.get('weight') as string) || null
 
   if (!name) return { error: 'Imię i nazwisko jest wymagane' }
 
@@ -70,6 +72,8 @@ export async function createAthlete(_: unknown, formData: FormData) {
     package_price: packagePrice,
     age,
     city: city || '',
+    height,
+    weight,
   }).select('id, slug').single()
 
   if (error) return { error: error.message }
@@ -93,6 +97,10 @@ export async function updateAthlete(_: unknown, formData: FormData) {
   }
   const age = formData.get('age')
   if (age !== null) updates.age = age ? parseInt(age as string) : null
+  const height = formData.get('height')
+  if (height !== null) updates.height = height ? parseInt(height as string) : null
+  const weight = formData.get('weight')
+  if (weight !== null) updates.weight = weight ? parseFloat(weight as string) : null
   const packagePrice = formData.get('package_price')
   if (packagePrice !== null) updates.package_price = parseFloat(packagePrice as string)
   const status = formData.get('status')
