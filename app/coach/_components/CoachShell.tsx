@@ -7,10 +7,11 @@ import { ThemeProvider } from '@/lib/theme'
 interface Props {
   coachName: string
   coachPlan: string
+  coachAvatar: string
   children: React.ReactNode
 }
 
-export function CoachShell({ coachName, coachPlan, children }: Props) {
+export function CoachShell({ coachName, coachPlan, coachAvatar, children }: Props) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
@@ -21,6 +22,7 @@ export function CoachShell({ coachName, coachPlan, children }: Props) {
           onToggle={() => setCollapsed(c => !c)}
           coachName={coachName}
           coachPlan={coachPlan}
+          coachAvatar={coachAvatar}
         />
         <main
           className="flex-1 min-h-screen overflow-auto transition-all duration-200"

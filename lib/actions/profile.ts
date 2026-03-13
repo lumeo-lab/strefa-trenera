@@ -3,6 +3,32 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+export async function updateCoachAvatar(_: unknown, formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Brak autoryzacji' }
+
+  const file = formData.get('avatar_file') as File | null
+  let avatar = formData.get('avatar_type') as string ?? ''
+
+  if (file && file.size > 0) {
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+    const path = `${user.id}/avatar.${ext}`
+    const { error: uploadError } = await supabase.storage
+      .from('coach-avatars')
+      .upload(path, file, { upsert: true, contentType: file.type })
+    if (uploadError) return { error: uploadError.message }
+    const { data: urlData } = supabase.storage.from('coach-avatars').getPublicUrl(path)
+    avatar = urlData.publicUrl + `?t=${Date.now()}`
+  }
+
+  const { error } = await supabase.from('coaches').update({ avatar }).eq('id', user.id)
+  if (error) return { error: error.message }
+
+  revalidatePath('/coach')
+  return { success: true }
+}
+
 export async function updateCoachName(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

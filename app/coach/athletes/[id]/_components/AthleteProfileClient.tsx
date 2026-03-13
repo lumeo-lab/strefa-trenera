@@ -705,8 +705,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 ))}
                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${intensityColor('rest')}`}>{sessionTypeLabel('rest')}</span>
               </div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                💬 Gdy zawodnik doda feedback do sesji, pojawi się jako przycisk "Feedback" pod kafelkiem
+              <div className="px-3 py-2.5 rounded-xl text-xs font-medium" style={{ background: 'rgba(255,92,27,0.08)', border: '1px solid rgba(255,92,27,0.2)', color: '#FF5C1B' }}>
+                💬 Gdy zawodnik doda feedback do sesji, pojawi się jako przycisk <strong>&quot;Feedback&quot;</strong> pod kafelkiem dnia
               </div>
             </div>
           </div>
@@ -752,6 +752,15 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   </tr>
                 </thead>
                 <tbody>
+                  {[...initialSessions].filter(s => s.date.slice(0, 7) === historyMonth).length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-12 text-center">
+                        <div className="text-3xl mb-2">📅</div>
+                        <div className="text-sm font-medium mb-1">Brak sesji w tym miesiącu</div>
+                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Przejdź do zakładki Plan, aby zaplanować treningi</div>
+                      </td>
+                    </tr>
+                  )}
                   {[...initialSessions].filter(s => s.date.slice(0, 7) === historyMonth).sort((a, b) => b.date.localeCompare(a.date)).map(session => {
                     const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
                     const isExpanded = expandedRows.has(session.id)

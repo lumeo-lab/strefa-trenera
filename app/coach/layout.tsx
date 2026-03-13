@@ -13,15 +13,16 @@ export default async function CoachLayout({ children }: { children: React.ReactN
   // Fetch coach profile
   const { data: coach } = await supabase
     .from('coaches')
-    .select('name, plan')
+    .select('name, plan, avatar')
     .eq('id', user.id)
     .single()
 
   const coachName = coach?.name || user.email?.split('@')[0] || 'Trener'
   const coachPlan = coach?.plan || 'starter'
+  const coachAvatar = coach?.avatar || ''
 
   return (
-    <CoachShell coachName={coachName} coachPlan={coachPlan}>
+    <CoachShell coachName={coachName} coachPlan={coachPlan} coachAvatar={coachAvatar}>
       {children}
     </CoachShell>
   )

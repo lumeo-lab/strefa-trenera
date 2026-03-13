@@ -6,7 +6,7 @@ export default async function SettingsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const { data: coach } = await supabase
     .from('coaches')
-    .select('name, plan')
+    .select('name, plan, avatar')
     .eq('id', user!.id)
     .single()
 
@@ -15,6 +15,7 @@ export default async function SettingsPage() {
       email={user!.email ?? ''}
       name={coach?.name ?? ''}
       plan={coach?.plan ?? 'starter'}
+      avatar={coach?.avatar ?? ''}
     />
   )
 }
