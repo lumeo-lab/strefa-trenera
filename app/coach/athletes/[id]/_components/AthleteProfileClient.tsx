@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, startTransition, Fragment } from 'react'
+import React, { useState, startTransition, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Tabs } from '@/components/ui/Tabs'
@@ -1255,25 +1255,53 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
         {/* ── Zawody ── */}
         {activeTab === 'races' && (() => {
-          const upcomingRaces = initialRaces.filter(r => r.date >= today)
-          const pastRaces = initialRaces.filter(r => r.date < today).slice().reverse()
+          // Split by STATUS not date — a future race can be marked completed, a past race can still be 'planned'
+          const plannedRaces = initialRaces
+            .filter(r => !r.status || r.status === 'planned')
+            .slice().sort((a, b) => a.date.localeCompare(b.date)) // earliest first
+          const finishedRaces = initialRaces
+            .filter(r => r.status && r.status !== 'planned')
+            .slice().sort((a, b) => b.date.localeCompare(a.date)) // most recent first
+
+          const RaceTable = ({ races, columns, renderRow }: {
+            races: DbRow[]
+            columns: string[]
+            renderRow: (race: DbRow, i: number) => React.ReactNode
+          }) => (
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+                    {columns.map(h => (
+                      <th key={h} className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {races.map((race, i) => renderRow(race, i))}
+                </tbody>
+              </table>
+            </div>
+          )
+
           return (
             <div className="space-y-4">
+              {/* ── Planowane ── */}
               <Card className="p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold">🏁 Nadchodzące starty</h3>
+                  <h3 className="font-semibold">🏁 Planowane starty</h3>
                   <button onClick={openNewRace}
                     className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
                     style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
                     + Dodaj start
                   </button>
                 </div>
-                {upcomingRaces.length === 0 ? (
+                {plannedRaces.length === 0 ? (
                   <div className="text-center py-8">
                     <div className="text-3xl mb-2">🏁</div>
-                    <div className="text-sm font-medium mb-1">Brak nadchodzących startów</div>
+                    <div className="text-sm font-medium mb-1">Brak zaplanowanych startów</div>
                     <div className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-                      Dodaj zawody, aby śledzić cele i przygotowania zawodnika
+                      Dodaj nadchodzące zawody, aby śledzić cele i przygotowania zawodnika
                     </div>
                     <button onClick={openNewRace}
                       className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
@@ -1282,78 +1310,73 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     </button>
                   </div>
                 ) : (
-                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
-                          {['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Notatki', ''].map(h => (
-                            <th key={h} className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {upcomingRaces.map((race, i) => (
-                          <tr key={race.id} style={{ borderBottom: i < upcomingRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
-                            <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                  <RaceTable
+                    races={plannedRaces}
+                    columns={['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Notatki', '']}
+                    renderRow={(race, i) => {
+                      const isPastDate = race.date < today
+                      return (
+                        <tr key={race.id} style={{ borderBottom: i < plannedRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="text-xs" style={{ color: isPastDate ? '#F39C12' : 'var(--text-muted)' }}>
                               {formatDate(race.date, { day: 'numeric', month: 'short', year: 'numeric' })}
-                            </td>
-                            <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
-                            <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
-                            <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
-                            <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>{race.notes || '—'}</td>
-                            <td className="px-4 py-3 text-right">
-                              <button onClick={() => openEditRace(race)}
-                                className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
-                                style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>✏️</button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                            </div>
+                            {isPastDate && <div className="text-xs mt-0.5" style={{ color: '#F39C12', opacity: 0.8 }}>brak wyniku</div>}
+                          </td>
+                          <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
+                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
+                          <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
+                          <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>{race.notes || '—'}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button onClick={() => openEditRace(race)}
+                              className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
+                              style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>✏️</button>
+                          </td>
+                        </tr>
+                      )
+                    }}
+                  />
                 )}
               </Card>
 
-              {pastRaces.length > 0 && (
-                <Card className="p-5">
-                  <h3 className="font-semibold mb-4">📋 Historia startów</h3>
-                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
-                          {['Data', 'Zawody', 'Dystans', 'Wynik', 'Status', ''].map(h => (
-                            <th key={h} className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pastRaces.map((race, i) => {
-                          const st = RACE_STATUS_INFO[(race.status as RaceStatus) ?? 'planned'] ?? RACE_STATUS_INFO.planned
-                          return (
-                            <tr key={race.id} style={{ borderBottom: i < pastRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
-                              <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
-                                {formatDate(race.date, { day: 'numeric', month: 'short', year: 'numeric' })}
-                              </td>
-                              <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
-                              <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
-                              <td className="px-4 py-3 text-xs font-mono">{race.result || '—'}</td>
-                              <td className="px-4 py-3 text-xs">
-                                <span className="px-2 py-0.5 rounded-full text-xs font-medium"
-                                  style={{ background: `${st.color}22`, color: st.color }}>{st.label}</span>
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <button onClick={() => openEditRace(race)}
-                                  className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
-                                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>✏️</button>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
+              {/* ── Ukończone ── */}
+              <Card className="p-5">
+                <h3 className="font-semibold mb-4">📋 Ukończone starty</h3>
+                {finishedRaces.length === 0 ? (
+                  <div className="text-center py-6">
+                    <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      Brak ukończonych startów — po zawodach zmień status startu na ukończony, DNS lub DNF.
+                    </div>
                   </div>
-                </Card>
-              )}
+                ) : (
+                  <RaceTable
+                    races={finishedRaces}
+                    columns={['Data', 'Zawody', 'Dystans', 'Wynik', 'Status', '']}
+                    renderRow={(race, i) => {
+                      const st = RACE_STATUS_INFO[(race.status as RaceStatus)] ?? RACE_STATUS_INFO.completed
+                      return (
+                        <tr key={race.id} style={{ borderBottom: i < finishedRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
+                          <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                            {formatDate(race.date, { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </td>
+                          <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
+                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
+                          <td className="px-4 py-3 text-xs font-mono font-medium">{race.result || '—'}</td>
+                          <td className="px-4 py-3 text-xs">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium"
+                              style={{ background: `${st.color}22`, color: st.color }}>{st.label}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button onClick={() => openEditRace(race)}
+                              className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
+                              style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>✏️</button>
+                          </td>
+                        </tr>
+                      )
+                    }}
+                  />
+                )}
+              </Card>
             </div>
           )
         })()}
