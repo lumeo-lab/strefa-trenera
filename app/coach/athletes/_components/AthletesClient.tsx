@@ -12,7 +12,7 @@ import { useCustomStatuses, StatusDef } from '@/lib/useCustomStatuses'
 import Link from 'next/link'
 
 // ── Column picker ──────────────────────────────────────────────────────────
-type ColumnKey = 'signal' | 'compliance' | 'weekly_load' | 'package' | 'next_session' | 'last_session' | 'join_date' | 'phone' | 'age_city'
+type ColumnKey = 'signal' | 'compliance' | 'weekly_load' | 'package' | 'next_session' | 'last_session' | 'join_date' | 'phone' | 'age' | 'city'
 
 const COLUMN_DEFS: { key: ColumnKey; label: string; desc: string }[] = [
   { key: 'signal',       label: 'Forma',             desc: 'Ostatni sygnał z feedbacku + kiedy' },
@@ -23,10 +23,11 @@ const COLUMN_DEFS: { key: ColumnKey; label: string; desc: string }[] = [
   { key: 'last_session', label: 'Ostatni trening',   desc: 'Ostatni ukończony trening' },
   { key: 'join_date',    label: 'Data dołączenia',   desc: 'Kiedy zawodnik dołączył + staż' },
   { key: 'phone',        label: 'Telefon',           desc: 'Numer telefonu (klikalny)' },
-  { key: 'age_city',     label: 'Wiek / Miasto',     desc: 'Wiek i miasto zawodnika' },
+  { key: 'age',          label: 'Wiek',              desc: 'Wiek zawodnika' },
+  { key: 'city',         label: 'Miasto',            desc: 'Miasto zawodnika' },
 ]
 const DEFAULT_COLUMNS: ColumnKey[] = ['signal', 'compliance', 'weekly_load', 'next_session', 'last_session']
-const COLUMNS_STORAGE_KEY = 'coach_table_columns_v1'
+const COLUMNS_STORAGE_KEY = 'coach_table_columns_v2'
 
 const QUICK_FILTER_DEFS = [
   { key: 'unread'     as const, icon: '💬', label: 'Nieprzeczytane', color: '#FF5C1B', bg: 'rgba(255,92,27,0.12)',  border: 'rgba(255,92,27,0.3)'  },
@@ -604,7 +605,8 @@ export function AthletesClient({
                     {col('last_session') && <SortHeader label="Ostatni trening" sk="last_session" />}
                     {col('join_date') && <SortHeader label="Data dołączenia" sk="join_date" />}
                     {col('phone') && <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Telefon</th>}
-                    {col('age_city') && <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Wiek / Miasto</th>}
+                    {col('age') && <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Wiek</th>}
+                    {col('city') && <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Miasto</th>}
                     <SortHeader label="Status" sk="status" />
                   </tr>
                 </thead>
@@ -739,11 +741,16 @@ export function AthletesClient({
                           </td>
                         )}
 
-                        {/* Pakiet — z badge nieopłacone */}
+                        {/* Pakiet — cena inline + badge nieopłacone */}
                         {col('package') && (
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <div className="text-sm font-medium">{athlete.package || '—'}</div>
+                              {(athlete.package_price ?? 0) > 0 && (
+                                <span className="text-xs font-semibold" style={{ color: '#FF5C1B' }}>
+                                  {formatCurrency(athlete.package_price)}
+                                </span>
+                              )}
                               {unpaidInvoiceSet[athlete.id] && (
                                 <span
                                   className="text-xs px-1.5 py-0.5 rounded-md font-medium"
@@ -753,11 +760,6 @@ export function AthletesClient({
                                 </span>
                               )}
                             </div>
-                            {(athlete.package_price ?? 0) > 0 && (
-                              <div className="text-xs font-semibold" style={{ color: '#FF5C1B' }}>
-                                {formatCurrency(athlete.package_price)}/mies.
-                              </div>
-                            )}
                           </td>
                         )}
 
@@ -768,14 +770,12 @@ export function AthletesClient({
                               const { text, color } = daysUntil(nextSession.date)
                               return (
                                 <div>
-                                  <div className="flex items-center gap-1.5 mb-0.5">
-                                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${intensityColor(nextSession.type as Parameters<typeof intensityColor>[0])}`}>
-                                      {sessionTypeLabel(nextSession.type as Parameters<typeof sessionTypeLabel>[0])}
-                                    </span>
-                                  </div>
-                                  <div className="text-xs font-semibold" style={{ color }}>{text}</div>
-                                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                    {formatDate(nextSession.date, { day: 'numeric', month: 'short' })}
+                                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${intensityColor(nextSession.type as Parameters<typeof intensityColor>[0])}`}>
+                                    {sessionTypeLabel(nextSession.type as Parameters<typeof sessionTypeLabel>[0])}
+                                  </span>
+                                  <div className="flex items-center gap-1.5 text-xs mt-0.5">
+                                    <span className="font-semibold" style={{ color }}>{text}</span>
+                                    <span style={{ color: 'var(--text-muted)' }}>{formatDate(nextSession.date, { day: 'numeric', month: 'short' })}</span>
                                   </div>
                                 </div>
                               )
@@ -793,11 +793,9 @@ export function AthletesClient({
                             {lastSession ? (() => {
                               const { text, color } = daysAgo(lastSession)
                               return (
-                                <div>
-                                  <div className="text-xs font-semibold" style={{ color }}>{text}</div>
-                                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                    {formatDate(lastSession, { day: 'numeric', month: 'short' })}
-                                  </div>
+                                <div className="flex items-center gap-1.5 text-xs">
+                                  <span className="font-semibold" style={{ color }}>{text}</span>
+                                  <span style={{ color: 'var(--text-muted)' }}>{formatDate(lastSession, { day: 'numeric', month: 'short' })}</span>
                                 </div>
                               )
                             })() : (
@@ -831,12 +829,17 @@ export function AthletesClient({
                           </td>
                         )}
 
-                        {/* Wiek / Miasto */}
-                        {col('age_city') && (
-                          <td className="px-5 py-3">
-                            {athlete.age !== null && <div className="text-sm">{athlete.age} lat</div>}
-                            {athlete.city && <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{athlete.city}</div>}
-                            {athlete.age === null && !athlete.city && <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                        {/* Wiek */}
+                        {col('age') && (
+                          <td className="px-5 py-3 text-sm">
+                            {athlete.age !== null ? `${athlete.age} lat` : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                          </td>
+                        )}
+
+                        {/* Miasto */}
+                        {col('city') && (
+                          <td className="px-5 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+                            {athlete.city ?? '—'}
                           </td>
                         )}
 
