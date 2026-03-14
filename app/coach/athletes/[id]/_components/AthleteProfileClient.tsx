@@ -14,7 +14,7 @@ import {
   invoiceStatusColor, invoiceStatusLabel, signalColor, getWeekDays, toISODate, dayName, isToday, isPast,
 } from '@/lib/utils'
 import { SessionType } from '@/lib/types'
-import { createSession, updateSession, deleteSession as deleteSessionAction, markSessionCompleted } from '@/lib/actions/sessions'
+import { createSession, updateSession, deleteSession as deleteSessionAction } from '@/lib/actions/sessions'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
 import Link from 'next/link'
@@ -296,7 +296,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   }
   function completionStyle(session: DbRow): React.CSSProperties {
     if (session.completed) return { outline: '2px solid rgba(46,204,113,0.6)', outlineOffset: '-2px' }
-    if (session.date < today) return { opacity: 0.4, outline: '1px dashed rgba(231,76,60,0.5)', outlineOffset: '-1px' }
+    if (isPast(session.date)) return { opacity: 0.4, outline: '1px dashed rgba(231,76,60,0.5)', outlineOffset: '-1px' }
     return {}
   }
 
@@ -659,7 +659,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                               <button
                                 onClick={async e => {
                                   e.stopPropagation()
-                                  await markSessionCompleted(session.id, athlete.id)
+                                  const fd = new FormData()
+                                  fd.set('id', session.id)
+                                  fd.set('athlete_id', athlete.id)
+                                  fd.set('completed', 'true')
+                                  await updateSession(null, fd)
                                   startTransition(() => router.refresh())
                                 }}
                                 className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs cursor-pointer opacity-60 hover:opacity-100"

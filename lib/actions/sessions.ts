@@ -53,23 +53,6 @@ export async function createSession(_: unknown, formData: FormData) {
   return { success: true, id: data.id }
 }
 
-export async function markSessionCompleted(id: string, athleteId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
-
-  const { error } = await supabase
-    .from('training_sessions')
-    .update({ completed: true })
-    .eq('id', id)
-    .eq('coach_id', user.id)
-
-  if (error) return { error: error.message }
-
-  revalidatePath(`/coach/athletes/${athleteId}`)
-  return { success: true }
-}
-
 export async function updateSession(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
