@@ -25,7 +25,7 @@ const COLUMN_DEFS: { key: ColumnKey; label: string; desc: string }[] = [
   { key: 'phone',        label: 'Telefon',           desc: 'Numer telefonu (klikalny)' },
   { key: 'age_city',     label: 'Wiek / Miasto',     desc: 'Wiek i miasto zawodnika' },
 ]
-const DEFAULT_COLUMNS: ColumnKey[] = ['signal', 'compliance', 'weekly_load', 'package', 'next_session', 'last_session']
+const DEFAULT_COLUMNS: ColumnKey[] = ['signal', 'compliance', 'weekly_load', 'next_session', 'last_session']
 const COLUMNS_STORAGE_KEY = 'coach_table_columns_v1'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -601,8 +601,8 @@ export function AthletesClient({
             <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
               ℹ️ Kliknij na status zawodnika, aby go zmienić
             </p>
-            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
-              <table className="w-full text-sm">
+            <div className="rounded-2xl overflow-x-auto" style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+              <table className="w-full text-sm" style={{ minWidth: 600 }}>
                 <thead>
                   <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
                     {!sortKey && <th className="px-3 py-4 w-8" style={{ color: 'var(--text-muted)' }} />}
