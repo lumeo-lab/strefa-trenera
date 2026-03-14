@@ -1,17 +1,83 @@
 'use client'
 
-import { useState, useEffect, useActionState, startTransition } from 'react'
+import { useState, useEffect, useActionState, startTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Avatar } from '@/components/ui/Avatar'
-import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import { formatDate, formatCurrency, sessionTypeLabel, intensityColor } from '@/lib/utils'
 import { createAthlete, updateAthlete } from '@/lib/actions/athletes'
 import { useCustomStatuses, StatusDef } from '@/lib/useCustomStatuses'
 import Link from 'next/link'
 
+// ── Column picker ──────────────────────────────────────────────────────────
+type ColumnKey = 'signal' | 'compliance' | 'weekly_load' | 'package' | 'next_session' | 'last_session' | 'join_date' | 'phone' | 'age_city'
+
+const COLUMN_DEFS: { key: ColumnKey; label: string; desc: string }[] = [
+  { key: 'signal',       label: 'Forma',             desc: 'Ostatni sygnał z feedbacku + kiedy' },
+  { key: 'compliance',   label: 'Realizacja 30 dni', desc: '% ukończonych sesji z ost. 30 dni' },
+  { key: 'weekly_load',  label: 'Obciążenie 7 dni',  desc: 'Suma km i liczba sesji z ost. 7 dni' },
+  { key: 'package',      label: 'Pakiet',            desc: 'Pakiet, cena i status płatności' },
+  { key: 'next_session', label: 'Następna sesja',    desc: 'Najbliższy zaplanowany trening' },
+  { key: 'last_session', label: 'Ostatni trening',   desc: 'Ostatni ukończony trening' },
+  { key: 'join_date',    label: 'Data dołączenia',   desc: 'Kiedy zawodnik dołączył + staż' },
+  { key: 'phone',        label: 'Telefon',           desc: 'Numer telefonu (klikalny)' },
+  { key: 'age_city',     label: 'Wiek / Miasto',     desc: 'Wiek i miasto zawodnika' },
+]
+const DEFAULT_COLUMNS: ColumnKey[] = ['signal', 'compliance', 'weekly_load', 'package', 'next_session', 'last_session']
+const COLUMNS_STORAGE_KEY = 'coach_table_columns_v1'
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const SIGNAL_COLORS: Record<string, string> = { green: '#2ECC71', yellow: '#F1C40F', red: '#E74C3C' }
+const SIGNAL_LABELS: Record<string, string> = { green: 'Dobra', yellow: 'Średnia', red: 'Słaba' }
+
+function daysAgo(dateStr: string): { text: string; color: string } {
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
+  const diff = Math.floor((now.getTime() - d.getTime()) / 86400000)
+  if (diff === 0) return { text: 'dziś', color: '#2ECC71' }
+  if (diff === 1) return { text: 'wczoraj', color: 'var(--text-muted)' }
+  if (diff > 21) return { text: `${diff} dni temu`, color: '#E74C3C' }
+  return { text: `${diff} dni temu`, color: 'var(--text-muted)' }
+}
+
+function daysUntil(dateStr: string): { text: string; color: string } {
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
+  const diff = Math.floor((d.getTime() - now.getTime()) / 86400000)
+  if (diff < 0) return { text: '—', color: 'var(--text-muted)' }
+  if (diff === 0) return { text: 'dziś', color: '#FF5C1B' }
+  if (diff === 1) return { text: 'jutro', color: '#F1C40F' }
+  return { text: `za ${diff} dni`, color: 'var(--text-muted)' }
+}
+
+function sesjaLabel(n: number): string {
+  if (n === 1) return '1 sesja'
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return `${n} sesje`
+  return `${n} sesji`
+}
+
+function tenureLabel(joinDateStr: string): string {
+  const join = new Date(joinDateStr)
+  const now = new Date()
+  const months = (now.getFullYear() - join.getFullYear()) * 12 + (now.getMonth() - join.getMonth())
+  if (months < 1) return 'Nowy'
+  if (months < 12) return `${months} mies.`
+  const years = Math.floor(months / 12)
+  const rem = months % 12
+  const yMod10 = years % 10
+  const yMod100 = years % 100
+  let yLabel = 'lat'
+  if (years === 1) yLabel = 'rok'
+  else if (yMod10 >= 2 && yMod10 <= 4 && !(yMod100 >= 12 && yMod100 <= 14)) yLabel = 'lata'
+  if (rem === 0) return `${years} ${yLabel}`
+  return `${years} ${yLabel} ${rem} mies.`
+}
+
+// ── Interfaces ─────────────────────────────────────────────────────────────
 interface Athlete {
   id: string
   name: string
@@ -25,19 +91,25 @@ interface Athlete {
   slug: string
   join_date: string
   created_at: string
+  age: number | null
+  city: string | null
 }
 
-interface Package {
-  id: string
-  name: string
-  price: number
-}
+interface Package { id: string; name: string; price: number }
 
 interface Props {
   athletes: Athlete[]
   lastSessionMap: Record<string, string>
   weeklyLoadMap: Record<string, number>
+  weeklySessionCountMap: Record<string, number>
   packages: Package[]
+  signalMap: Record<string, string>
+  lastFeedbackDateMap: Record<string, string>
+  nextSessionMap: Record<string, { date: string; type: string; title: string }>
+  unreadMessagesMap: Record<string, number>
+  unreadFeedbackMap: Record<string, number>
+  complianceMap: Record<string, { completed: number; total: number }>
+  unpaidInvoiceSet: Record<string, boolean>
 }
 
 const inputStyle = {
@@ -60,18 +132,23 @@ const labelStyle: React.CSSProperties = {
   marginBottom: 5,
 }
 
-type SortKey = 'name' | 'package' | 'status' | 'join_date' | 'last_session' | null
+type SortKey = 'name' | 'package' | 'status' | 'join_date' | 'last_session' | 'next_session' | 'signal' | 'weekly_load' | 'compliance' | null
+type QuickFilter = 'unread' | 'unpaid' | 'no_session' | null
 
 const ORDER_KEY = 'coach_athlete_order'
-
 const PRESET_COLORS = ['#2ECC71', '#F1C40F', '#E74C3C', '#6B7280', '#3B82F6', '#8B5CF6', '#EC4899', '#F97316']
 
-export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packages }: Props) {
+export function AthletesClient({
+  athletes, lastSessionMap, weeklyLoadMap, weeklySessionCountMap, packages,
+  signalMap, lastFeedbackDateMap, nextSessionMap, unreadMessagesMap, unreadFeedbackMap,
+  complianceMap, unpaidInvoiceSet,
+}: Props) {
   const router = useRouter()
   const { all: allStatuses, saveAll } = useCustomStatuses()
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>(null)
   const [sortKey, setSortKey] = useState<SortKey>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [masterOrder, setMasterOrder] = useState<string[]>([])
@@ -91,7 +168,15 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
 
   // Inline status edit
   const [editingStatusFor, setEditingStatusFor] = useState<string | null>(null)
+  const [statusDropdownPos, setStatusDropdownPos] = useState<{ top: number; left: number } | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
+
+  // Column picker
+  const [activeColumns, setActiveColumns] = useState<ColumnKey[]>(DEFAULT_COLUMNS)
+  const [colPickerOpen, setColPickerOpen] = useState(false)
+  const colPickerRef = useRef<HTMLDivElement>(null)
+
+  function col(key: ColumnKey) { return activeColumns.includes(key) }
 
   function openStatusModal() {
     setEditingStatuses(allStatuses.map(s => ({ ...s })))
@@ -112,6 +197,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
     fd.set('status', newStatus)
     await updateAthlete(null, fd)
     setEditingStatusFor(null)
+    setStatusDropdownPos(null)
     setUpdatingStatus(false)
     startTransition(() => router.refresh())
   }
@@ -123,7 +209,12 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
     setNewStatusLabel('')
   }
 
-  // Load custom order from localStorage
+  function saveColumns(cols: ColumnKey[]) {
+    setActiveColumns(cols)
+    localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(cols))
+  }
+
+  // Load persisted state
   useEffect(() => {
     try {
       const saved = localStorage.getItem(ORDER_KEY)
@@ -131,25 +222,83 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
     } catch { /* ignore */ }
   }, [])
 
-  // Apply filters
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COLUMNS_STORAGE_KEY)
+      if (saved) setActiveColumns(JSON.parse(saved))
+    } catch { /* ignore */ }
+  }, [])
+
+  // Close column picker on outside click
+  useEffect(() => {
+    if (!colPickerOpen) return
+    function close(e: MouseEvent) {
+      if (colPickerRef.current && !colPickerRef.current.contains(e.target as Node)) {
+        setColPickerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [colPickerOpen])
+
+  // Close status dropdown on outside click or scroll
+  useEffect(() => {
+    if (!editingStatusFor) return
+    function close() { setEditingStatusFor(null); setStatusDropdownPos(null) }
+    document.addEventListener('click', close)
+    document.addEventListener('scroll', close, true)
+    return () => {
+      document.removeEventListener('click', close)
+      document.removeEventListener('scroll', close, true)
+    }
+  }, [editingStatusFor])
+
+  // Filters — includes email and phone
   const filtered = athletes.filter(a => {
-    const matchesText = a.name.toLowerCase().includes(search.toLowerCase()) ||
-      (a.goal ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      a.package.toLowerCase().includes(search.toLowerCase())
+    const q = search.toLowerCase()
+    const matchesText = !q ||
+      a.name.toLowerCase().includes(q) ||
+      (a.goal ?? '').toLowerCase().includes(q) ||
+      a.package.toLowerCase().includes(q) ||
+      (a.email ?? '').toLowerCase().includes(q) ||
+      (a.phone ?? '').includes(q)
     const matchesStatus = statusFilter === 'all' || a.status === statusFilter
-    return matchesText && matchesStatus
+    const matchesQuick = !quickFilter ||
+      (quickFilter === 'unread' && ((unreadMessagesMap[a.id] ?? 0) > 0 || (unreadFeedbackMap[a.id] ?? 0) > 0)) ||
+      (quickFilter === 'unpaid' && unpaidInvoiceSet[a.id]) ||
+      (quickFilter === 'no_session' && !nextSessionMap[a.id] && a.status === 'ok')
+    return matchesText && matchesStatus && matchesQuick
   })
 
-  // Apply sort or custom order
+  // Sort or custom order
   let displayed: Athlete[]
   if (sortKey) {
     displayed = [...filtered].sort((a, b) => {
+      if (sortKey === 'signal') {
+        const order: Record<string, number> = { green: 0, yellow: 1, red: 2 }
+        const ao = order[signalMap[a.id]] ?? 3
+        const bo = order[signalMap[b.id]] ?? 3
+        return sortDir === 'asc' ? ao - bo : bo - ao
+      }
+      if (sortKey === 'weekly_load') {
+        const aw = weeklyLoadMap[a.id] ?? 0
+        const bw = weeklyLoadMap[b.id] ?? 0
+        return sortDir === 'asc' ? aw - bw : bw - aw
+      }
+      if (sortKey === 'compliance') {
+        const ac = complianceMap[a.id]
+        const bc = complianceMap[b.id]
+        const ap = ac ? ac.completed / ac.total : -1
+        const bp = bc ? bc.completed / bc.total : -1
+        return sortDir === 'asc' ? ap - bp : bp - ap
+      }
       let av = '', bv = ''
       if (sortKey === 'name') { av = a.name; bv = b.name }
       else if (sortKey === 'package') { av = a.package; bv = b.package }
       else if (sortKey === 'status') { av = a.status; bv = b.status }
       else if (sortKey === 'join_date') { av = a.join_date; bv = b.join_date }
       else if (sortKey === 'last_session') { av = lastSessionMap[a.id] ?? ''; bv = lastSessionMap[b.id] ?? '' }
+      else if (sortKey === 'next_session') { av = nextSessionMap[a.id]?.date ?? '9999-12-31'; bv = nextSessionMap[b.id]?.date ?? '9999-12-31' }
       const cmp = av.localeCompare(bv)
       return sortDir === 'asc' ? cmp : -cmp
     })
@@ -196,15 +345,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
     return allStatuses.find(s => s.key === key) ?? { key, label: key, color: '#6B7280' }
   }
 
-  // Close status dropdown on outside click
-  useEffect(() => {
-    if (!editingStatusFor) return
-    function close() { setEditingStatusFor(null) }
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
-  }, [editingStatusFor])
-
-  function SortHeader({ label, sk, hint }: { label: string; sk: SortKey; hint?: string }) {
+  function SortHeader({ label, sk }: { label: string; sk: SortKey }) {
     const isActive = sortKey === sk
     return (
       <th
@@ -212,8 +353,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
         style={{ color: isActive ? '#FF5C1B' : 'var(--text-muted)' }}
         onClick={() => handleSort(sk)}
       >
-        <div>{label}{isActive && <span className="ml-1 text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>}</div>
-        {hint && <div className="font-normal mt-0.5" style={{ fontSize: 10, opacity: 0.5 }}>{hint}</div>}
+        {label}{isActive && <span className="ml-1 text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>}
       </th>
     )
   }
@@ -222,23 +362,162 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
     <div>
       <CoachTopbar
         title="Zawodnicy"
-        subtitle={`${athletes.length} ${athletes.length === 1 ? 'zawodnik' : 'zawodników'}`}
+        subtitle={(() => {
+          const n = athletes.length
+          const d = displayed.length
+          const plural = n === 1 ? 'zawodnik' : (n % 10 >= 2 && n % 10 <= 4 && !(n % 100 >= 12 && n % 100 <= 14)) ? 'zawodnicy' : 'zawodników'
+          return d < n ? `${d} z ${n} ${plural}` : `${n} ${plural}`
+        })()}
       />
 
       <div className="p-6">
-        {/* Search + Add */}
+        {/* Search + Column picker + Add */}
         <div className="flex items-center gap-3 mb-4">
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Szukaj zawodnika..."
+            placeholder="Szukaj zawodnika, email, telefon..."
             className="max-w-sm px-4 py-2.5 rounded-xl text-sm flex-1"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
           />
+
+          {/* Column picker */}
+          <div className="relative" ref={colPickerRef}>
+            <button
+              onClick={() => setColPickerOpen(o => !o)}
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm cursor-pointer whitespace-nowrap"
+              style={{
+                background: colPickerOpen ? 'var(--bg-elevated)' : 'var(--bg-card)',
+                border: '1px solid var(--border-mid)',
+                color: 'var(--text-muted)',
+              }}
+            >
+              ⚙ Kolumny
+              <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(255,92,27,0.15)', color: '#FF5C1B' }}>
+                {activeColumns.length + 2}
+              </span>
+            </button>
+
+            {colPickerOpen && (
+              <div
+                className="absolute top-full right-0 mt-1 rounded-2xl p-3"
+                style={{
+                  zIndex: 9999,
+                  background: 'var(--bg-raised)',
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                  minWidth: 270,
+                }}
+              >
+                <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Widoczne kolumny</div>
+
+                {/* Always-on */}
+                {['Zawodnik', 'Status'].map(label => (
+                  <div key={label} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg select-none" style={{ opacity: 0.45 }}>
+                    <div className="w-4 h-4 rounded flex items-center justify-center shrink-0 text-xs"
+                      style={{ background: 'rgba(255,92,27,0.15)', color: '#FF5C1B' }}>✓</div>
+                    <span className="text-sm">{label}</span>
+                    <span className="ml-auto text-xs" style={{ color: 'var(--text-muted)' }}>zawsze</span>
+                  </div>
+                ))}
+
+                <div style={{ borderTop: '1px solid var(--border)', margin: '6px 0' }} />
+
+                <div className="space-y-0.5">
+                  {COLUMN_DEFS.map(c => (
+                    <label
+                      key={c.key}
+                      className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg cursor-pointer"
+                      style={{ transition: 'background 0.1s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-elevated)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={activeColumns.includes(c.key)}
+                        onChange={e => {
+                          const next = e.target.checked
+                            ? [...activeColumns, c.key]
+                            : activeColumns.filter(k => k !== c.key)
+                          saveColumns(next)
+                        }}
+                        className="accent-orange-500 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <div className="text-sm">{c.label}</div>
+                        <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{c.desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => saveColumns(DEFAULT_COLUMNS)}
+                  className="w-full mt-2 pt-2 text-xs text-left cursor-pointer"
+                  style={{ borderTop: '1px solid var(--border)', color: 'var(--text-muted)' }}
+                >
+                  ↺ Przywróć domyślne
+                </button>
+              </div>
+            )}
+          </div>
+
           <Button size="sm" onClick={() => { setSelectedPkg(packages[0] ?? null); setModalOpen(true) }}>
             + Dodaj zawodnika
           </Button>
         </div>
+
+        {/* Quick filters */}
+        {athletes.length > 0 && (() => {
+          const unreadCount = athletes.filter(a => (unreadMessagesMap[a.id] ?? 0) > 0 || (unreadFeedbackMap[a.id] ?? 0) > 0).length
+          const unpaidCount = athletes.filter(a => unpaidInvoiceSet[a.id]).length
+          const noSessionCount = athletes.filter(a => !nextSessionMap[a.id] && a.status === 'ok').length
+          if (unreadCount === 0 && unpaidCount === 0 && noSessionCount === 0) return null
+          return (
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--text-muted)' }}>Uwaga:</span>
+              {unreadCount > 0 && (
+                <button
+                  onClick={() => setQuickFilter(quickFilter === 'unread' ? null : 'unread')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
+                  style={{
+                    background: quickFilter === 'unread' ? 'rgba(255,92,27,0.12)' : 'var(--bg-card)',
+                    color: quickFilter === 'unread' ? '#FF5C1B' : 'var(--text-muted)',
+                    border: quickFilter === 'unread' ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
+                  }}
+                >
+                  💬 Nieprzeczytane <span className="opacity-70">{unreadCount}</span>
+                </button>
+              )}
+              {unpaidCount > 0 && (
+                <button
+                  onClick={() => setQuickFilter(quickFilter === 'unpaid' ? null : 'unpaid')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
+                  style={{
+                    background: quickFilter === 'unpaid' ? 'rgba(231,76,60,0.12)' : 'var(--bg-card)',
+                    color: quickFilter === 'unpaid' ? '#E74C3C' : 'var(--text-muted)',
+                    border: quickFilter === 'unpaid' ? '1px solid rgba(231,76,60,0.3)' : '1px solid var(--border)',
+                  }}
+                >
+                  💳 Nieopłacone <span className="opacity-70">{unpaidCount}</span>
+                </button>
+              )}
+              {noSessionCount > 0 && (
+                <button
+                  onClick={() => setQuickFilter(quickFilter === 'no_session' ? null : 'no_session')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
+                  style={{
+                    background: quickFilter === 'no_session' ? 'rgba(241,196,15,0.12)' : 'var(--bg-card)',
+                    color: quickFilter === 'no_session' ? '#F1C40F' : 'var(--text-muted)',
+                    border: quickFilter === 'no_session' ? '1px solid rgba(241,196,15,0.3)' : '1px solid var(--border)',
+                  }}
+                >
+                  📅 Bez sesji <span className="opacity-70">{noSessionCount}</span>
+                </button>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Status filter row */}
         {athletes.length > 0 && (
@@ -299,7 +578,7 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
           </div>
         )}
 
-        {/* Empty state */}
+        {/* Empty states */}
         {athletes.length === 0 && (
           <div className="text-center py-16" style={{ color: 'var(--text-muted)' }}>
             <div className="text-5xl mb-4">👟</div>
@@ -318,119 +597,328 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
 
         {/* Table */}
         {displayed.length > 0 && (
-          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
-                  {!sortKey && <th className="px-3 py-4 w-8" style={{ color: 'var(--text-muted)' }} />}
-                  <SortHeader label="Zawodnik" sk="name" />
-                  <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Cel</th>
-                  <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Obciążenie (7 dni)</th>
-                  <SortHeader label="Pakiet" sk="package" />
-                  <SortHeader label="Status" sk="status" hint="kliknij aby zmienić" />
-                  <SortHeader label="Ostatni trening" sk="last_session" />
-                </tr>
-              </thead>
-              <tbody>
-                {displayed.map((athlete, i) => {
-                  const lastSession = lastSessionMap[athlete.id]
-                  const isDraggingOver = dragOverId === athlete.id && draggingId !== athlete.id
-                  const statusDef = getStatusDef(athlete.status)
-                  return (
-                    <tr
-                      key={athlete.id}
-                      draggable={!sortKey}
-                      onDragStart={() => setDraggingId(athlete.id)}
-                      onDragOver={e => { e.preventDefault(); setDragOverId(athlete.id) }}
-                      onDrop={() => handleDrop(athlete.id)}
-                      onDragEnd={() => { setDraggingId(null); setDragOverId(null) }}
-                      style={{
-                        borderBottom: i < displayed.length - 1 ? '1px solid var(--border)' : 'none',
-                        background: isDraggingOver ? 'rgba(255,92,27,0.06)' : draggingId === athlete.id ? 'rgba(255,92,27,0.03)' : i % 2 === 0 ? 'var(--bg-elevated)' : 'var(--bg-card)',
-                        opacity: draggingId === athlete.id ? 0.5 : 1,
-                        outline: isDraggingOver ? '2px solid rgba(255,92,27,0.4)' : 'none',
-                        transition: 'background 0.1s',
-                      }}
-                    >
-                      {!sortKey && (
-                        <td className="pl-3 pr-1 py-4 text-center cursor-grab active:cursor-grabbing select-none"
-                          style={{ color: 'var(--text-muted)', fontSize: 16 }}>
-                          ⠿
+          <>
+            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+              ℹ️ Kliknij na status zawodnika, aby go zmienić
+            </p>
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
+                    {!sortKey && <th className="px-3 py-4 w-8" style={{ color: 'var(--text-muted)' }} />}
+                    <SortHeader label="Zawodnik" sk="name" />
+                    {col('signal') && <SortHeader label="Forma" sk="signal" />}
+                    {col('compliance') && <SortHeader label="Realizacja" sk="compliance" />}
+                    {col('weekly_load') && <SortHeader label="Obciążenie 7 dni" sk="weekly_load" />}
+                    {col('package') && <SortHeader label="Pakiet" sk="package" />}
+                    {col('next_session') && <SortHeader label="Następna sesja" sk="next_session" />}
+                    {col('last_session') && <SortHeader label="Ostatni trening" sk="last_session" />}
+                    {col('join_date') && <SortHeader label="Data dołączenia" sk="join_date" />}
+                    {col('phone') && <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Telefon</th>}
+                    {col('age_city') && <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Wiek / Miasto</th>}
+                    <SortHeader label="Status" sk="status" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayed.map((athlete, i) => {
+                    const lastSession = lastSessionMap[athlete.id]
+                    const nextSession = nextSessionMap[athlete.id]
+                    const signal = signalMap[athlete.id]
+                    const compliance = complianceMap[athlete.id]
+                    const isDraggingOver = dragOverId === athlete.id && draggingId !== athlete.id
+                    const statusDef = getStatusDef(athlete.status)
+                    const unreadMsg = unreadMessagesMap[athlete.id] ?? 0
+                    const unreadFb = unreadFeedbackMap[athlete.id] ?? 0
+                    const weeklyCount = weeklySessionCountMap[athlete.id] ?? 0
+                    const weeklyKm = weeklyLoadMap[athlete.id] ?? 0
+                    return (
+                      <tr
+                        key={athlete.id}
+                        draggable={!sortKey}
+                        onDragStart={() => setDraggingId(athlete.id)}
+                        onDragOver={e => { e.preventDefault(); setDragOverId(athlete.id) }}
+                        onDrop={() => handleDrop(athlete.id)}
+                        onDragEnd={() => { setDraggingId(null); setDragOverId(null) }}
+                        style={{
+                          borderBottom: i < displayed.length - 1 ? '1px solid var(--border)' : 'none',
+                          background: isDraggingOver ? 'rgba(255,92,27,0.06)' : draggingId === athlete.id ? 'rgba(255,92,27,0.03)' : i % 2 === 0 ? 'var(--bg-elevated)' : 'var(--bg-card)',
+                          opacity: draggingId === athlete.id ? 0.5 : 1,
+                          outline: isDraggingOver ? '2px solid rgba(255,92,27,0.4)' : 'none',
+                          transition: 'background 0.1s',
+                        }}
+                      >
+                        {!sortKey && (
+                          <td className="pl-3 pr-1 py-4 text-center cursor-grab active:cursor-grabbing select-none"
+                            style={{ color: 'var(--text-muted)', fontSize: 16 }}>
+                            ⠿
+                          </td>
+                        )}
+
+                        {/* Zawodnik */}
+                        <td className="px-5 py-3">
+                          <Link href={`/coach/athletes/${athlete.id}`} className="flex items-center gap-3 hover:text-orange-400 transition-colors">
+                            <Avatar initials={athlete.avatar} size="sm" />
+                            <div className="min-w-0">
+                              <div className="font-medium flex items-center gap-1.5">
+                                <span className="truncate">{athlete.name}</span>
+                                {!!unreadMsg && (
+                                  <span
+                                    title={`${unreadMsg} wiadomości`}
+                                    className="inline-flex items-center justify-center rounded-full text-white font-bold shrink-0"
+                                    style={{ background: '#FF5C1B', minWidth: 16, height: 16, fontSize: 9, padding: '0 4px' }}
+                                  >
+                                    {unreadMsg}
+                                  </span>
+                                )}
+                                {!!unreadFb && (
+                                  <span
+                                    title={`${unreadFb} feedback`}
+                                    className="inline-flex items-center justify-center rounded-full text-white font-bold shrink-0"
+                                    style={{ background: '#3B82F6', minWidth: 16, height: 16, fontSize: 9, padding: '0 4px' }}
+                                  >
+                                    {unreadFb}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{athlete.email ?? '—'}</div>
+                              {athlete.goal && (
+                                <div className="text-xs mt-0.5 truncate max-w-52" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>
+                                  {athlete.goal}
+                                </div>
+                              )}
+                            </div>
+                          </Link>
                         </td>
-                      )}
-                      <td className="px-5 py-4">
-                        <Link href={`/coach/athletes/${athlete.id}`} className="flex items-center gap-3 hover:text-orange-400 transition-colors">
-                          <Avatar initials={athlete.avatar} size="sm" />
-                          <div>
-                            <div className="font-medium">{athlete.name}</div>
-                            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{athlete.email ?? '—'}</div>
-                          </div>
-                        </Link>
-                      </td>
-                      <td className="px-5 py-4" style={{ color: 'var(--text-muted)' }}>{athlete.goal || '—'}</td>
-                      <td className="px-5 py-4">
-                        {weeklyLoadMap[athlete.id] ? (
-                          <span className="text-sm font-medium">{weeklyLoadMap[athlete.id].toFixed(0)} km</span>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+
+                        {/* Forma — signal + data */}
+                        {col('signal') && (
+                          <td className="px-5 py-3">
+                            {signal ? (
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: SIGNAL_COLORS[signal] ?? '#6B7280' }} />
+                                  <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{SIGNAL_LABELS[signal] ?? signal}</span>
+                                </div>
+                                {lastFeedbackDateMap[athlete.id] && (() => {
+                                  const { text } = daysAgo(lastFeedbackDateMap[athlete.id])
+                                  return <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)', opacity: 0.7 }}>{text}</div>
+                                })()}
+                              </div>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
+                          </td>
                         )}
-                      </td>
-                      <td className="px-5 py-4">
-                        <Badge variant="gray">{athlete.package || '—'}</Badge>
-                      </td>
-                      <td className="px-5 py-4" style={{ position: 'relative' }}
-                        onClick={e => { e.stopPropagation(); setEditingStatusFor(prev => prev === athlete.id ? null : athlete.id) }}>
-                        <div className="flex items-center gap-2 cursor-pointer select-none hover:opacity-70 transition-opacity">
-                          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: statusDef.color }} />
-                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{statusDef.label}</span>
-                          <span className="text-xs opacity-30">▾</span>
-                        </div>
-                        {editingStatusFor === athlete.id && (
-                          <div
-                            onClick={e => e.stopPropagation()}
-                            style={{
-                              position: 'absolute',
-                              top: 'calc(100% + 2px)',
-                              left: '12px',
-                              zIndex: 100,
-                              background: 'var(--bg-raised)',
-                              border: '1px solid var(--border)',
-                              borderRadius: 12,
-                              padding: '4px',
-                              minWidth: 180,
-                              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-                            }}
-                          >
-                            {allStatuses.map(s => (
-                              <button
-                                key={s.key}
-                                disabled={updatingStatus}
-                                onClick={() => handleStatusChange(athlete.id, s.key)}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left cursor-pointer transition-opacity hover:opacity-70"
-                                style={{
-                                  background: s.key === athlete.status ? 'rgba(255,92,27,0.08)' : 'transparent',
-                                  color: s.key === athlete.status ? '#FF5C1B' : 'var(--text-primary)',
-                                  opacity: updatingStatus ? 0.6 : 1,
-                                }}
-                              >
-                                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
-                                {s.label}
-                                {s.key === athlete.status && <span className="ml-auto text-xs">✓</span>}
-                              </button>
-                            ))}
-                          </div>
+
+                        {/* Realizacja 30 dni */}
+                        {col('compliance') && (
+                          <td className="px-5 py-3">
+                            {compliance ? (() => {
+                              const pct = Math.round((compliance.completed / compliance.total) * 100)
+                              const color = pct >= 80 ? '#2ECC71' : pct >= 60 ? '#F1C40F' : '#E74C3C'
+                              return (
+                                <div>
+                                  <div className="text-sm font-semibold" style={{ color }}>{pct}%</div>
+                                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    {compliance.completed} z {compliance.total} sesji
+                                  </div>
+                                </div>
+                              )
+                            })() : (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
+                          </td>
                         )}
-                      </td>
-                      <td className="px-5 py-4" style={{ color: 'var(--text-muted)' }}>
-                        {lastSession ? formatDate(lastSession, { day: 'numeric', month: 'short' }) : '—'}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+
+                        {/* Obciążenie 7 dni — km + liczba sesji */}
+                        {col('weekly_load') && (
+                          <td className="px-5 py-3">
+                            {weeklyKm > 0 || weeklyCount > 0 ? (
+                              <div>
+                                <div className="text-sm font-medium">
+                                  {weeklyKm > 0 ? `${weeklyKm.toFixed(0)} km` : '—'}
+                                </div>
+                                {weeklyCount > 0 && (
+                                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    {sesjaLabel(weeklyCount)}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
+                          </td>
+                        )}
+
+                        {/* Pakiet — z badge nieopłacone */}
+                        {col('package') && (
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <div className="text-sm font-medium">{athlete.package || '—'}</div>
+                              {unpaidInvoiceSet[athlete.id] && (
+                                <span
+                                  className="text-xs px-1.5 py-0.5 rounded-md font-medium"
+                                  style={{ background: 'rgba(231,76,60,0.12)', color: '#E74C3C' }}
+                                >
+                                  Nieopłacone
+                                </span>
+                              )}
+                            </div>
+                            {(athlete.package_price ?? 0) > 0 && (
+                              <div className="text-xs font-semibold" style={{ color: '#FF5C1B' }}>
+                                {formatCurrency(athlete.package_price)}/mies.
+                              </div>
+                            )}
+                          </td>
+                        )}
+
+                        {/* Następna sesja — ostrzeżenie gdy brak a status OK */}
+                        {col('next_session') && (
+                          <td className="px-5 py-3">
+                            {nextSession ? (() => {
+                              const { text, color } = daysUntil(nextSession.date)
+                              return (
+                                <div>
+                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${intensityColor(nextSession.type as Parameters<typeof intensityColor>[0])}`}>
+                                      {sessionTypeLabel(nextSession.type as Parameters<typeof sessionTypeLabel>[0])}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs font-semibold" style={{ color }}>{text}</div>
+                                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    {formatDate(nextSession.date, { day: 'numeric', month: 'short' })}
+                                  </div>
+                                </div>
+                              )
+                            })() : athlete.status === 'ok' ? (
+                              <span className="text-xs font-medium" style={{ color: '#F1C40F' }}>Nie zaplanowano</span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
+                          </td>
+                        )}
+
+                        {/* Ostatni trening */}
+                        {col('last_session') && (
+                          <td className="px-5 py-3">
+                            {lastSession ? (() => {
+                              const { text, color } = daysAgo(lastSession)
+                              return (
+                                <div>
+                                  <div className="text-xs font-semibold" style={{ color }}>{text}</div>
+                                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    {formatDate(lastSession, { day: 'numeric', month: 'short' })}
+                                  </div>
+                                </div>
+                              )
+                            })() : (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
+                          </td>
+                        )}
+
+                        {/* Data dołączenia + staż */}
+                        {col('join_date') && (
+                          <td className="px-5 py-3">
+                            {athlete.join_date ? (
+                              <div>
+                                <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                                  {formatDate(athlete.join_date, { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </div>
+                                <div className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>
+                                  {tenureLabel(athlete.join_date)}
+                                </div>
+                              </div>
+                            ) : '—'}
+                          </td>
+                        )}
+
+                        {/* Telefon — klikalny */}
+                        {col('phone') && (
+                          <td className="px-5 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+                            {athlete.phone
+                              ? <a href={`tel:${athlete.phone}`} className="hover:text-orange-400 transition-colors">{athlete.phone}</a>
+                              : '—'}
+                          </td>
+                        )}
+
+                        {/* Wiek / Miasto */}
+                        {col('age_city') && (
+                          <td className="px-5 py-3">
+                            {athlete.age !== null && <div className="text-sm">{athlete.age} lat</div>}
+                            {athlete.city && <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{athlete.city}</div>}
+                            {athlete.age === null && !athlete.city && <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                          </td>
+                        )}
+
+                        {/* Status — zawsze ostatni */}
+                        <td className="px-5 py-3"
+                          onClick={e => {
+                            e.stopPropagation()
+                            if (editingStatusFor === athlete.id) {
+                              setEditingStatusFor(null)
+                              setStatusDropdownPos(null)
+                            } else {
+                              const rect = e.currentTarget.getBoundingClientRect()
+                              setStatusDropdownPos({ top: rect.bottom + 4, left: rect.left })
+                              setEditingStatusFor(athlete.id)
+                            }
+                          }}>
+                          <div className="flex items-center gap-2 cursor-pointer select-none hover:opacity-70 transition-opacity">
+                            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: statusDef.color }} />
+                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{statusDef.label}</span>
+                            <span className="text-xs opacity-30">▾</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
+
+        {/* Status dropdown — fixed, above overflow:hidden */}
+        {editingStatusFor && statusDropdownPos && (() => {
+          const athlete = displayed.find(a => a.id === editingStatusFor)
+          if (!athlete) return null
+          return (
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'fixed',
+                top: statusDropdownPos.top,
+                left: statusDropdownPos.left,
+                zIndex: 9999,
+                background: 'var(--bg-raised)',
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                padding: '4px',
+                minWidth: 180,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+              }}
+            >
+              {allStatuses.map(s => (
+                <button
+                  key={s.key}
+                  disabled={updatingStatus}
+                  onClick={() => handleStatusChange(athlete.id, s.key)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left cursor-pointer transition-opacity hover:opacity-70"
+                  style={{
+                    background: s.key === athlete.status ? 'rgba(255,92,27,0.08)' : 'transparent',
+                    color: s.key === athlete.status ? '#FF5C1B' : 'var(--text-primary)',
+                    opacity: updatingStatus ? 0.6 : 1,
+                  }}
+                >
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
+                  {s.label}
+                  {s.key === athlete.status && <span className="ml-auto text-xs">✓</span>}
+                </button>
+              ))}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Add Athlete Modal */}
@@ -512,7 +1000,6 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
         }
       >
         <div className="space-y-4">
-          {/* All statuses — unified editable list */}
           <div className="space-y-2">
             {editingStatuses.map((s, idx) => (
               <div key={s.key} className="flex items-center gap-2">
@@ -530,7 +1017,6 @@ export function AthletesClient({ athletes, lastSessionMap, weeklyLoadMap, packag
             ))}
           </div>
 
-          {/* Add new status */}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
             <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Dodaj nowy status</div>
             <div className="flex items-center gap-2 mb-2">

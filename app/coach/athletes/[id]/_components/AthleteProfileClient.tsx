@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, startTransition } from 'react'
+import { useState, startTransition, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Tabs } from '@/components/ui/Tabs'
@@ -489,7 +489,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-1">
                 <h2 className="text-xl font-bold">{athlete.name}</h2>
-                <Badge variant={athlete.package === 'Pro' ? 'orange' : athlete.package === 'Standard' ? 'blue' : 'gray'}>
+                <Badge variant="gray">
                   {athlete.package} — {formatCurrency(athlete.package_price)}/mies.
                 </Badge>
               </div>
@@ -771,15 +771,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
             {/* Rodzaj treningu */}
             <div className="mt-5 pb-32">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>Rodzaj treningu:</span>
-                <button onClick={openSessionTypeModal}
-                  className="text-xs px-2.5 py-1 rounded-lg cursor-pointer transition-opacity hover:opacity-80"
-                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                  ⚙ Edytuj
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
+              <span className="text-xs font-semibold mb-3 block" style={{ color: 'var(--text-muted)' }}>Rodzaj treningu</span>
+              <div className="flex flex-wrap gap-2 items-center">
                 {allSessionTypes.map(t => (
                   <span key={t.key}
                     className={`text-xs px-2.5 py-1 rounded-full font-medium ${t.isBuiltin ? intensityColor(t.key as SessionType) : ''}`}
@@ -787,6 +780,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     {t.label}
                   </span>
                 ))}
+                <button onClick={openSessionTypeModal}
+                  className="text-xs px-2.5 py-1 rounded-lg cursor-pointer transition-opacity hover:opacity-80"
+                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                  ⚙ Edytuj
+                </button>
               </div>
               <p className="text-xs mt-4" style={{ color: '#B0B8CC' }}>
                 💬 Gdy zawodnik doda feedback, pojawi się jako przycisk &quot;Feedback&quot; pod kafelkiem dnia
@@ -796,14 +794,22 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         )}
 
         {/* ── Historia ── */}
-        {activeTab === 'history' && (
+        {activeTab === 'history' && (() => {
+          const monthSessions = initialSessions.filter(s => s.date.slice(0, 7) === historyMonth)
+          const monthCompleted = monthSessions.filter(s => s.completed)
+          const monthKm = monthCompleted.reduce((sum, s) => sum + (s.actual_distance || 0), 0)
+          const monthFeedbacks = athleteFeedbacks.filter(f => f.date.slice(0, 7) === historyMonth)
+          const completionRate = monthSessions.length > 0
+            ? Math.round((monthCompleted.length / monthSessions.length) * 100)
+            : 0
+          return (
           <div className="space-y-4">
             <div className="grid grid-cols-4 gap-4">
               {[
-                { label: 'Łącznie sesji', value: initialSessions.filter(s => s.completed).length },
-                { label: 'Łącznie km', value: `${totalKm.toFixed(0)} km` },
-                { label: 'Feedbacków', value: athleteFeedbacks.length },
-                { label: 'Ukończenie', value: `${Math.round((initialSessions.filter(s => s.completed).length / Math.max(initialSessions.length, 1)) * 100)}%` },
+                { label: 'Sesji w miesiącu', value: monthCompleted.length },
+                { label: 'Łącznie km', value: monthKm > 0 ? `${monthKm.toFixed(0)} km` : '—' },
+                { label: 'Feedbacków', value: monthFeedbacks.length },
+                { label: 'Ukończenie', value: monthSessions.length > 0 ? `${completionRate}%` : '—' },
               ].map(stat => (
                 <Card key={stat.label} className="p-4 text-center">
                   <div className="text-xl font-bold mb-1">{stat.value}</div>
@@ -848,8 +854,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
                     const isExpanded = expandedRows.has(session.id)
                     return (
-                      <>
-                        <tr key={session.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--bg-subtle)' }}>
+                      <Fragment key={session.id}>
+                        <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--bg-subtle)' }}>
                           <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(session.date, { day: 'numeric', month: 'short' })}</td>
                           <td className="px-4 py-3 font-medium text-xs">{session.title}</td>
                           <td className="px-4 py-3">
@@ -881,7 +887,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                           </td>
                         </tr>
                         {isExpanded && fb && (
-                          <tr key={`fb-${session.id}`}>
+                          <tr>
                             <td colSpan={8} className="px-4 pb-3">
                               <div className="p-3 rounded-xl" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
                                 <FeedbackDetail fb={fb} />
@@ -889,14 +895,15 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     )
                   })}
                 </tbody>
               </table>
             </div>
           </div>
-        )}
+          )
+        })()}
 
         {/* ── Dane ── */}
         {activeTab === 'data' && (

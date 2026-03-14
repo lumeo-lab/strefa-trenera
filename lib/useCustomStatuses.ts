@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 
 export const DEFAULT_STATUSES = [
-  { key: 'ok',       label: 'OK',          color: '#2ECC71' },
-  { key: 'warning',  label: 'Uwaga',       color: '#F1C40F' },
-  { key: 'alert',    label: 'Alert',       color: '#E74C3C' },
-  { key: 'inactive', label: 'Nieaktywny',  color: '#6B7280' },
+  { key: 'ok',       label: 'OK',             color: '#2ECC71' },
+  { key: 'warning',  label: 'Pod obserwacją', color: '#F1C40F' },
+  { key: 'alert',    label: 'Kontuzja',       color: '#E74C3C' },
+  { key: 'inactive', label: 'Przerwa',        color: '#6B7280' },
 ]
 
 export type StatusDef = { key: string; label: string; color: string }
