@@ -779,7 +779,7 @@ export function AthletesClient({
                                 </div>
                               )
                             })() : athlete.status === 'ok' ? (
-                              <span className="text-xs font-medium" style={{ color: '#F1C40F' }}>Nie zaplanowano</span>
+                              <span className="text-xs font-medium" style={{ color: '#F1C40F' }}>Brak planu</span>
                             ) : (
                               <span style={{ color: 'var(--text-muted)' }}>—</span>
                             )}
