@@ -251,8 +251,13 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     height: athlete.height?.toString() ?? '',
     weight: athlete.weight?.toString() ?? '',
     join_date: athlete.join_date ?? '',
-    injuries: (athlete.injuries as string[] | null) ?? [],
   })
+
+  // ── Injuries state ──
+  const [localInjuries, setLocalInjuries] = useState<string[]>((athlete.injuries as string[] | null) ?? [])
+  const [injuriesEditing, setInjuriesEditing] = useState(false)
+  const [injuriesSaving, setInjuriesSaving] = useState(false)
+  const [injuriesSaved, setInjuriesSaved] = useState(false)
   const [injuryInput, setInjuryInput] = useState('')
 
   // ── Races state ──
@@ -329,9 +334,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     setDataSaving(true)
     const fd = new FormData()
     fd.set('id', athlete.id)
-    const { injuries, ...restEdit } = dataEdit
-    Object.entries(restEdit).forEach(([k, v]) => fd.set(k, v))
-    fd.set('injuries', JSON.stringify(injuries))
+    Object.entries(dataEdit).forEach(([k, v]) => fd.set(k, v))
     await updateAthlete(null, fd)
     setDataSaving(false)
     setDataSaved(true)
@@ -352,6 +355,20 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     setPbSaved(true)
     setPbEditing(false)
     setTimeout(() => setPbSaved(false), 2000)
+    startTransition(() => router.refresh())
+  }
+
+  async function saveInjuries() {
+    if (injuriesSaving) return
+    setInjuriesSaving(true)
+    const fd = new FormData()
+    fd.set('id', athlete.id)
+    fd.set('injuries', JSON.stringify(localInjuries))
+    await updateAthlete(null, fd)
+    setInjuriesSaving(false)
+    setInjuriesSaved(true)
+    setInjuriesEditing(false)
+    setTimeout(() => setInjuriesSaved(false), 2000)
     startTransition(() => router.refresh())
   }
 
@@ -1127,9 +1144,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                           height: athlete.height?.toString() ?? '',
                           weight: athlete.weight?.toString() ?? '',
                           join_date: athlete.join_date ?? '',
-                          injuries: (athlete.injuries as string[] | null) ?? [],
                         })
-                        setInjuryInput('')
                       }}
                       className="px-3 py-2 rounded-xl text-sm cursor-pointer"
                       style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
@@ -1229,32 +1244,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       style={inputStyle}
                     />
                   </div>
-                  <div>
-                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Kontuzje / historia</label>
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {dataEdit.injuries.map(inj => (
-                        <span key={inj} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>
-                          {inj}
-                          <button type="button" onClick={() => setDataEdit(d => ({ ...d, injuries: d.injuries.filter(i => i !== inj) }))} className="hover:opacity-70 leading-none">✕</button>
-                        </span>
-                      ))}
-                    </div>
-                    <input
-                      value={injuryInput}
-                      onChange={e => setInjuryInput(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && injuryInput.trim()) {
-                          e.preventDefault()
-                          const val = injuryInput.trim()
-                          if (!dataEdit.injuries.includes(val)) setDataEdit(d => ({ ...d, injuries: [...d.injuries, val] }))
-                          setInjuryInput('')
-                        }
-                      }}
-                      placeholder="np. Kolano lewe — Enter żeby dodać"
-                      className="w-full px-3 py-2 rounded-xl text-sm"
-                      style={inputStyle}
-                    />
-                  </div>
                 </div>
               )}
             </Card>
@@ -1334,18 +1323,92 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 </div>
               )}
 
-              <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-                <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Kontuzje/historia</div>
-                {(athlete.injuries as string[] | null)?.length ? (
+            </Card>
+
+            <Card className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Kontuzje / historia</h3>
+                {!injuriesEditing ? (
+                  <button
+                    onClick={() => setInjuriesEditing(true)}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                    style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
+                  >Edytuj</button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setInjuriesEditing(false)
+                        setLocalInjuries((athlete.injuries as string[] | null) ?? [])
+                        setInjuryInput('')
+                      }}
+                      className="px-3 py-2 rounded-xl text-sm cursor-pointer"
+                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                    >Anuluj</button>
+                    <button
+                      onClick={saveInjuries}
+                      disabled={injuriesSaving}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                      style={{ background: injuriesSaved ? 'rgba(46,204,113,0.15)' : '#FF5C1B', color: injuriesSaved ? '#2ECC71' : 'white' }}
+                    >
+                      {injuriesSaved ? '✓ Zapisano' : injuriesSaving ? 'Zapisywanie...' : 'Zapisz'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {!injuriesEditing ? (
+                localInjuries.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
-                    {(athlete.injuries as string[]).map(inj => (
+                    {localInjuries.map(inj => (
                       <span key={inj} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>{inj}</span>
                     ))}
                   </div>
                 ) : (
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Brak</span>
-                )}
-              </div>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Brak kontuzji</span>
+                )
+              ) : (
+                <div>
+                  {localInjuries.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {localInjuries.map(inj => (
+                        <span key={inj} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>
+                          {inj}
+                          <button type="button" onClick={() => setLocalInjuries(ls => ls.filter(i => i !== inj))} className="hover:opacity-70 leading-none">✕</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <input
+                      value={injuryInput}
+                      onChange={e => setInjuryInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && injuryInput.trim()) {
+                          e.preventDefault()
+                          const val = injuryInput.trim()
+                          if (!localInjuries.includes(val)) setLocalInjuries(ls => [...ls, val])
+                          setInjuryInput('')
+                        }
+                      }}
+                      placeholder="np. Kolano lewe, ból pleców..."
+                      className="flex-1 px-3 py-2 rounded-xl text-sm"
+                      style={inputStyle}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = injuryInput.trim()
+                        if (!val) return
+                        if (!localInjuries.includes(val)) setLocalInjuries(ls => [...ls, val])
+                        setInjuryInput('')
+                      }}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}
+                    >+ Dodaj</button>
+                  </div>
+                </div>
+              )}
             </Card>
           </div>
         )}
