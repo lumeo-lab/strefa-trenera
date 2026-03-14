@@ -17,7 +17,9 @@ import { SessionType } from '@/lib/types'
 import { createSession, updateSession, deleteSession as deleteSessionAction } from '@/lib/actions/sessions'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
+import { createInvoice, updateInvoiceStatus } from '@/lib/actions/invoices'
 import { markFeedbackRead, replyFeedback } from '@/lib/actions/feedback'
+import { InvoiceStatus } from '@/lib/types'
 import Link from 'next/link'
 import { useCustomSessionTypes, BUILTIN_SESSION_TYPE_KEYS, SessionTypeDef } from '@/lib/useCustomSessionTypes'
 
@@ -259,6 +261,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [openNoteRaceId, setOpenNoteRaceId] = useState<string | null>(null)
   const [plannedOpen, setPlannedOpen] = useState(true)
   const [finishedOpen, setFinishedOpen] = useState(true)
+  // ── Invoice state ──
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
+  const [invoiceDraft, setInvoiceDraft] = useState({ description: '', amount: '', dueDate: '' })
+  const [invoiceSaving, setInvoiceSaving] = useState(false)
+  const [statusChangingId, setStatusChangingId] = useState<string | null>(null)
   const [dataSaving, setDataSaving] = useState(false)
   const [dataSaved, setDataSaved] = useState(false)
 
@@ -538,6 +545,40 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     setConfirmDeleteRaceId(null)
     setRaceModalOpen(false)
     startTransition(() => router.refresh())
+  }
+
+  // ── Invoice handlers ──
+  const STATUS_CYCLE: InvoiceStatus[] = ['pending', 'paid', 'overdue', 'cancelled']
+
+  async function cycleInvoiceStatus(invId: string, currentStatus: string) {
+    const idx = STATUS_CYCLE.indexOf(currentStatus as InvoiceStatus)
+    const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length]
+    setStatusChangingId(invId)
+    try {
+      await updateInvoiceStatus(invId, next, athlete.id)
+      startTransition(() => router.refresh())
+    } finally {
+      setStatusChangingId(null)
+    }
+  }
+
+  async function saveInvoice() {
+    if (!invoiceDraft.amount || invoiceSaving) return
+    setInvoiceSaving(true)
+    try {
+      const fd = new FormData()
+      fd.set('athlete_id', athlete.id)
+      fd.set('description', invoiceDraft.description)
+      fd.set('amount', invoiceDraft.amount)
+      if (invoiceDraft.dueDate) fd.set('due_date', invoiceDraft.dueDate)
+      if (athlete.package) fd.set('package', athlete.package)
+      await createInvoice(null, fd)
+      setInvoiceModalOpen(false)
+      setInvoiceDraft({ description: '', amount: '', dueDate: '' })
+      startTransition(() => router.refresh())
+    } finally {
+      setInvoiceSaving(false)
+    }
   }
 
   function copyInviteLink() {
@@ -1474,6 +1515,13 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         {/* ── Finanse ── */}
         {activeTab === 'finance' && (
           <div className="space-y-4">
+            <div className="flex justify-end">
+              <button onClick={() => setInvoiceModalOpen(true)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+                + Nowa faktura
+              </button>
+            </div>
             <div className="grid grid-cols-3 gap-4">
               {[
                 { label: 'Opłacono łącznie', value: formatCurrency(totalPaid), color: 'text-green-400' },
@@ -1504,7 +1552,14 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       <td className="px-4 py-3 text-xs" style={{ color: inv.status === 'overdue' ? '#E74C3C' : 'var(--text-muted)' }}>{formatDate(inv.due_date, { day: 'numeric', month: 'short' })}</td>
                       <td className="px-4 py-3 text-xs font-semibold">{formatCurrency(inv.amount)}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${invoiceStatusColor(inv.status)}`}>{invoiceStatusLabel(inv.status)}</span>
+                        <button
+                          onClick={() => cycleInvoiceStatus(inv.id, inv.status)}
+                          disabled={statusChangingId === inv.id}
+                          title="Kliknij, aby zmienić status"
+                          className={`text-xs px-2 py-0.5 rounded-full cursor-pointer transition-opacity ${invoiceStatusColor(inv.status)}`}
+                          style={{ opacity: statusChangingId === inv.id ? 0.5 : 1 }}>
+                          {statusChangingId === inv.id ? '…' : invoiceStatusLabel(inv.status)}
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -1609,6 +1664,45 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             <textarea value={raceDraft.notes} onChange={e => setRaceDraft(d => ({ ...d, notes: e.target.value }))}
               placeholder="Dodatkowe informacje..."
               rows={3} className="w-full px-3 py-2 rounded-xl text-sm resize-none" style={inputStyle} />
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Invoice Modal ── */}
+      <Modal
+        open={invoiceModalOpen}
+        onClose={() => { setInvoiceModalOpen(false); setInvoiceDraft({ description: '', amount: '', dueDate: '' }) }}
+        title="Nowa faktura"
+        footer={
+          <Button className="w-full" onClick={saveInvoice} disabled={!invoiceDraft.amount.trim() || invoiceSaving}>
+            {invoiceSaving ? 'Zapisywanie...' : 'Wystaw fakturę'}
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Opis</label>
+            <input value={invoiceDraft.description} onChange={e => setInvoiceDraft(d => ({ ...d, description: e.target.value }))}
+              placeholder="np. Trening personalny — marzec 2026"
+              className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Kwota (PLN) *</label>
+              <input type="number" min="0" step="0.01" value={invoiceDraft.amount}
+                onChange={e => setInvoiceDraft(d => ({ ...d, amount: e.target.value }))}
+                placeholder="np. 500"
+                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+            </div>
+            <div>
+              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Termin płatności</label>
+              <input type="date" value={invoiceDraft.dueDate} onChange={e => setInvoiceDraft(d => ({ ...d, dueDate: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+            </div>
+          </div>
+          <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
+            Pakiet: <span style={{ color: 'var(--text-primary)' }}>{athlete.package || '—'}</span>
+            {!invoiceDraft.dueDate && <span className="ml-3">Brak terminu → +14 dni od dziś</span>}
           </div>
         </div>
       </Modal>

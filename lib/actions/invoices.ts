@@ -61,6 +61,7 @@ export async function createInvoice(_: unknown, formData: FormData) {
   if (error) return { error: error.message }
 
   revalidatePath('/coach/invoices')
+  revalidatePath(`/coach/athletes/${athleteId}`)
   return { success: true }
 }
 
@@ -119,7 +120,7 @@ export async function deleteInvoice(id: string) {
   return { success: true }
 }
 
-export async function updateInvoiceStatus(id: string, status: string) {
+export async function updateInvoiceStatus(id: string, status: string, athleteId?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Brak autoryzacji' }
@@ -133,5 +134,6 @@ export async function updateInvoiceStatus(id: string, status: string) {
   if (error) return { error: error.message }
 
   revalidatePath('/coach/invoices')
+  if (athleteId) revalidatePath(`/coach/athletes/${athleteId}`)
   return { success: true }
 }
