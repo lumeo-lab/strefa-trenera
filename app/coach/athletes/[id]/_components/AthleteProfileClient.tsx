@@ -23,6 +23,17 @@ import { useCustomSessionTypes, BUILTIN_SESSION_TYPE_KEYS, SessionTypeDef } from
 
 const PRESET_TYPE_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F97316', '#10B981', '#EF4444', '#F59E0B', '#06B6D4']
 
+// ── Race status helpers ────────────────────────────────────────────────────
+
+type RaceStatus = 'planned' | 'completed' | 'dns' | 'dnf'
+
+const RACE_STATUS_INFO: Record<RaceStatus, { label: string; color: string }> = {
+  planned:   { label: 'Planowany', color: 'var(--text-muted)' },
+  completed: { label: 'Ukończony', color: '#2ECC71' },
+  dns:       { label: 'DNS',       color: '#E74C3C' },
+  dnf:       { label: 'DNF',       color: '#F39C12' },
+}
+
 // ── Feedback display helpers ───────────────────────────────────────────────
 
 const FEELING_LABELS: Record<string, string> = {
@@ -131,7 +142,7 @@ type DbRow = Record<string, any>
 
 type Package = { id: string; name: string; description: string | null; price: number }
 
-interface RaceDraft { name: string; date: string; distance: string; goalTime: string; result: string; status: string; notes: string }
+interface RaceDraft { name: string; date: string; distance: string; goalTime: string; result: string; status: RaceStatus; notes: string }
 
 interface Props {
   athlete: DbRow
@@ -473,24 +484,27 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   async function saveRace() {
     if (!raceDraft.name.trim() || !raceDraft.date || raceSaving) return
     setRaceSaving(true)
-    const fd = new FormData()
-    fd.set('athlete_id', athlete.id)
-    fd.set('name', raceDraft.name)
-    fd.set('date', raceDraft.date)
-    fd.set('distance', raceDraft.distance)
-    fd.set('goal_time', raceDraft.goalTime)
-    fd.set('result', raceDraft.result)
-    fd.set('status', raceDraft.status)
-    fd.set('notes', raceDraft.notes)
-    if (editingRaceId) {
-      fd.set('id', editingRaceId)
-      await updateRace(null, fd)
-    } else {
-      await createRace(null, fd)
+    try {
+      const fd = new FormData()
+      fd.set('athlete_id', athlete.id)
+      fd.set('name', raceDraft.name)
+      fd.set('date', raceDraft.date)
+      fd.set('distance', raceDraft.distance)
+      fd.set('goal_time', raceDraft.goalTime)
+      fd.set('result', raceDraft.result)
+      fd.set('status', raceDraft.status)
+      fd.set('notes', raceDraft.notes)
+      if (editingRaceId) {
+        fd.set('id', editingRaceId)
+        await updateRace(null, fd)
+      } else {
+        await createRace(null, fd)
+      }
+      setRaceModalOpen(false)
+      startTransition(() => router.refresh())
+    } finally {
+      setRaceSaving(false)
     }
-    setRaceModalOpen(false)
-    setRaceSaving(false)
-    startTransition(() => router.refresh())
   }
 
   async function handleDeleteRace(id: string) {
@@ -1241,15 +1255,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
         {/* ── Zawody ── */}
         {activeTab === 'races' && (() => {
-          const today = toISODate(new Date())
           const upcomingRaces = initialRaces.filter(r => r.date >= today)
           const pastRaces = initialRaces.filter(r => r.date < today).slice().reverse()
-          const statusInfo: Record<string, { label: string; color: string }> = {
-            planned: { label: 'Planowany', color: 'var(--text-muted)' },
-            completed: { label: 'Ukończony', color: '#2ECC71' },
-            dns: { label: 'DNS', color: '#E74C3C' },
-            dnf: { label: 'DNF', color: '#F39C12' },
-          }
           return (
             <div className="space-y-4">
               <Card className="p-5">
@@ -1321,7 +1328,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       </thead>
                       <tbody>
                         {pastRaces.map((race, i) => {
-                          const st = statusInfo[race.status ?? 'planned'] ?? statusInfo.planned
+                          const st = RACE_STATUS_INFO[(race.status as RaceStatus) ?? 'planned'] ?? RACE_STATUS_INFO.planned
                           return (
                             <tr key={race.id} style={{ borderBottom: i < pastRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
                               <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
@@ -1508,7 +1515,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             </div>
             <div>
               <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Status</label>
-              <select value={raceDraft.status} onChange={e => setRaceDraft(d => ({ ...d, status: e.target.value }))}
+              <select value={raceDraft.status} onChange={e => setRaceDraft(d => ({ ...d, status: e.target.value as RaceStatus }))}
                 className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle}>
                 <option value="planned">Planowany</option>
                 <option value="completed">Ukończony</option>
