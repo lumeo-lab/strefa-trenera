@@ -250,7 +250,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     height: athlete.height?.toString() ?? '',
     weight: athlete.weight?.toString() ?? '',
     join_date: athlete.join_date ?? '',
+    injuries: (athlete.injuries as string[]) ?? [],
   })
+  const [injuryInput, setInjuryInput] = useState('')
 
   // ── Races state ──
   const [raceModalOpen, setRaceModalOpen] = useState(false)
@@ -307,10 +309,17 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   }
 
   // ── Personal bests state ──
-  const PB_DISTANCES = ['5 km', '10 km', 'Półmaraton', 'Maraton']
+  const DEFAULT_PB_DISTANCES = ['5 km', '10 km', 'Półmaraton', 'Maraton']
+  const savedDistances = Object.keys(athlete.personal_bests ?? {})
+  const initialDistances = [
+    ...DEFAULT_PB_DISTANCES,
+    ...savedDistances.filter(d => !DEFAULT_PB_DISTANCES.includes(d)),
+  ]
+  const [pbDistances, setPbDistances] = useState(initialDistances)
+  const [newPbDistance, setNewPbDistance] = useState('')
   const [pbEditing, setPbEditing] = useState(false)
   const [pbEdit, setPbEdit] = useState<Record<string, string>>(
-    Object.fromEntries(PB_DISTANCES.map(d => [d, (athlete.personal_bests ?? {})[d] ?? '']))
+    Object.fromEntries(initialDistances.map(d => [d, (athlete.personal_bests ?? {})[d] ?? '']))
   )
   const [pbSaving, setPbSaving] = useState(false)
   const [pbSaved, setPbSaved] = useState(false)
@@ -320,7 +329,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     setDataSaving(true)
     const fd = new FormData()
     fd.set('id', athlete.id)
-    Object.entries(dataEdit).forEach(([k, v]) => fd.set(k, v))
+    const { injuries, ...restEdit } = dataEdit
+    Object.entries(restEdit).forEach(([k, v]) => fd.set(k, v))
+    fd.set('injuries', JSON.stringify(injuries))
     await updateAthlete(null, fd)
     setDataSaving(false)
     setDataSaved(true)
@@ -1200,6 +1211,32 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       style={inputStyle}
                     />
                   </div>
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Kontuzje / historia</label>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {dataEdit.injuries.map(inj => (
+                        <span key={inj} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>
+                          {inj}
+                          <button type="button" onClick={() => setDataEdit(d => ({ ...d, injuries: d.injuries.filter(i => i !== inj) }))} className="hover:opacity-70 leading-none">✕</button>
+                        </span>
+                      ))}
+                    </div>
+                    <input
+                      value={injuryInput}
+                      onChange={e => setInjuryInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && injuryInput.trim()) {
+                          e.preventDefault()
+                          const val = injuryInput.trim()
+                          if (!dataEdit.injuries.includes(val)) setDataEdit(d => ({ ...d, injuries: [...d.injuries, val] }))
+                          setInjuryInput('')
+                        }
+                      }}
+                      placeholder="np. Kolano lewe — Enter żeby dodać"
+                      className="w-full px-3 py-2 rounded-xl text-sm"
+                      style={inputStyle}
+                    />
+                  </div>
                 </div>
               )}
             </Card>
@@ -1229,7 +1266,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
               {!pbEditing ? (
                 <div className="space-y-3 text-sm">
-                  {PB_DISTANCES.map(dist => (
+                  {pbDistances.map(dist => (
                     <div key={dist} className="flex justify-between">
                       <span style={{ color: 'var(--text-muted)' }}>{dist}</span>
                       <span className="font-mono font-medium">{pbEdit[dist] || '—'}</span>
@@ -1239,11 +1276,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               ) : (
                 <div className="space-y-3">
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Format: 3:52:00 lub 22:30</p>
-                  {PB_DISTANCES.map(dist => (
+                  {pbDistances.map(dist => (
                     <div key={dist}>
                       <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>{dist}</label>
                       <input
-                        value={pbEdit[dist]}
+                        value={pbEdit[dist] ?? ''}
                         onChange={e => setPbEdit(p => ({ ...p, [dist]: e.target.value }))}
                         placeholder="np. 22:30"
                         className="w-full px-3 py-2 rounded-xl text-sm font-mono"
@@ -1251,19 +1288,41 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       />
                     </div>
                   ))}
+                  <div>
+                    <input
+                      value={newPbDistance}
+                      onChange={e => setNewPbDistance(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && newPbDistance.trim()) {
+                          e.preventDefault()
+                          const dist = newPbDistance.trim()
+                          if (!pbDistances.includes(dist)) {
+                            setPbDistances(d => [...d, dist])
+                            setPbEdit(p => ({ ...p, [dist]: '' }))
+                          }
+                          setNewPbDistance('')
+                        }
+                      }}
+                      placeholder="+ Dodaj dystans (np. 3 km) — Enter"
+                      className="w-full px-3 py-2 rounded-xl text-sm"
+                      style={{ ...inputStyle, borderStyle: 'dashed' }}
+                    />
+                  </div>
                 </div>
               )}
 
-              {athlete.injuries && athlete.injuries.length > 0 && (
-                <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-                  <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Kontuzje/historia</div>
+              <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+                <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Kontuzje/historia</div>
+                {(athlete.injuries as string[])?.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
                     {(athlete.injuries as string[]).map(inj => (
                       <span key={inj} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>{inj}</span>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Brak</span>
+                )}
+              </div>
             </Card>
           </div>
         )}

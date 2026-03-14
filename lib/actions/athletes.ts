@@ -110,6 +110,10 @@ export async function updateAthlete(_: unknown, formData: FormData) {
   if (personalBests !== null) {
     try { updates.personal_bests = JSON.parse(personalBests as string) } catch { /* ignore */ }
   }
+  const injuries = formData.get('injuries')
+  if (injuries !== null) {
+    try { updates.injuries = JSON.parse(injuries as string) } catch { /* ignore */ }
+  }
 
   const { error } = await supabase
     .from('athletes')
