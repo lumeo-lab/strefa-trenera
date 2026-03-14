@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useActionState, startTransition, useRef } from 'react'
+import { useState, useEffect, useActionState, startTransition, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Avatar } from '@/components/ui/Avatar'
@@ -27,6 +27,12 @@ const COLUMN_DEFS: { key: ColumnKey; label: string; desc: string }[] = [
 ]
 const DEFAULT_COLUMNS: ColumnKey[] = ['signal', 'compliance', 'weekly_load', 'next_session', 'last_session']
 const COLUMNS_STORAGE_KEY = 'coach_table_columns_v1'
+
+const QUICK_FILTER_DEFS = [
+  { key: 'unread'     as const, icon: '💬', label: 'Nieprzeczytane', color: '#FF5C1B', bg: 'rgba(255,92,27,0.12)',  border: 'rgba(255,92,27,0.3)'  },
+  { key: 'unpaid'     as const, icon: '💳', label: 'Nieopłacone',    color: '#E74C3C', bg: 'rgba(231,76,60,0.12)',  border: 'rgba(231,76,60,0.3)'  },
+  { key: 'no_session' as const, icon: '📅', label: 'Bez sesji',      color: '#F1C40F', bg: 'rgba(241,196,15,0.12)', border: 'rgba(241,196,15,0.3)' },
+]
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const SIGNAL_COLORS: Record<string, string> = { green: '#2ECC71', yellow: '#F1C40F', red: '#E74C3C' }
@@ -178,6 +184,18 @@ export function AthletesClient({
 
   function col(key: ColumnKey) { return activeColumns.includes(key) }
 
+  const quickFilterCounts = useMemo(() => ({
+    unread:     athletes.filter(a => (unreadMessagesMap[a.id] ?? 0) > 0 || (unreadFeedbackMap[a.id] ?? 0) > 0).length,
+    unpaid:     athletes.filter(a => unpaidInvoiceSet[a.id]).length,
+    no_session: athletes.filter(a => !nextSessionMap[a.id] && a.status === 'ok').length,
+  }), [athletes, unreadMessagesMap, unreadFeedbackMap, unpaidInvoiceSet, nextSessionMap])
+
+  const statusCounts = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const a of athletes) map[a.status] = (map[a.status] ?? 0) + 1
+    return map
+  }, [athletes])
+
   function openStatusModal() {
     setEditingStatuses(allStatuses.map(s => ({ ...s })))
     setNewStatusLabel('')
@@ -217,15 +235,12 @@ export function AthletesClient({
   // Load persisted state
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(ORDER_KEY)
-      if (saved) setMasterOrder(JSON.parse(saved))
+      const savedOrder = localStorage.getItem(ORDER_KEY)
+      if (savedOrder) setMasterOrder(JSON.parse(savedOrder))
     } catch { /* ignore */ }
-  }, [])
-
-  useEffect(() => {
     try {
-      const saved = localStorage.getItem(COLUMNS_STORAGE_KEY)
-      if (saved) setActiveColumns(JSON.parse(saved))
+      const savedCols = localStorage.getItem(COLUMNS_STORAGE_KEY)
+      if (savedCols) setActiveColumns(JSON.parse(savedCols))
     } catch { /* ignore */ }
   }, [])
 
@@ -468,56 +483,30 @@ export function AthletesClient({
         </div>
 
         {/* Quick filters */}
-        {athletes.length > 0 && (() => {
-          const unreadCount = athletes.filter(a => (unreadMessagesMap[a.id] ?? 0) > 0 || (unreadFeedbackMap[a.id] ?? 0) > 0).length
-          const unpaidCount = athletes.filter(a => unpaidInvoiceSet[a.id]).length
-          const noSessionCount = athletes.filter(a => !nextSessionMap[a.id] && a.status === 'ok').length
-          if (unreadCount === 0 && unpaidCount === 0 && noSessionCount === 0) return null
-          return (
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--text-muted)' }}>Uwaga:</span>
-              {unreadCount > 0 && (
+        {athletes.length > 0 && QUICK_FILTER_DEFS.some(qf => quickFilterCounts[qf.key] > 0) && (
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--text-muted)' }}>Uwaga:</span>
+            {QUICK_FILTER_DEFS.map(qf => {
+              const count = quickFilterCounts[qf.key]
+              if (count === 0) return null
+              const active = quickFilter === qf.key
+              return (
                 <button
-                  onClick={() => setQuickFilter(quickFilter === 'unread' ? null : 'unread')}
+                  key={qf.key}
+                  onClick={() => setQuickFilter(active ? null : qf.key)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
                   style={{
-                    background: quickFilter === 'unread' ? 'rgba(255,92,27,0.12)' : 'var(--bg-card)',
-                    color: quickFilter === 'unread' ? '#FF5C1B' : 'var(--text-muted)',
-                    border: quickFilter === 'unread' ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
+                    background: active ? qf.bg : 'var(--bg-card)',
+                    color: active ? qf.color : 'var(--text-muted)',
+                    border: active ? `1px solid ${qf.border}` : '1px solid var(--border)',
                   }}
                 >
-                  💬 Nieprzeczytane <span className="opacity-70">{unreadCount}</span>
+                  {qf.icon} {qf.label} <span className="opacity-70">{count}</span>
                 </button>
-              )}
-              {unpaidCount > 0 && (
-                <button
-                  onClick={() => setQuickFilter(quickFilter === 'unpaid' ? null : 'unpaid')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
-                  style={{
-                    background: quickFilter === 'unpaid' ? 'rgba(231,76,60,0.12)' : 'var(--bg-card)',
-                    color: quickFilter === 'unpaid' ? '#E74C3C' : 'var(--text-muted)',
-                    border: quickFilter === 'unpaid' ? '1px solid rgba(231,76,60,0.3)' : '1px solid var(--border)',
-                  }}
-                >
-                  💳 Nieopłacone <span className="opacity-70">{unpaidCount}</span>
-                </button>
-              )}
-              {noSessionCount > 0 && (
-                <button
-                  onClick={() => setQuickFilter(quickFilter === 'no_session' ? null : 'no_session')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
-                  style={{
-                    background: quickFilter === 'no_session' ? 'rgba(241,196,15,0.12)' : 'var(--bg-card)',
-                    color: quickFilter === 'no_session' ? '#F1C40F' : 'var(--text-muted)',
-                    border: quickFilter === 'no_session' ? '1px solid rgba(241,196,15,0.3)' : '1px solid var(--border)',
-                  }}
-                >
-                  📅 Bez sesji <span className="opacity-70">{noSessionCount}</span>
-                </button>
-              )}
-            </div>
-          )
-        })()}
+              )
+            })}
+          </div>
+        )}
 
         {/* Status filter row */}
         {athletes.length > 0 && (
@@ -537,7 +526,7 @@ export function AthletesClient({
             </button>
 
             {allStatuses.map(s => {
-              const count = athletes.filter(a => a.status === s.key).length
+              const count = statusCounts[s.key] ?? 0
               if (count === 0 && statusFilter !== s.key) return null
               return (
                 <button
