@@ -39,23 +39,13 @@ const RACE_STATUS_INFO: Record<RaceStatus, { label: string; color: string }> = {
 
 // ── Race note cell ─────────────────────────────────────────────────────────
 
-function RaceNoteCell({ notes, isOpen, onToggle }: { notes?: string | null; isOpen: boolean; onToggle: () => void }) {
+function RaceNoteCell({ notes, onOpen }: { notes?: string | null; onOpen: () => void }) {
   return (
     <td className="px-4 py-3 text-xs">
-      {notes ? (
-        <div>
-          <button onClick={onToggle} className="cursor-pointer text-base leading-none"
-            title={isOpen ? 'Ukryj notatkę' : 'Pokaż notatkę'}>📝</button>
-          {isOpen && (
-            <div className="mt-1.5 text-xs leading-relaxed max-w-[220px]"
-              style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', borderRadius: '8px', padding: '6px 8px' }}>
-              {notes}
-            </div>
-          )}
-        </div>
-      ) : (
-        <span style={{ color: 'var(--text-muted)' }}>—</span>
-      )}
+      {notes
+        ? <button onClick={onOpen} className="cursor-pointer text-base leading-none" title="Pokaż notatkę">📝</button>
+        : <span style={{ color: 'var(--text-muted)' }}>—</span>
+      }
     </td>
   )
 }
@@ -266,7 +256,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [raceDraft, setRaceDraft] = useState<RaceDraft>({ name: '', date: '', distance: '', goalTime: '', result: '', status: 'planned', notes: '' })
   const [raceSaving, setRaceSaving] = useState(false)
   const [confirmDeleteRaceId, setConfirmDeleteRaceId] = useState<string | null>(null)
-  const [openNoteRaceId, setOpenNoteRaceId] = useState<string | null>(null)
+  const [noteModalText, setNoteModalText] = useState<string | null>(null)
   const [plannedOpen, setPlannedOpen] = useState(true)
   const [finishedOpen, setFinishedOpen] = useState(true)
   // ── Invoice state ──
@@ -419,7 +409,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   }
   function completionStyle(session: DbRow): React.CSSProperties {
     if (session.completed) return { outline: '2px solid rgba(46,204,113,0.6)', outlineOffset: '-2px' }
-    if (isPast(session.date)) return { opacity: 0.4, outline: '1px dashed rgba(231,76,60,0.5)', outlineOffset: '-1px' }
     return {}
   }
 
@@ -802,7 +791,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
             {/* ── Widok tygodniowy ── */}
             {planView === 'week' && (
-              <div className="grid grid-cols-7 gap-2" style={{ minHeight: '260px' }}>
+              <div className="grid grid-cols-7 gap-2 pb-20" style={{ minHeight: '260px' }}>
                 {weekDays.map(day => {
                   const dateStr = toISODate(day)
                   const daySessions = weekSessions.filter(s => s.date === dateStr)
@@ -888,7 +877,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
             {/* ── Widok miesięczny ── */}
             {planView === 'month' && (
-              <div>
+              <div className="pb-20">
                 <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
                   <div className="grid grid-cols-7" style={{ borderBottom: '1px solid var(--border)' }}>
                     {['Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob', 'Nie'].map(d => (
@@ -1271,6 +1260,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               )}
             </Card>
 
+            <div className="space-y-6">
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Rekordy życiowe</h3>
@@ -1433,6 +1423,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 </div>
               )}
             </Card>
+            </div>
           </div>
         )}
 
@@ -1572,7 +1563,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     columns={['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Notatki', '']}
                     renderRow={(race, i) => {
                       const isPastDate = race.date < today
-                      const noteOpen = openNoteRaceId === race.id
                       return (
                         <tr key={race.id} style={{ borderBottom: i < plannedRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
                           <td className="px-4 py-3 whitespace-nowrap">
@@ -1584,7 +1574,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                           <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
                           <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
                           <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
-                          <RaceNoteCell notes={race.notes} isOpen={noteOpen} onToggle={() => setOpenNoteRaceId(noteOpen ? null : race.id)} />
+                          <RaceNoteCell notes={race.notes} onOpen={() => setNoteModalText(race.notes ?? '')} />
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => openEditRace(race)}
                               className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
@@ -1622,7 +1612,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     columns={['Data', 'Zawody', 'Dystans', 'Wynik', 'Status', 'Notatki', '']}
                     renderRow={(race, i) => {
                       const st = RACE_STATUS_INFO[(race.status as RaceStatus)] ?? RACE_STATUS_INFO.completed
-                      const noteOpen = openNoteRaceId === race.id
                       return (
                         <tr key={race.id} style={{ borderBottom: i < finishedRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
                           <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
@@ -1635,7 +1624,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium"
                               style={{ background: `${st.color}22`, color: st.color }}>{st.label}</span>
                           </td>
-                          <RaceNoteCell notes={race.notes} isOpen={noteOpen} onToggle={() => setOpenNoteRaceId(noteOpen ? null : race.id)} />
+                          <RaceNoteCell notes={race.notes} onOpen={() => setNoteModalText(race.notes ?? '')} />
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => openEditRace(race)}
                               className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
@@ -1750,6 +1739,15 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           </div>
         )}
       </div>
+
+      {/* ── Race note modal ── */}
+      {noteModalText !== null && (
+        <Modal open={true} onClose={() => setNoteModalText(null)} title="Notatka" size="sm">
+          <div className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+            {noteModalText}
+          </div>
+        </Modal>
+      )}
 
       {/* ── Feedback detail modal ── */}
       <Modal
