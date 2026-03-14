@@ -745,12 +745,11 @@ export function AthletesClient({
                         {col('package') && (
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <div className="text-sm font-medium">{athlete.package || '—'}</div>
-                              {(athlete.package_price ?? 0) > 0 && (
-                                <span className="text-xs font-semibold" style={{ color: '#FF5C1B' }}>
-                                  {formatCurrency(athlete.package_price)}
-                                </span>
-                              )}
+                              <div className="text-sm font-medium" style={{ whiteSpace: 'nowrap' }}>
+                                {athlete.package
+                                  ? `${athlete.package}${(athlete.package_price ?? 0) > 0 ? `, ${formatCurrency(athlete.package_price)}` : ''}`
+                                  : '—'}
+                              </div>
                               {unpaidInvoiceSet[athlete.id] && (
                                 <span
                                   className="text-xs px-1.5 py-0.5 rounded-md font-medium"
@@ -831,7 +830,7 @@ export function AthletesClient({
 
                         {/* Wiek */}
                         {col('age') && (
-                          <td className="px-5 py-3 text-sm">
+                          <td className="px-5 py-3 text-sm" style={{ whiteSpace: 'nowrap' }}>
                             {athlete.age !== null ? `${athlete.age} lat` : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                           </td>
                         )}
