@@ -475,16 +475,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         title={athlete.name}
         subtitle={[athlete.goal, athlete.package].filter(Boolean).join(' · ')}
         actions={
-          <div className="flex items-center gap-3">
-            <Link href={`/coach/chat?athlete=${athlete.id}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors"
-              style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-              💬 Chat
-            </Link>
-            <Link href="/coach/athletes" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--text-muted)' }}>
-              ← Zawodnicy
-            </Link>
-          </div>
+          <Link href="/coach/athletes" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--text-muted)' }}>
+            ← Zawodnicy
+          </Link>
         }
       />
 
@@ -499,6 +492,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 <Badge variant="gray">
                   {athlete.package} — {formatCurrency(athlete.package_price)}/mies.
                 </Badge>
+                <Link href={`/coach/chat?athlete=${athlete.id}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium ml-auto shrink-0 transition-colors"
+                  style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+                  💬 Chat
+                </Link>
               </div>
               <div className="flex items-center gap-4 text-sm flex-wrap" style={{ color: 'var(--text-muted)' }}>
                 {athlete.goal && <span>🎯 {athlete.goal}</span>}
