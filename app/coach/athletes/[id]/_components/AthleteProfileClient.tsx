@@ -36,6 +36,8 @@ const RACE_STATUS_INFO: Record<RaceStatus, { label: string; color: string }> = {
   dnf:       { label: 'DNF',       color: '#F39C12' },
 }
 
+const INVOICE_STATUS_CYCLE: InvoiceStatus[] = ['pending', 'paid', 'overdue', 'cancelled']
+
 // ── Race note cell ─────────────────────────────────────────────────────────
 
 function RaceNoteCell({ notes, isOpen, onToggle }: { notes?: string | null; isOpen: boolean; onToggle: () => void }) {
@@ -548,11 +550,14 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   }
 
   // ── Invoice handlers ──
-  const STATUS_CYCLE: InvoiceStatus[] = ['pending', 'paid', 'overdue', 'cancelled']
+  function closeInvoiceModal() {
+    setInvoiceModalOpen(false)
+    setInvoiceDraft({ description: '', amount: '', dueDate: '' })
+  }
 
-  async function cycleInvoiceStatus(invId: string, currentStatus: string) {
-    const idx = STATUS_CYCLE.indexOf(currentStatus as InvoiceStatus)
-    const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length]
+  async function cycleInvoiceStatus(invId: string, currentStatus: InvoiceStatus) {
+    const idx = INVOICE_STATUS_CYCLE.indexOf(currentStatus)
+    const next = INVOICE_STATUS_CYCLE[(idx + 1) % INVOICE_STATUS_CYCLE.length]
     setStatusChangingId(invId)
     try {
       await updateInvoiceStatus(invId, next, athlete.id)
@@ -573,8 +578,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       if (invoiceDraft.dueDate) fd.set('due_date', invoiceDraft.dueDate)
       if (athlete.package) fd.set('package', athlete.package)
       await createInvoice(null, fd)
-      setInvoiceModalOpen(false)
-      setInvoiceDraft({ description: '', amount: '', dueDate: '' })
+      closeInvoiceModal()
       startTransition(() => router.refresh())
     } finally {
       setInvoiceSaving(false)
@@ -1553,7 +1557,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       <td className="px-4 py-3 text-xs font-semibold">{formatCurrency(inv.amount)}</td>
                       <td className="px-4 py-3">
                         <button
-                          onClick={() => cycleInvoiceStatus(inv.id, inv.status)}
+                          onClick={() => cycleInvoiceStatus(inv.id, inv.status as InvoiceStatus)}
                           disabled={statusChangingId === inv.id}
                           title="Kliknij, aby zmienić status"
                           className={`text-xs px-2 py-0.5 rounded-full cursor-pointer transition-opacity ${invoiceStatusColor(inv.status)}`}
@@ -1671,10 +1675,10 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       {/* ── Invoice Modal ── */}
       <Modal
         open={invoiceModalOpen}
-        onClose={() => { setInvoiceModalOpen(false); setInvoiceDraft({ description: '', amount: '', dueDate: '' }) }}
+        onClose={closeInvoiceModal}
         title="Nowa faktura"
         footer={
-          <Button className="w-full" onClick={saveInvoice} disabled={!invoiceDraft.amount.trim() || invoiceSaving}>
+          <Button className="w-full" onClick={saveInvoice} disabled={!invoiceDraft.amount || invoiceSaving}>
             {invoiceSaving ? 'Zapisywanie...' : 'Wystaw fakturę'}
           </Button>
         }
