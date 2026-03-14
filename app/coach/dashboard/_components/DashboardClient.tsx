@@ -185,11 +185,14 @@ export function DashboardClient({
 
   const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [hintDismissed, setHintDismissed] = useState(true) // start hidden, update after mount
 
   useEffect(() => {
     try {
       const s = localStorage.getItem(STORAGE_KEY)
       if (s) setPrefs(mergeWithDefaults(JSON.parse(s)))
+      // Show hint only if user has never interacted with dashboard settings
+      setHintDismissed(!!localStorage.getItem('dashboard-hint-dismissed'))
     } catch { /* ignore */ }
   }, [])
 
@@ -632,15 +635,34 @@ export function DashboardClient({
         actions={
           <button
             onClick={() => setSettingsOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
-            style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-opacity hover:opacity-80"
+            style={{ background: 'rgba(255,92,27,0.12)', color: '#FF5C1B', border: '1px solid rgba(255,92,27,0.3)' }}
           >
-            ⚙️ Dostosuj
+            ⚙️ Dostosuj widok
           </button>
         }
       />
 
       <div className="p-6 max-w-6xl mx-auto space-y-5">
+
+        {/* Onboarding hint */}
+        {!hintDismissed && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm"
+            style={{ background: 'rgba(255,92,27,0.08)', border: '1px solid rgba(255,92,27,0.2)' }}>
+            <span className="text-lg shrink-0">💡</span>
+            <span style={{ color: 'var(--text-primary)' }}>
+              Dashboard możesz dostosować do swoich potrzeb — ukrywać sekcje, zmieniać kolejność i dodawać nowe widgety klikając{' '}
+              <button onClick={() => setSettingsOpen(true)} className="font-semibold underline cursor-pointer" style={{ color: '#FF5C1B' }}>
+                ⚙️ Dostosuj widok
+              </button>.
+            </span>
+            <button
+              onClick={() => { setHintDismissed(true); localStorage.setItem('dashboard-hint-dismissed', '1') }}
+              className="shrink-0 text-lg leading-none cursor-pointer hover:opacity-70"
+              style={{ color: 'var(--text-muted)' }}
+            >×</button>
+          </div>
+        )}
 
         {/* KPI row */}
         {visibleKpi.length > 0 && (
