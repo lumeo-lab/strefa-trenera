@@ -809,7 +809,7 @@ export function AthletesClient({
                           <td className="px-5 py-3">
                             {athlete.join_date ? (
                               <div>
-                                <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                                <div className="text-sm" style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                                   {formatDate(athlete.join_date, { day: 'numeric', month: 'short', year: 'numeric' })}
                                 </div>
                                 <div className="text-xs" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>
