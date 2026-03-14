@@ -13,14 +13,13 @@ import {
   formatDate, formatCurrency, intensityColor, sessionTypeLabel,
   signalColor, getWeekDays, toISODate, dayName, isToday, isPast,
 } from '@/lib/utils'
-import { SessionType } from '@/lib/types'
+import { SessionType, InvoiceStatus } from '@/lib/types'
 import { createSession, updateSession, deleteSession as deleteSessionAction } from '@/lib/actions/sessions'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
 import { createInvoice, updateInvoiceStatus } from '@/lib/actions/invoices'
 import { InvoiceStatusDropdown } from '@/components/ui/InvoiceStatusDropdown'
 import { markFeedbackRead, replyFeedback } from '@/lib/actions/feedback'
-import { InvoiceStatus } from '@/lib/types'
 import Link from 'next/link'
 import { useCustomSessionTypes, BUILTIN_SESSION_TYPE_KEYS, SessionTypeDef } from '@/lib/useCustomSessionTypes'
 
@@ -567,7 +566,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       if (result?.error) {
         setLocalInvoices(ls => ls.map(i => i.id === invId ? { ...i, status: prev } : i))
       } else {
-        router.refresh()
+        startTransition(() => router.refresh())
       }
     } finally {
       setStatusChangingId(null)
@@ -588,7 +587,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       if (file) fd.set('attachment', file)
       await createInvoice(null, fd)
       closeInvoiceModal()
-      router.refresh()
+      startTransition(() => router.refresh())
     } finally {
       setInvoiceSaving(false)
     }

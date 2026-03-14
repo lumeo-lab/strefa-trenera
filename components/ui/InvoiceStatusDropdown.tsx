@@ -9,18 +9,17 @@ const ALL_STATUSES: InvoiceStatus[] = ['pending', 'paid', 'overdue', 'cancelled'
 interface Props {
   status: InvoiceStatus
   onChange: (next: InvoiceStatus) => void
-  disabled?: boolean
   loading?: boolean
 }
 
-export function InvoiceStatusDropdown({ status, onChange, disabled, loading }: Props) {
+export function InvoiceStatusDropdown({ status, onChange, loading }: Props) {
   const [open, setOpen] = useState(false)
   const [coords, setCoords] = useState({ top: 0, left: 0 })
   const btnRef = useRef<HTMLButtonElement>(null)
 
   function toggle(e: React.MouseEvent) {
     e.stopPropagation()
-    if (disabled || loading) return
+    if (loading) return
     if (open) { setOpen(false); return }
     const rect = btnRef.current!.getBoundingClientRect()
     let left = rect.left
@@ -48,7 +47,6 @@ export function InvoiceStatusDropdown({ status, onChange, disabled, loading }: P
         ref={btnRef}
         type="button"
         onClick={toggle}
-        disabled={disabled}
         className={`text-xs px-2 py-0.5 rounded-full cursor-pointer transition-opacity ${invoiceStatusColor(status)}`}
         style={{ opacity: loading ? 0.5 : 1 }}
       >
@@ -68,10 +66,8 @@ export function InvoiceStatusDropdown({ status, onChange, disabled, loading }: P
               key={s}
               type="button"
               onClick={() => { onChange(s); setOpen(false) }}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-left"
-              style={{ background: s === status ? 'var(--bg-elevated)' : 'transparent', color: 'var(--text-primary)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-elevated)')}
-              onMouseLeave={e => (e.currentTarget.style.background = s === status ? 'var(--bg-elevated)' : 'transparent')}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-left transition-colors hover:bg-[var(--bg-elevated)] ${s === status ? 'bg-[var(--bg-elevated)]' : 'bg-transparent'}`}
+              style={{ color: 'var(--text-primary)' }}
             >
               <span className={`px-1.5 py-0.5 rounded-full ${invoiceStatusColor(s)}`}>{invoiceStatusLabel(s)}</span>
               {s === status && <span className="ml-auto" style={{ color: 'var(--text-muted)' }}>✓</span>}
