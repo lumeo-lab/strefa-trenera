@@ -88,7 +88,7 @@ export async function updateFeedback(formData: FormData) {
   return { success: true }
 }
 
-export async function markFeedbackRead(id: string) {
+export async function markFeedbackRead(id: string, athleteId?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Brak autoryzacji' }
@@ -100,6 +100,7 @@ export async function markFeedbackRead(id: string) {
     .eq('coach_id', user.id)
 
   revalidatePath('/coach/feedback')
+  if (athleteId) revalidatePath(`/coach/athletes/${athleteId}`)
 }
 
 export async function replyFeedback(_: unknown, formData: FormData) {
@@ -109,6 +110,7 @@ export async function replyFeedback(_: unknown, formData: FormData) {
 
   const id = formData.get('id') as string
   const reply = formData.get('reply') as string
+  const athleteId = formData.get('athlete_id') as string
 
   if (!id || !reply) return { error: 'Brak wymaganych pól' }
 
@@ -121,5 +123,6 @@ export async function replyFeedback(_: unknown, formData: FormData) {
   if (error) return { error: error.message }
 
   revalidatePath('/coach/feedback')
+  if (athleteId) revalidatePath(`/coach/athletes/${athleteId}`)
   return { success: true }
 }

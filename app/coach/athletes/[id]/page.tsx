@@ -16,7 +16,14 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
 
   if (!athlete) notFound()
 
-  const [{ data: sessions }, { data: feedbacks }, { data: invoices }, { data: packages }, { data: races }] = await Promise.all([
+  const [
+    { data: sessions },
+    { data: feedbacks },
+    { data: invoices },
+    { data: packages },
+    { data: races },
+    { count: unreadMessagesCount },
+  ] = await Promise.all([
     supabase
       .from('training_sessions')
       .select('*')
@@ -42,6 +49,12 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
       .select('*')
       .eq('athlete_id', id)
       .order('date', { ascending: true }),
+    supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('athlete_id', id)
+      .eq('sender_type', 'athlete')
+      .eq('read', false),
   ])
 
   return (
@@ -52,6 +65,7 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
       invoices={invoices ?? []}
       packages={packages ?? []}
       races={races ?? []}
+      unreadMessagesCount={unreadMessagesCount ?? 0}
     />
   )
 }

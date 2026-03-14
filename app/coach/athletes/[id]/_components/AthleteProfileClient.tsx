@@ -17,6 +17,7 @@ import { SessionType } from '@/lib/types'
 import { createSession, updateSession, deleteSession as deleteSessionAction } from '@/lib/actions/sessions'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
+import { markFeedbackRead, replyFeedback } from '@/lib/actions/feedback'
 import Link from 'next/link'
 import { useCustomSessionTypes, BUILTIN_SESSION_TYPE_KEYS, SessionTypeDef } from '@/lib/useCustomSessionTypes'
 
@@ -139,11 +140,12 @@ interface Props {
   invoices: DbRow[]
   packages: Package[]
   races: DbRow[]
+  unreadMessagesCount: number
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces }: Props) {
+export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces, unreadMessagesCount }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('plan')
   const [saving, setSaving] = useState(false)
@@ -223,6 +225,37 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [dataSaving, setDataSaving] = useState(false)
   const [dataSaved, setDataSaved] = useState(false)
 
+  // ── Feedback tab state ──
+  const [expandedFeedbacks, setExpandedFeedbacks] = useState<Set<string>>(new Set())
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({})
+  const [replyingSaving, setReplyingSaving] = useState<string | null>(null)
+
+  async function toggleFeedback(fbId: string, read: boolean) {
+    setExpandedFeedbacks(prev => {
+      const next = new Set(prev)
+      next.has(fbId) ? next.delete(fbId) : next.add(fbId)
+      return next
+    })
+    if (!read) {
+      await markFeedbackRead(fbId, athlete.id)
+      startTransition(() => router.refresh())
+    }
+  }
+
+  async function sendReply(fbId: string) {
+    const reply = replyTexts[fbId]?.trim()
+    if (!reply || replyingSaving) return
+    setReplyingSaving(fbId)
+    const fd = new FormData()
+    fd.set('id', fbId)
+    fd.set('reply', reply)
+    fd.set('athlete_id', athlete.id)
+    await replyFeedback(null, fd)
+    setReplyTexts(prev => ({ ...prev, [fbId]: '' }))
+    setReplyingSaving(null)
+    startTransition(() => router.refresh())
+  }
+
   // ── Personal bests state ──
   const PB_DISTANCES = ['5 km', '10 km', 'Półmaraton', 'Maraton']
   const [pbEditing, setPbEditing] = useState(false)
@@ -268,9 +301,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     : `/u/${athlete.slug}?t=${athlete.invite_token}`
 
 
+  const unreadFeedbackCount = athleteFeedbacks.filter(f => !f.read).length
+
   const tabs = [
     { id: 'plan', label: 'Plan' },
     { id: 'history', label: 'Historia' },
+    { id: 'feedback', label: unreadFeedbackCount > 0 ? `Feedback (${unreadFeedbackCount})` : 'Feedback' },
     { id: 'races', label: 'Zawody' },
     { id: 'notes', label: 'Notatki' },
     { id: 'data', label: 'Dane' },
@@ -533,6 +569,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium ml-auto shrink-0 transition-colors"
                   style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
                   💬 Chat
+                  {unreadMessagesCount > 0 && (
+                    <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#FF5C1B', color: 'white', lineHeight: 1 }}>
+                      {unreadMessagesCount}
+                    </span>
+                  )}
                 </Link>
               </div>
               <div className="flex items-center gap-4 text-sm flex-wrap" style={{ color: 'var(--text-muted)' }}>
@@ -1126,6 +1167,70 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 </div>
               )}
             </Card>
+          </div>
+        )}
+
+        {/* ── Feedback ── */}
+        {activeTab === 'feedback' && (
+          <div className="space-y-2">
+            {athleteFeedbacks.length === 0 ? (
+              <Card className="p-12 text-center">
+                <div className="text-4xl mb-3">💬</div>
+                <div className="text-sm font-medium mb-1">Brak feedbacków od zawodnika</div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Feedbacki będą się tu pojawiać gdy zawodnik wypełni formularz po treningu</div>
+              </Card>
+            ) : (
+              athleteFeedbacks.map(fb => {
+                const isExpanded = expandedFeedbacks.has(fb.id)
+                const signalDot = fb.signal === 'green' ? '#2ECC71' : fb.signal === 'yellow' ? '#F1C40F' : '#E74C3C'
+                return (
+                  <div key={fb.id} className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+                    <button
+                      onClick={() => toggleFeedback(fb.id, fb.read)}
+                      className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer text-left"
+                      style={{ background: 'transparent' }}
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: signalDot }} />
+                      <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>
+                        {formatDate(fb.created_at, { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                      <span className="text-sm font-medium flex-1">{fb.ai_summary || '—'}</span>
+                      {!fb.read && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(255,92,27,0.15)', color: '#FF5C1B' }}>NOWE</span>
+                      )}
+                      <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{isExpanded ? '▲' : '▼'}</span>
+                    </button>
+                    {isExpanded && (
+                      <div className="px-4 pb-4" style={{ borderTop: '1px solid var(--border)' }}>
+                        <div className="pt-3">
+                          <FeedbackDetail fb={fb} />
+                        </div>
+                        {!fb.coach_reply && (
+                          <div className="mt-4 space-y-2">
+                            <textarea
+                              value={replyTexts[fb.id] ?? ''}
+                              onChange={e => setReplyTexts(prev => ({ ...prev, [fb.id]: e.target.value }))}
+                              placeholder="Napisz odpowiedź dla zawodnika..."
+                              rows={3}
+                              className="w-full px-3 py-2 rounded-xl text-sm resize-none"
+                              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                            />
+                            <button
+                              onClick={() => sendReply(fb.id)}
+                              disabled={!replyTexts[fb.id]?.trim() || replyingSaving === fb.id}
+                              className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                              style={{ background: '#FF5C1B', color: 'white', opacity: !replyTexts[fb.id]?.trim() ? 0.5 : 1 }}
+                            >
+                              {replyingSaving === fb.id ? 'Wysyłanie...' : 'Wyślij odpowiedź'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
           </div>
         )}
 
