@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, startTransition, Fragment } from 'react'
+import React, { useState, useRef, useEffect, startTransition, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Tabs } from '@/components/ui/Tabs'
@@ -11,13 +11,14 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import {
   formatDate, formatCurrency, intensityColor, sessionTypeLabel,
-  invoiceStatusColor, invoiceStatusLabel, signalColor, getWeekDays, toISODate, dayName, isToday, isPast,
+  signalColor, getWeekDays, toISODate, dayName, isToday, isPast,
 } from '@/lib/utils'
 import { SessionType } from '@/lib/types'
 import { createSession, updateSession, deleteSession as deleteSessionAction } from '@/lib/actions/sessions'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
 import { createInvoice, updateInvoiceStatus } from '@/lib/actions/invoices'
+import { InvoiceStatusDropdown } from '@/components/ui/InvoiceStatusDropdown'
 import { markFeedbackRead, replyFeedback } from '@/lib/actions/feedback'
 import { InvoiceStatus } from '@/lib/types'
 import Link from 'next/link'
@@ -35,8 +36,6 @@ const RACE_STATUS_INFO: Record<RaceStatus, { label: string; color: string }> = {
   dns:       { label: 'DNS',       color: '#E74C3C' },
   dnf:       { label: 'DNF',       color: '#F39C12' },
 }
-
-const INVOICE_STATUS_CYCLE: InvoiceStatus[] = ['pending', 'paid', 'overdue', 'cancelled']
 
 // ── Race note cell ─────────────────────────────────────────────────────────
 
@@ -264,11 +263,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [plannedOpen, setPlannedOpen] = useState(true)
   const [finishedOpen, setFinishedOpen] = useState(true)
   // ── Invoice state ──
+  const [localInvoices, setLocalInvoices] = useState(athleteInvoices)
+  useEffect(() => setLocalInvoices(athleteInvoices), [athleteInvoices])
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
   const [invoiceDraft, setInvoiceDraft] = useState({ description: '', amount: '', dueDate: '' })
   const [invoiceSaving, setInvoiceSaving] = useState(false)
   const [statusChangingId, setStatusChangingId] = useState<string | null>(null)
-  const [statusOverrides, setStatusOverrides] = useState<Record<string, InvoiceStatus>>({})
   const invoiceFileRef = useRef<HTMLInputElement>(null)
   const [dataSaving, setDataSaving] = useState(false)
   const [dataSaved, setDataSaved] = useState(false)
@@ -366,7 +366,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
   const completedSessions = initialSessions.filter(s => s.completed && s.actual_distance)
   const totalKm = completedSessions.reduce((sum, s) => sum + (s.actual_distance || 0), 0)
-  const totalPaid = athleteInvoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0)
+  const totalPaid = localInvoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0)
 
   // ── Session modal handlers ──
   // ── Session type color helpers ──
@@ -558,14 +558,17 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     if (invoiceFileRef.current) invoiceFileRef.current.value = ''
   }
 
-  async function cycleInvoiceStatus(invId: string, currentStatus: InvoiceStatus) {
-    const idx = INVOICE_STATUS_CYCLE.indexOf(currentStatus)
-    const next = INVOICE_STATUS_CYCLE[(idx + 1) % INVOICE_STATUS_CYCLE.length]
-    setStatusOverrides(prev => ({ ...prev, [invId]: next }))
+  async function changeInvoiceStatus(invId: string, next: InvoiceStatus) {
+    const prev = localInvoices.find(i => i.id === invId)?.status as InvoiceStatus
+    setLocalInvoices(ls => ls.map(i => i.id === invId ? { ...i, status: next } : i))
     setStatusChangingId(invId)
     try {
-      await updateInvoiceStatus(invId, next, athlete.id)
-      router.refresh()
+      const result = await updateInvoiceStatus(invId, next, athlete.id)
+      if (result?.error) {
+        setLocalInvoices(ls => ls.map(i => i.id === invId ? { ...i, status: prev } : i))
+      } else {
+        router.refresh()
+      }
     } finally {
       setStatusChangingId(null)
     }
@@ -1535,8 +1538,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             <div className="grid grid-cols-3 gap-4">
               {[
                 { label: 'Opłacono łącznie', value: formatCurrency(totalPaid), color: 'text-green-400' },
-                { label: 'Oczekujące', value: formatCurrency(athleteInvoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0)), color: 'text-yellow-400' },
-                { label: 'Przeterminowane', value: formatCurrency(athleteInvoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0)), color: 'text-red-400' },
+                { label: 'Oczekujące', value: formatCurrency(localInvoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0)), color: 'text-yellow-400' },
+                { label: 'Przeterminowane', value: formatCurrency(localInvoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0)), color: 'text-red-400' },
               ].map(kpi => (
                 <Card key={kpi.label} className="p-4 text-center">
                   <div className={`text-xl font-bold mb-1 ${kpi.color}`}>{kpi.value}</div>
@@ -1554,27 +1557,23 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   </tr>
                 </thead>
                 <tbody>
-                  {athleteInvoices.map((inv, i) => (
-                    <tr key={inv.id} style={{ borderBottom: i < athleteInvoices.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
+                  {localInvoices.map((inv, i) => (
+                    <tr key={inv.id} style={{ borderBottom: i < localInvoices.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
                       <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{inv.number}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{inv.description || '—'}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(inv.date, { day: 'numeric', month: 'short' })}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: inv.status === 'overdue' ? '#E74C3C' : 'var(--text-muted)' }}>{formatDate(inv.due_date, { day: 'numeric', month: 'short' })}</td>
                       <td className="px-4 py-3 text-xs font-semibold">{formatCurrency(inv.amount)}</td>
                       <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => cycleInvoiceStatus(inv.id, (statusOverrides[inv.id] ?? inv.status) as InvoiceStatus)}
-                          disabled={statusChangingId === inv.id}
-                          title="Kliknij, aby zmienić status"
-                          className={`text-xs px-2 py-0.5 rounded-full cursor-pointer transition-opacity ${invoiceStatusColor(statusOverrides[inv.id] ?? inv.status)}`}
-                          style={{ opacity: statusChangingId === inv.id ? 0.5 : 1 }}>
-                          {statusChangingId === inv.id ? '…' : invoiceStatusLabel(statusOverrides[inv.id] ?? inv.status)}
-                        </button>
+                        <InvoiceStatusDropdown
+                          status={inv.status as InvoiceStatus}
+                          onChange={next => changeInvoiceStatus(inv.id, next)}
+                          loading={statusChangingId === inv.id}
+                        />
                       </td>
                     </tr>
                   ))}
-                  {athleteInvoices.length === 0 && (
+                  {localInvoices.length === 0 && (
                     <tr><td colSpan={6} className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Brak faktur</td></tr>
                   )}
                 </tbody>

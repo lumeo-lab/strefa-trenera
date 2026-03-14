@@ -134,6 +134,8 @@ export async function updateInvoiceStatus(id: string, status: string, athleteId?
   if (error) return { error: error.message }
 
   revalidatePath('/coach/invoices')
+  revalidatePath('/coach/analytics')
+  revalidatePath('/coach/dashboard')
   if (athleteId) revalidatePath(`/coach/athletes/${athleteId}`)
   return { success: true }
 }

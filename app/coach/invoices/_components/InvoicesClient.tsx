@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, startTransition, useRef } from 'react'
+import { useState, useEffect, startTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { formatDate, formatCurrency, invoiceStatusColor, invoiceStatusLabel } from '@/lib/utils'
-import { createInvoice, updateInvoice, deleteInvoice } from '@/lib/actions/invoices'
+import { InvoiceStatusDropdown } from '@/components/ui/InvoiceStatusDropdown'
+import { formatDate, formatCurrency, invoiceStatusLabel } from '@/lib/utils'
+import { createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus } from '@/lib/actions/invoices'
 import { InvoiceStatus } from '@/lib/types'
 
 type Filter = 'all' | InvoiceStatus
@@ -36,7 +37,28 @@ export function InvoicesClient({ invoices, athletes }: { invoices: any[]; athlet
     else { setSortKey(key); setSortDir('asc') }
   }
 
-  const filtered = invoices.filter(inv => filter === 'all' || inv.status === filter)
+  // ── Local invoice state (optimistic status updates) ───────────────
+  const [localInvoices, setLocalInvoices] = useState(invoices)
+  useEffect(() => setLocalInvoices(invoices), [invoices])
+  const [statusChangingId, setStatusChangingId] = useState<string | null>(null)
+
+  async function handleStatusChange(invId: string, athleteId: string | undefined, next: InvoiceStatus) {
+    const prev = localInvoices.find(i => i.id === invId)?.status as InvoiceStatus
+    setLocalInvoices(ls => ls.map(i => i.id === invId ? { ...i, status: next } : i))
+    setStatusChangingId(invId)
+    try {
+      const result = await updateInvoiceStatus(invId, next, athleteId)
+      if (result?.error) {
+        setLocalInvoices(ls => ls.map(i => i.id === invId ? { ...i, status: prev } : i))
+      } else {
+        startTransition(() => router.refresh())
+      }
+    } finally {
+      setStatusChangingId(null)
+    }
+  }
+
+  const filtered = localInvoices.filter(inv => filter === 'all' || inv.status === filter)
   const sorted = sortKey
     ? [...filtered].sort((a, b) => {
         let av: string | number = '', bv: string | number = ''
@@ -51,9 +73,9 @@ export function InvoicesClient({ invoices, athletes }: { invoices: any[]; athlet
 
   // ── KPIs ─────────────────────────────────────────────────────────
   const totals = {
-    paid: invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.amount, 0),
-    pending: invoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0),
-    overdue: invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0),
+    paid: localInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.amount, 0),
+    pending: localInvoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0),
+    overdue: localInvoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0),
   }
 
   // ── Create modal ─────────────────────────────────────────────────
@@ -188,7 +210,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: any[]; athlet
                 color: filter === f.id ? '#FF5C1B' : 'var(--text-muted)',
                 border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
               }}>
-              {f.label} ({invoices.filter(i => f.id === 'all' || i.status === f.id).length})
+              {f.label} ({localInvoices.filter(i => f.id === 'all' || i.status === f.id).length})
             </button>
           ))}
         </div>
@@ -240,9 +262,11 @@ export function InvoicesClient({ invoices, athletes }: { invoices: any[]; athlet
                   </td>
                   <td className="px-5 py-4 text-xs font-semibold">{formatCurrency(inv.amount)}</td>
                   <td className="px-5 py-4">
-                    <span className={`text-xs px-2 py-1 rounded-full ${invoiceStatusColor(inv.status)}`}>
-                      {invoiceStatusLabel(inv.status)}
-                    </span>
+                    <InvoiceStatusDropdown
+                      status={inv.status}
+                      onChange={next => handleStatusChange(inv.id, inv.athlete_id, next)}
+                      loading={statusChangingId === inv.id}
+                    />
                   </td>
                   <td className="px-5 py-4 text-xs">
                     {inv.attachment_url
