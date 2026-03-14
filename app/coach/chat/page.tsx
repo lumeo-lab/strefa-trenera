@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { ChatClient } from './_components/ChatClient'
 
-export default async function CoachChatPage() {
+export default async function CoachChatPage({ searchParams }: { searchParams: Promise<{ athlete?: string }> }) {
   const supabase = await createClient()
+  const params = await searchParams
 
   const [{ data: { user } }, { data: athletes }, { data: messages }, { data: coach }] = await Promise.all([
     supabase.auth.getUser(),
@@ -17,6 +18,7 @@ export default async function CoachChatPage() {
       messages={messages ?? []}
       coachId={user?.id ?? ''}
       coachName={coach?.name ?? ''}
+      initialAthleteId={params.athlete}
     />
   )
 }

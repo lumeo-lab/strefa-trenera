@@ -473,11 +473,18 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     <div>
       <CoachTopbar
         title={athlete.name}
-        subtitle={`${athlete.goal || ''} · ${athlete.package}`}
+        subtitle={[athlete.goal, athlete.package].filter(Boolean).join(' · ')}
         actions={
-          <Link href="/coach/athletes" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--text-muted)' }}>
-            ← Zawodnicy
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href={`/coach/chat?athlete=${athlete.id}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors"
+              style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+              💬 Chat
+            </Link>
+            <Link href="/coach/athletes" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--text-muted)' }}>
+              ← Zawodnicy
+            </Link>
+          </div>
         }
       />
 
@@ -498,6 +505,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 {athlete.city && <span>📍 {athlete.city}</span>}
                 {athlete.age && <span>🎂 {athlete.age} lat</span>}
                 <span>📅 Od {formatDate(athlete.join_date, { month: 'long', year: 'numeric' })}</span>
+                {totalKm > 0 && <span>🏃 {totalKm.toFixed(0)} km łącznie</span>}
               </div>
             </div>
           </div>
@@ -507,7 +515,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>🔗 Link zaproszenia dla zawodnika</div>
             <div className="flex items-center gap-2">
               <code className="flex-1 px-3 py-2 rounded-xl text-xs font-mono truncate" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                /u/{athlete.slug}?t={athlete.invite_token}
+                /u/{athlete.slug}?t={athlete.invite_token?.slice(0, 8)}…
               </code>
               <button
                 onClick={copyInviteLink}
@@ -769,27 +777,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               </div>
             )}
 
-            {/* Rodzaj treningu */}
-            <div className="mt-5 pb-32">
-              <span className="text-xs font-semibold mb-3 block" style={{ color: 'var(--text-muted)' }}>Rodzaj treningu</span>
-              <div className="flex flex-wrap gap-2 items-center">
-                {allSessionTypes.map(t => (
-                  <span key={t.key}
-                    className={`text-xs px-2.5 py-1 rounded-full font-medium ${t.isBuiltin ? intensityColor(t.key as SessionType) : ''}`}
-                    style={!t.isBuiltin && t.color ? { background: t.color + '33', color: t.color } : {}}>
-                    {t.label}
-                  </span>
-                ))}
-                <button onClick={openSessionTypeModal}
-                  className="text-xs px-2.5 py-1 rounded-lg cursor-pointer transition-opacity hover:opacity-80"
-                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                  ⚙ Edytuj
-                </button>
-              </div>
-              <p className="text-xs mt-4" style={{ color: '#B0B8CC' }}>
-                💬 Gdy zawodnik doda feedback, pojawi się jako przycisk &quot;Feedback&quot; pod kafelkiem dnia
-              </p>
-            </div>
           </div>
         )}
 
@@ -806,7 +793,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           <div className="space-y-4">
             <div className="grid grid-cols-4 gap-4">
               {[
-                { label: 'Sesji w miesiącu', value: monthCompleted.length },
+                { label: 'Sesje', value: `${monthCompleted.length} / ${monthSessions.length}` },
                 { label: 'Łącznie km', value: monthKm > 0 ? `${monthKm.toFixed(0)} km` : '—' },
                 { label: 'Feedbacków', value: monthFeedbacks.length },
                 { label: 'Ukończenie', value: monthSessions.length > 0 ? `${completionRate}%` : '—' },
@@ -823,9 +810,18 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               <button onClick={() => setHistoryMonth(m => shiftMonth(m, -1))}
                 className="px-3 py-1.5 rounded-xl text-sm cursor-pointer"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>←</button>
-              <span className="text-sm font-bold capitalize" style={{ color: 'var(--text-primary)' }}>
-                {monthLabel(historyMonth)}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold capitalize" style={{ color: 'var(--text-primary)' }}>
+                  {monthLabel(historyMonth)}
+                </span>
+                {historyMonth !== currentMonth && (
+                  <button onClick={() => setHistoryMonth(currentMonth)}
+                    className="px-2.5 py-1 rounded-lg text-xs cursor-pointer"
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                    Dziś
+                  </button>
+                )}
+              </div>
               <button onClick={() => setHistoryMonth(m => shiftMonth(m, 1))}
                 className="px-3 py-1.5 rounded-xl text-sm cursor-pointer"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>→</button>
@@ -841,7 +837,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   </tr>
                 </thead>
                 <tbody>
-                  {[...initialSessions].filter(s => s.date.slice(0, 7) === historyMonth).length === 0 && (
+                  {monthSessions.length === 0 && (
                     <tr>
                       <td colSpan={8} className="px-4 py-12 text-center">
                         <div className="text-3xl mb-2">📅</div>
@@ -850,7 +846,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       </td>
                     </tr>
                   )}
-                  {[...initialSessions].filter(s => s.date.slice(0, 7) === historyMonth).sort((a, b) => b.date.localeCompare(a.date)).map(session => {
+                  {[...monthSessions].sort((a, b) => b.date.localeCompare(a.date)).map(session => {
                     const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
                     const isExpanded = expandedRows.has(session.id)
                     return (
@@ -952,7 +948,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     ['Miasto', dataEdit.city],
                     ['Cel treningowy', dataEdit.goal],
                     ['Pakiet', dataEdit.package],
-                    ['Cena', dataEdit.package_price ? `${dataEdit.package_price} zł/mies.` : ''],
+                    ['Cena', dataEdit.package_price ? `${formatCurrency(Number(dataEdit.package_price))}/mies.` : ''],
                     ['Dołączył/a', dataEdit.join_date ? formatDate(dataEdit.join_date, { day: 'numeric', month: 'long', year: 'numeric' }) : '—'],
                   ] as [string, string][]).map(([label, value]) => (
                     <div key={label} className="flex justify-between">
@@ -1004,6 +1000,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                         className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
                         style={inputStyle}
                       >
+                        {!packages.some(p => p.name === dataEdit.package) && dataEdit.package && (
+                          <option value={dataEdit.package} disabled>{dataEdit.package} (nieaktywny)</option>
+                        )}
                         {packages.map(p => <option key={p.id} value={p.name}>{p.name} — {formatCurrency(p.price)}</option>)}
                       </select>
                     )}
@@ -1321,7 +1320,10 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
           </div>
           <div>
-            <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Typ treningu</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Typ treningu</label>
+              <button onClick={openSessionTypeModal} className="text-xs cursor-pointer hover:opacity-80" style={{ color: 'var(--text-muted)' }}>⚙ Edytuj typy</button>
+            </div>
             <div className="flex flex-wrap gap-2">
               {allSessionTypes.map(t => (
                 <button key={t.key} onClick={() => setDraft(d => ({ ...d, type: t.key }))}

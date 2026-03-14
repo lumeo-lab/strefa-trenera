@@ -10,9 +10,9 @@ import { sendMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function ChatClient({ athletes, messages, coachId, coachName }: { athletes: any[]; messages: any[]; coachId: string; coachName: string }) {
+export function ChatClient({ athletes, messages, coachId, coachName, initialAthleteId }: { athletes: any[]; messages: any[]; coachId: string; coachName: string; initialAthleteId?: string }) {
   const router = useRouter()
-  const [selectedAthleteId, setSelectedAthleteId] = useState(athletes[0]?.id ?? '')
+  const [selectedAthleteId, setSelectedAthleteId] = useState(initialAthleteId ?? athletes[0]?.id ?? '')
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
