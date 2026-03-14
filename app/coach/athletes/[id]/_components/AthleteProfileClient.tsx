@@ -233,6 +233,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [raceDraft, setRaceDraft] = useState<RaceDraft>({ name: '', date: '', distance: '', goalTime: '', result: '', status: 'planned', notes: '' })
   const [raceSaving, setRaceSaving] = useState(false)
   const [confirmDeleteRaceId, setConfirmDeleteRaceId] = useState<string | null>(null)
+  const [openNoteRaceId, setOpenNoteRaceId] = useState<string | null>(null)
   const [dataSaving, setDataSaving] = useState(false)
   const [dataSaved, setDataSaved] = useState(false)
 
@@ -1315,6 +1316,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     columns={['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Notatki', '']}
                     renderRow={(race, i) => {
                       const isPastDate = race.date < today
+                      const noteOpen = openNoteRaceId === race.id
                       return (
                         <tr key={race.id} style={{ borderBottom: i < plannedRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
                           <td className="px-4 py-3 whitespace-nowrap">
@@ -1326,7 +1328,23 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                           <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
                           <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
                           <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
-                          <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>{race.notes || '—'}</td>
+                          <td className="px-4 py-3 text-xs">
+                            {race.notes ? (
+                              <div>
+                                <button onClick={() => setOpenNoteRaceId(noteOpen ? null : race.id)}
+                                  className="cursor-pointer text-base leading-none"
+                                  title={noteOpen ? 'Ukryj notatkę' : 'Pokaż notatkę'}>📝</button>
+                                {noteOpen && (
+                                  <div className="mt-1.5 text-xs leading-relaxed max-w-[220px]"
+                                    style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', borderRadius: '8px', padding: '6px 8px' }}>
+                                    {race.notes}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => openEditRace(race)}
                               className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
@@ -1351,9 +1369,10 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 ) : (
                   <RaceTable
                     races={finishedRaces}
-                    columns={['Data', 'Zawody', 'Dystans', 'Wynik', 'Status', '']}
+                    columns={['Data', 'Zawody', 'Dystans', 'Wynik', 'Status', 'Notatki', '']}
                     renderRow={(race, i) => {
                       const st = RACE_STATUS_INFO[(race.status as RaceStatus)] ?? RACE_STATUS_INFO.completed
+                      const noteOpen = openNoteRaceId === race.id
                       return (
                         <tr key={race.id} style={{ borderBottom: i < finishedRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
                           <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
@@ -1365,6 +1384,23 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                           <td className="px-4 py-3 text-xs">
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium"
                               style={{ background: `${st.color}22`, color: st.color }}>{st.label}</span>
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {race.notes ? (
+                              <div>
+                                <button onClick={() => setOpenNoteRaceId(noteOpen ? null : race.id)}
+                                  className="cursor-pointer text-base leading-none"
+                                  title={noteOpen ? 'Ukryj notatkę' : 'Pokaż notatkę'}>📝</button>
+                                {noteOpen && (
+                                  <div className="mt-1.5 text-xs leading-relaxed max-w-[220px]"
+                                    style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', borderRadius: '8px', padding: '6px 8px' }}>
+                                    {race.notes}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => openEditRace(race)}
