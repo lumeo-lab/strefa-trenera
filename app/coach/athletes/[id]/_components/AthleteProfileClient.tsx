@@ -34,6 +34,29 @@ const RACE_STATUS_INFO: Record<RaceStatus, { label: string; color: string }> = {
   dnf:       { label: 'DNF',       color: '#F39C12' },
 }
 
+// ── Race note cell ─────────────────────────────────────────────────────────
+
+function RaceNoteCell({ notes, isOpen, onToggle }: { notes?: string | null; isOpen: boolean; onToggle: () => void }) {
+  return (
+    <td className="px-4 py-3 text-xs">
+      {notes ? (
+        <div>
+          <button onClick={onToggle} className="cursor-pointer text-base leading-none"
+            title={isOpen ? 'Ukryj notatkę' : 'Pokaż notatkę'}>📝</button>
+          {isOpen && (
+            <div className="mt-1.5 text-xs leading-relaxed max-w-[220px]"
+              style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', borderRadius: '8px', padding: '6px 8px' }}>
+              {notes}
+            </div>
+          )}
+        </div>
+      ) : (
+        <span style={{ color: 'var(--text-muted)' }}>—</span>
+      )}
+    </td>
+  )
+}
+
 // ── Feedback display helpers ───────────────────────────────────────────────
 
 const FEELING_LABELS: Record<string, string> = {
@@ -1328,23 +1351,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                           <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
                           <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
                           <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
-                          <td className="px-4 py-3 text-xs">
-                            {race.notes ? (
-                              <div>
-                                <button onClick={() => setOpenNoteRaceId(noteOpen ? null : race.id)}
-                                  className="cursor-pointer text-base leading-none"
-                                  title={noteOpen ? 'Ukryj notatkę' : 'Pokaż notatkę'}>📝</button>
-                                {noteOpen && (
-                                  <div className="mt-1.5 text-xs leading-relaxed max-w-[220px]"
-                                    style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', borderRadius: '8px', padding: '6px 8px' }}>
-                                    {race.notes}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)' }}>—</span>
-                            )}
-                          </td>
+                          <RaceNoteCell notes={race.notes} isOpen={noteOpen} onToggle={() => setOpenNoteRaceId(noteOpen ? null : race.id)} />
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => openEditRace(race)}
                               className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
@@ -1385,23 +1392,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium"
                               style={{ background: `${st.color}22`, color: st.color }}>{st.label}</span>
                           </td>
-                          <td className="px-4 py-3 text-xs">
-                            {race.notes ? (
-                              <div>
-                                <button onClick={() => setOpenNoteRaceId(noteOpen ? null : race.id)}
-                                  className="cursor-pointer text-base leading-none"
-                                  title={noteOpen ? 'Ukryj notatkę' : 'Pokaż notatkę'}>📝</button>
-                                {noteOpen && (
-                                  <div className="mt-1.5 text-xs leading-relaxed max-w-[220px]"
-                                    style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', borderRadius: '8px', padding: '6px 8px' }}>
-                                    {race.notes}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)' }}>—</span>
-                            )}
-                          </td>
+                          <RaceNoteCell notes={race.notes} isOpen={noteOpen} onToggle={() => setOpenNoteRaceId(noteOpen ? null : race.id)} />
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => openEditRace(race)}
                               className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
