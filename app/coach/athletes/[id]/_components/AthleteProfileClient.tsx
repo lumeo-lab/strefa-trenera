@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, startTransition, Fragment } from 'react'
+import React, { useState, useRef, startTransition, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Tabs } from '@/components/ui/Tabs'
@@ -268,6 +268,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [invoiceDraft, setInvoiceDraft] = useState({ description: '', amount: '', dueDate: '' })
   const [invoiceSaving, setInvoiceSaving] = useState(false)
   const [statusChangingId, setStatusChangingId] = useState<string | null>(null)
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, InvoiceStatus>>({})
+  const invoiceFileRef = useRef<HTMLInputElement>(null)
   const [dataSaving, setDataSaving] = useState(false)
   const [dataSaved, setDataSaved] = useState(false)
 
@@ -553,15 +555,17 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   function closeInvoiceModal() {
     setInvoiceModalOpen(false)
     setInvoiceDraft({ description: '', amount: '', dueDate: '' })
+    if (invoiceFileRef.current) invoiceFileRef.current.value = ''
   }
 
   async function cycleInvoiceStatus(invId: string, currentStatus: InvoiceStatus) {
     const idx = INVOICE_STATUS_CYCLE.indexOf(currentStatus)
     const next = INVOICE_STATUS_CYCLE[(idx + 1) % INVOICE_STATUS_CYCLE.length]
+    setStatusOverrides(prev => ({ ...prev, [invId]: next }))
     setStatusChangingId(invId)
     try {
       await updateInvoiceStatus(invId, next, athlete.id)
-      startTransition(() => router.refresh())
+      router.refresh()
     } finally {
       setStatusChangingId(null)
     }
@@ -577,9 +581,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       fd.set('amount', invoiceDraft.amount)
       if (invoiceDraft.dueDate) fd.set('due_date', invoiceDraft.dueDate)
       if (athlete.package) fd.set('package', athlete.package)
+      const file = invoiceFileRef.current?.files?.[0]
+      if (file) fd.set('attachment', file)
       await createInvoice(null, fd)
       closeInvoiceModal()
-      startTransition(() => router.refresh())
+      router.refresh()
     } finally {
       setInvoiceSaving(false)
     }
@@ -1557,12 +1563,13 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       <td className="px-4 py-3 text-xs font-semibold">{formatCurrency(inv.amount)}</td>
                       <td className="px-4 py-3">
                         <button
-                          onClick={() => cycleInvoiceStatus(inv.id, inv.status as InvoiceStatus)}
+                          type="button"
+                          onClick={() => cycleInvoiceStatus(inv.id, (statusOverrides[inv.id] ?? inv.status) as InvoiceStatus)}
                           disabled={statusChangingId === inv.id}
                           title="Kliknij, aby zmienić status"
-                          className={`text-xs px-2 py-0.5 rounded-full cursor-pointer transition-opacity ${invoiceStatusColor(inv.status)}`}
+                          className={`text-xs px-2 py-0.5 rounded-full cursor-pointer transition-opacity ${invoiceStatusColor(statusOverrides[inv.id] ?? inv.status)}`}
                           style={{ opacity: statusChangingId === inv.id ? 0.5 : 1 }}>
-                          {statusChangingId === inv.id ? '…' : invoiceStatusLabel(inv.status)}
+                          {statusChangingId === inv.id ? '…' : invoiceStatusLabel(statusOverrides[inv.id] ?? inv.status)}
                         </button>
                       </td>
                     </tr>
@@ -1703,6 +1710,16 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               <input type="date" value={invoiceDraft.dueDate} onChange={e => setInvoiceDraft(d => ({ ...d, dueDate: e.target.value }))}
                 className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
             </div>
+          </div>
+          <div>
+            <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Załącznik (opcjonalnie, PDF / JPG / PNG)</label>
+            <input
+              ref={invoiceFileRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              className="w-full text-xs cursor-pointer"
+              style={{ color: 'var(--text-muted)' }}
+            />
           </div>
           <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
             Pakiet: <span style={{ color: 'var(--text-primary)' }}>{athlete.package || '—'}</span>
