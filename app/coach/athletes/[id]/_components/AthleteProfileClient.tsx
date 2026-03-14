@@ -515,7 +515,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>🔗 Link zaproszenia dla zawodnika</div>
             <div className="flex items-center gap-2">
               <code className="flex-1 px-3 py-2 rounded-xl text-xs font-mono truncate" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                /u/{athlete.slug}?t={athlete.invite_token?.slice(0, 8)}…
+                /u/{athlete.slug}?t={athlete.invite_token.slice(0, 8)}…
               </code>
               <button
                 onClick={copyInviteLink}
@@ -782,7 +782,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
         {/* ── Historia ── */}
         {activeTab === 'history' && (() => {
-          const monthSessions = initialSessions.filter(s => s.date.slice(0, 7) === historyMonth)
+          const monthSessions = initialSessions.filter(s => s.date.slice(0, 7) === historyMonth).sort((a, b) => b.date.localeCompare(a.date))
           const monthCompleted = monthSessions.filter(s => s.completed)
           const monthKm = monthCompleted.reduce((sum, s) => sum + (s.actual_distance || 0), 0)
           const monthFeedbacks = athleteFeedbacks.filter(f => f.date.slice(0, 7) === historyMonth)
@@ -846,7 +846,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       </td>
                     </tr>
                   )}
-                  {[...monthSessions].sort((a, b) => b.date.localeCompare(a.date)).map(session => {
+                  {monthSessions.map(session => {
                     const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
                     const isExpanded = expandedRows.has(session.id)
                     return (

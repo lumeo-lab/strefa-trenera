@@ -19,6 +19,11 @@ export function ChatClient({ athletes, messages, coachId, coachName, initialAthl
 
   const { permission, subscribe } = usePushSubscription(coachId, 'coach')
 
+  // Sync selection when deep-link param changes (client-side navigation)
+  useEffect(() => {
+    if (initialAthleteId) setSelectedAthleteId(initialAthleteId)
+  }, [initialAthleteId])
+
   // Poll for new messages every 5s
   useEffect(() => {
     const interval = setInterval(() => {
