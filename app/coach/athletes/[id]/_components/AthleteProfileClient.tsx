@@ -257,6 +257,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [raceSaving, setRaceSaving] = useState(false)
   const [confirmDeleteRaceId, setConfirmDeleteRaceId] = useState<string | null>(null)
   const [openNoteRaceId, setOpenNoteRaceId] = useState<string | null>(null)
+  const [plannedOpen, setPlannedOpen] = useState(true)
+  const [finishedOpen, setFinishedOpen] = useState(true)
   const [dataSaving, setDataSaving] = useState(false)
   const [dataSaved, setDataSaved] = useState(false)
 
@@ -1312,15 +1314,25 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             <div className="space-y-4">
               {/* ── Planowane ── */}
               <Card className="p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold">🏁 Planowane starty</h3>
+                <div className={`flex items-center justify-between ${plannedOpen ? 'mb-4' : ''}`}>
+                  <button onClick={() => setPlannedOpen(o => !o)}
+                    className="flex items-center gap-2 cursor-pointer">
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{plannedOpen ? '▼' : '▶'}</span>
+                    <h3 className="font-semibold">🏁 Planowane starty</h3>
+                    {plannedRaces.length > 0 && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                        style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
+                        {plannedRaces.length}
+                      </span>
+                    )}
+                  </button>
                   <button onClick={openNewRace}
                     className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
                     style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
                     + Dodaj start
                   </button>
                 </div>
-                {plannedRaces.length === 0 ? (
+                {plannedOpen && (plannedRaces.length === 0 ? (
                   <div className="text-center py-8">
                     <div className="text-3xl mb-2">🏁</div>
                     <div className="text-sm font-medium mb-1">Brak zaplanowanych startów</div>
@@ -1361,13 +1373,23 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       )
                     }}
                   />
-                )}
+                ))}
               </Card>
 
               {/* ── Ukończone ── */}
               <Card className="p-5">
-                <h3 className="font-semibold mb-4">📋 Ukończone starty</h3>
-                {finishedRaces.length === 0 ? (
+                <button onClick={() => setFinishedOpen(o => !o)}
+                  className={`flex items-center gap-2 cursor-pointer ${finishedOpen ? 'mb-4' : ''}`}>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{finishedOpen ? '▼' : '▶'}</span>
+                  <h3 className="font-semibold">📋 Ukończone starty</h3>
+                  {finishedRaces.length > 0 && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
+                      {finishedRaces.length}
+                    </span>
+                  )}
+                </button>
+                {finishedOpen && (finishedRaces.length === 0 ? (
                   <div className="text-center py-6">
                     <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
                       Brak ukończonych startów — po zawodach zmień status startu na ukończony, DNS lub DNF.
@@ -1402,7 +1424,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       )
                     }}
                   />
-                )}
+                ))}
               </Card>
             </div>
           )
