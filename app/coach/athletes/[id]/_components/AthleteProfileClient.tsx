@@ -24,6 +24,7 @@ import Link from 'next/link'
 import { useCustomSessionTypes, BUILTIN_SESSION_TYPE_KEYS, SessionTypeDef } from '@/lib/useCustomSessionTypes'
 
 const PRESET_TYPE_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F97316', '#10B981', '#EF4444', '#F59E0B', '#06B6D4']
+const DEFAULT_PB_DISTANCES = ['5 km', '10 km', 'Półmaraton', 'Maraton']
 
 // ── Race status helpers ────────────────────────────────────────────────────
 
@@ -250,7 +251,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     height: athlete.height?.toString() ?? '',
     weight: athlete.weight?.toString() ?? '',
     join_date: athlete.join_date ?? '',
-    injuries: (athlete.injuries as string[]) ?? [],
+    injuries: (athlete.injuries as string[] | null) ?? [],
   })
   const [injuryInput, setInjuryInput] = useState('')
 
@@ -309,7 +310,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   }
 
   // ── Personal bests state ──
-  const DEFAULT_PB_DISTANCES = ['5 km', '10 km', 'Półmaraton', 'Maraton']
   const savedDistances = Object.keys(athlete.personal_bests ?? {})
   const initialDistances = [
     ...DEFAULT_PB_DISTANCES,
@@ -1112,7 +1112,25 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 ) : (
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setDataEditing(false)}
+                      onClick={() => {
+                        setDataEditing(false)
+                        setDataEdit({
+                          name: athlete.name ?? '',
+                          email: athlete.email ?? '',
+                          phone: athlete.phone ?? '',
+                          age: athlete.age?.toString() ?? '',
+                          city: athlete.city ?? '',
+                          goal: athlete.goal ?? '',
+                          package: athlete.package ?? 'Starter',
+                          package_price: athlete.package_price?.toString() ?? '',
+                          status: athlete.status ?? 'ok',
+                          height: athlete.height?.toString() ?? '',
+                          weight: athlete.weight?.toString() ?? '',
+                          join_date: athlete.join_date ?? '',
+                          injuries: (athlete.injuries as string[] | null) ?? [],
+                        })
+                        setInjuryInput('')
+                      }}
                       className="px-3 py-2 rounded-xl text-sm cursor-pointer"
                       style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
                     >
@@ -1252,7 +1270,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   >Edytuj</button>
                 ) : (
                   <div className="flex gap-2">
-                    <button onClick={() => setPbEditing(false)}
+                    <button onClick={() => {
+                      setPbEditing(false)
+                      setPbDistances(initialDistances)
+                      setPbEdit(Object.fromEntries(initialDistances.map(d => [d, (athlete.personal_bests ?? {})[d] ?? ''])))
+                      setNewPbDistance('')
+                    }}
                       className="px-3 py-2 rounded-xl text-sm cursor-pointer"
                       style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Anuluj</button>
                     <button onClick={savePb} disabled={pbSaving}
@@ -1313,7 +1336,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
               <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
                 <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Kontuzje/historia</div>
-                {(athlete.injuries as string[])?.length > 0 ? (
+                {(athlete.injuries as string[] | null)?.length ? (
                   <div className="flex flex-wrap gap-1.5">
                     {(athlete.injuries as string[]).map(inj => (
                       <span key={inj} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>{inj}</span>

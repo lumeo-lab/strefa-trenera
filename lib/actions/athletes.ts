@@ -3,6 +3,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+function safeJsonField(raw: FormDataEntryValue | null): unknown {
+  if (raw === null) return undefined
+  try { return JSON.parse(raw as string) } catch { return undefined }
+}
+
 function generateSlug(name: string): string {
   const parts = name.trim().split(/\s+/)
   const first = parts[0].toLowerCase()
@@ -106,14 +111,10 @@ export async function updateAthlete(_: unknown, formData: FormData) {
   if (packagePrice !== null) updates.package_price = parseFloat(packagePrice as string)
   const status = formData.get('status')
   if (status !== null) updates.status = status as string
-  const personalBests = formData.get('personal_bests')
-  if (personalBests !== null) {
-    try { updates.personal_bests = JSON.parse(personalBests as string) } catch { /* ignore */ }
-  }
-  const injuries = formData.get('injuries')
-  if (injuries !== null) {
-    try { updates.injuries = JSON.parse(injuries as string) } catch { /* ignore */ }
-  }
+  const pbParsed = safeJsonField(formData.get('personal_bests'))
+  if (pbParsed !== undefined) updates.personal_bests = pbParsed
+  const injuriesParsed = safeJsonField(formData.get('injuries'))
+  if (injuriesParsed !== undefined) updates.injuries = injuriesParsed
 
   const { error } = await supabase
     .from('athletes')
