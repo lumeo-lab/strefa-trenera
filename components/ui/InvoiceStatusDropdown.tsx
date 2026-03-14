@@ -47,6 +47,7 @@ export function InvoiceStatusDropdown({ status, onChange, loading }: Props) {
         ref={btnRef}
         type="button"
         onClick={toggle}
+        aria-disabled={!!loading}
         className={`text-xs px-2 py-0.5 rounded-full cursor-pointer transition-opacity ${invoiceStatusColor(status)}`}
         style={{ opacity: loading ? 0.5 : 1 }}
       >
@@ -66,7 +67,7 @@ export function InvoiceStatusDropdown({ status, onChange, loading }: Props) {
               key={s}
               type="button"
               onClick={() => { onChange(s); setOpen(false) }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-left transition-colors hover:bg-[var(--bg-elevated)] ${s === status ? 'bg-[var(--bg-elevated)]' : 'bg-transparent'}`}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-left transition-colors hover:bg-[var(--bg-hover)] ${s === status ? 'bg-[var(--bg-elevated)]' : 'bg-transparent'}`}
               style={{ color: 'var(--text-primary)' }}
             >
               <span className={`px-1.5 py-0.5 rounded-full ${invoiceStatusColor(s)}`}>{invoiceStatusLabel(s)}</span>
