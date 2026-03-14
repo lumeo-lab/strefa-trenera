@@ -92,6 +92,21 @@ export async function updateSession(_: unknown, formData: FormData) {
   return { success: true }
 }
 
+export async function markSessionCompleted(id: string, athleteId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Brak autoryzacji' }
+
+  await supabase
+    .from('training_sessions')
+    .update({ completed: true })
+    .eq('id', id)
+    .eq('coach_id', user.id)
+
+  revalidatePath(`/coach/athletes/${athleteId}`)
+  return { success: true }
+}
+
 export async function deleteSession(id: string, athleteId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

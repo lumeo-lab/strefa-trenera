@@ -14,7 +14,7 @@ import {
   signalColor, getWeekDays, toISODate, dayName, isToday, isPast,
 } from '@/lib/utils'
 import { SessionType, InvoiceStatus } from '@/lib/types'
-import { createSession, updateSession, deleteSession as deleteSessionAction } from '@/lib/actions/sessions'
+import { createSession, updateSession, deleteSession as deleteSessionAction, markSessionCompleted } from '@/lib/actions/sessions'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
 import { createInvoice, updateInvoiceStatus } from '@/lib/actions/invoices'
@@ -393,7 +393,16 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
   const completedSessions = initialSessions.filter(s => s.completed && s.actual_distance)
   const totalKm = completedSessions.reduce((sum, s) => sum + (s.actual_distance || 0), 0)
-  const totalPaid = localInvoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0)
+  const invoiceTotals = localInvoices.reduce(
+    (acc, inv) => {
+      if (inv.status === 'paid') acc.paid += inv.amount
+      else if (inv.status === 'pending') acc.pending += inv.amount
+      else if (inv.status === 'overdue') acc.overdue += inv.amount
+      return acc
+    },
+    { paid: 0, pending: 0, overdue: 0 }
+  )
+  const totalPaid = invoiceTotals.paid
 
   // ── Session modal handlers ──
   // ── Session type color helpers ──
@@ -826,11 +835,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                               <button
                                 onClick={async e => {
                                   e.stopPropagation()
-                                  const fd = new FormData()
-                                  fd.set('id', session.id)
-                                  fd.set('athlete_id', athlete.id)
-                                  fd.set('completed', 'true')
-                                  await updateSession(null, fd)
+                                  await markSessionCompleted(session.id, athlete.id)
                                   startTransition(() => router.refresh())
                                 }}
                                 className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs cursor-pointer opacity-60 hover:opacity-100"
@@ -1057,54 +1062,72 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       </td>
                     </tr>
                   )}
-                  {monthSessions.map(session => {
-                    const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
-                    const isExpanded = expandedRows.has(session.id)
+                  {(() => {
+                    const pastMonthSessions = monthSessions.filter(s => s.date < today || s.completed)
+                    const upcomingMonthSessions = monthSessions.filter(s => s.date >= today && !s.completed).reverse()
+                    const renderRow = (session: DbRow) => {
+                      const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
+                      const isExpanded = expandedRows.has(session.id)
+                      return (
+                        <Fragment key={session.id}>
+                          <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--bg-subtle)' }}>
+                            <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(session.date, { day: 'numeric', month: 'short' })}</td>
+                            <td className="px-4 py-3 font-medium text-xs">{session.title}</td>
+                            <td className="px-4 py-3">
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${typeClass(session.type)}`}
+                                style={typeStyle(session.type)}>
+                                {typeLabel(session.type)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                              {session.actual_distance ? `${session.actual_distance} km` : session.planned_distance ? `(${session.planned_distance} km)` : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.actual_pace || session.planned_pace || '—'}</td>
+                            <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.avg_hr ? `${session.avg_hr} bpm` : '—'}</td>
+                            <td className="px-4 py-3">
+                              {session.completed
+                                ? <span className="text-xs text-green-400">✓ Wykonany</span>
+                                : session.date < today
+                                ? <span className="text-xs text-red-400">✗ Pominięty</span>
+                                : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Planowany</span>}
+                            </td>
+                            <td className="px-4 py-3">
+                              {fb ? (
+                                <button onClick={() => toggleRow(session.id)}
+                                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg cursor-pointer"
+                                  style={{ background: isExpanded ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)', color: isExpanded ? '#FF5C1B' : 'var(--text-muted)' }}>
+                                  <span>💬</span><span>{isExpanded ? '▲' : '▼'}</span>
+                                </button>
+                              ) : <span className="text-xs" style={{ color: 'var(--border)' }}>—</span>}
+                            </td>
+                          </tr>
+                          {isExpanded && fb && (
+                            <tr>
+                              <td colSpan={8} className="px-4 pb-3">
+                                <div className="p-3 rounded-xl" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                                  <FeedbackDetail fb={fb} />
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      )
+                    }
                     return (
-                      <Fragment key={session.id}>
-                        <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--bg-subtle)' }}>
-                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(session.date, { day: 'numeric', month: 'short' })}</td>
-                          <td className="px-4 py-3 font-medium text-xs">{session.title}</td>
-                          <td className="px-4 py-3">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${typeClass(session.type)}`}
-                              style={typeStyle(session.type)}>
-                              {typeLabel(session.type)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                            {session.actual_distance ? `${session.actual_distance} km` : session.planned_distance ? `(${session.planned_distance} km)` : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.actual_pace || session.planned_pace || '—'}</td>
-                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.avg_hr ? `${session.avg_hr} bpm` : '—'}</td>
-                          <td className="px-4 py-3">
-                            {session.completed
-                              ? <span className="text-xs text-green-400">✓ Wykonany</span>
-                              : session.date < today
-                              ? <span className="text-xs text-red-400">✗ Pominięty</span>
-                              : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Planowany</span>}
-                          </td>
-                          <td className="px-4 py-3">
-                            {fb ? (
-                              <button onClick={() => toggleRow(session.id)}
-                                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg cursor-pointer"
-                                style={{ background: isExpanded ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)', color: isExpanded ? '#FF5C1B' : 'var(--text-muted)' }}>
-                                <span>💬</span><span>{isExpanded ? '▲' : '▼'}</span>
-                              </button>
-                            ) : <span className="text-xs" style={{ color: 'var(--border)' }}>—</span>}
-                          </td>
-                        </tr>
-                        {isExpanded && fb && (
+                      <>
+                        {pastMonthSessions.map(renderRow)}
+                        {upcomingMonthSessions.length > 0 && (
                           <tr>
-                            <td colSpan={8} className="px-4 pb-3">
-                              <div className="p-3 rounded-xl" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-                                <FeedbackDetail fb={fb} />
-                              </div>
+                            <td colSpan={8} className="px-4 py-2 text-xs font-medium text-center"
+                              style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+                              — Nadchodzące —
                             </td>
                           </tr>
                         )}
-                      </Fragment>
+                        {upcomingMonthSessions.map(renderRow)}
+                      </>
                     )
-                  })}
+                  })()}
                 </tbody>
               </table>
             </div>
@@ -1679,11 +1702,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 + Nowa faktura
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               {[
-                { label: 'Opłacono łącznie', value: formatCurrency(totalPaid), color: 'text-green-400' },
-                { label: 'Oczekujące', value: formatCurrency(localInvoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0)), color: 'text-yellow-400' },
-                { label: 'Przeterminowane', value: formatCurrency(localInvoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0)), color: 'text-red-400' },
+                { label: 'Opłacono łącznie', value: formatCurrency(invoiceTotals.paid), color: 'text-green-400' },
+                { label: 'Oczekujące', value: formatCurrency(invoiceTotals.pending), color: 'text-yellow-400' },
+                { label: 'Przeterminowane', value: formatCurrency(invoiceTotals.overdue), color: 'text-red-400' },
+                { label: 'Do zapłaty', value: formatCurrency(invoiceTotals.pending + invoiceTotals.overdue), color: invoiceTotals.pending + invoiceTotals.overdue > 0 ? 'text-red-400' : 'text-green-400' },
               ].map(kpi => (
                 <Card key={kpi.label} className="p-4 text-center">
                   <div className={`text-xl font-bold mb-1 ${kpi.color}`}>{kpi.value}</div>

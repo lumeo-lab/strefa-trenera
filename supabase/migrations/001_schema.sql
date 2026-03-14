@@ -92,16 +92,31 @@ CREATE TABLE IF NOT EXISTS feedbacks (
 
 -- Invoices
 CREATE TABLE IF NOT EXISTS invoices (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  athlete_id     UUID NOT NULL REFERENCES athletes(id) ON DELETE CASCADE,
+  coach_id       UUID NOT NULL REFERENCES coaches(id) ON DELETE CASCADE,
+  number         TEXT NOT NULL,
+  date           DATE NOT NULL,
+  due_date       DATE NOT NULL,
+  amount         NUMERIC NOT NULL,
+  status         TEXT NOT NULL DEFAULT 'pending',
+  package        TEXT,
+  description    TEXT DEFAULT '',
+  attachment_url TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- Athlete races (zawody)
+CREATE TABLE IF NOT EXISTS athlete_races (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   athlete_id  UUID NOT NULL REFERENCES athletes(id) ON DELETE CASCADE,
   coach_id    UUID NOT NULL REFERENCES coaches(id) ON DELETE CASCADE,
-  number      TEXT NOT NULL,
+  name        TEXT NOT NULL,
   date        DATE NOT NULL,
-  due_date    DATE NOT NULL,
-  amount      NUMERIC NOT NULL,
-  status      TEXT NOT NULL DEFAULT 'pending',
-  package     TEXT,
-  description TEXT DEFAULT '',
+  distance    TEXT,
+  goal_time   TEXT,
+  result      TEXT,
+  status      TEXT NOT NULL DEFAULT 'planned',
+  notes       TEXT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -134,6 +149,7 @@ ALTER TABLE athletes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE training_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feedbacks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE athlete_races ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE athlete_sessions ENABLE ROW LEVEL SECURITY;
 
@@ -157,6 +173,10 @@ CREATE POLICY "feedbacks_coach_own" ON feedbacks
 CREATE POLICY "invoices_coach_own" ON invoices
   FOR ALL USING (coach_id = auth.uid());
 
+-- Athlete races: coach sees only their races
+CREATE POLICY "races_coach_own" ON athlete_races
+  FOR ALL USING (coach_id = auth.uid());
+
 -- Messages: coach sees only their messages
 CREATE POLICY "messages_coach_own" ON messages
   FOR ALL USING (coach_id = auth.uid());
@@ -173,5 +193,7 @@ CREATE INDEX IF NOT EXISTS sessions_date_idx ON training_sessions(date);
 CREATE INDEX IF NOT EXISTS feedbacks_athlete_idx ON feedbacks(athlete_id);
 CREATE INDEX IF NOT EXISTS feedbacks_read_idx ON feedbacks(read);
 CREATE INDEX IF NOT EXISTS invoices_athlete_idx ON invoices(athlete_id);
+CREATE INDEX IF NOT EXISTS races_athlete_idx ON athlete_races(athlete_id);
+CREATE INDEX IF NOT EXISTS races_date_idx ON athlete_races(date);
 CREATE INDEX IF NOT EXISTS messages_coach_athlete_idx ON messages(coach_id, athlete_id);
 CREATE INDEX IF NOT EXISTS athlete_sessions_token_idx ON athlete_sessions(token);
