@@ -14,7 +14,7 @@ import {
   invoiceStatusColor, invoiceStatusLabel, signalColor, getWeekDays, toISODate, dayName, isToday, isPast,
 } from '@/lib/utils'
 import { SessionType } from '@/lib/types'
-import { createSession, updateSession, deleteSession as deleteSessionAction } from '@/lib/actions/sessions'
+import { createSession, updateSession, deleteSession as deleteSessionAction, markSessionCompleted } from '@/lib/actions/sessions'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
 import Link from 'next/link'
@@ -117,10 +117,12 @@ function getMonthCalendar(monthStr: string): (string | null)[][] {
 interface SessionDraft {
   title: string; type: string; description: string
   plannedDistance: string; plannedDuration: string; plannedPace: string; url: string; urlLabel: string
+  completed: boolean; actualDistance: string; actualDuration: string; actualPace: string; avgHr: string; maxHr: string
 }
 
 const emptyDraft = (): SessionDraft => ({
   title: '', type: 'easy', description: '', plannedDistance: '', plannedDuration: '', plannedPace: '', url: '', urlLabel: '',
+  completed: false, actualDistance: '', actualDuration: '', actualPace: '', avgHr: '', maxHr: '',
 })
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -292,6 +294,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   function typeLabel(type: string): string {
     return allSessionTypes.find(t => t.key === type)?.label ?? sessionTypeLabel(type as SessionType)
   }
+  function completionStyle(session: DbRow): React.CSSProperties {
+    if (session.completed) return { outline: '2px solid rgba(46,204,113,0.6)', outlineOffset: '-2px' }
+    if (session.date < today) return { opacity: 0.4, outline: '1px dashed rgba(231,76,60,0.5)', outlineOffset: '-1px' }
+    return {}
+  }
 
   // ── Session type editor ──
   function openSessionTypeModal() {
@@ -330,6 +337,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       plannedPace: session.planned_pace ?? '',
       url: session.url ?? '',
       urlLabel: session.url_label ?? '',
+      completed: session.completed ?? false,
+      actualDistance: session.actual_distance?.toString() ?? '',
+      actualDuration: session.actual_duration?.toString() ?? '',
+      actualPace: session.actual_pace ?? '',
+      avgHr: session.avg_hr?.toString() ?? '',
+      maxHr: session.max_hr?.toString() ?? '',
     })
     setEditingSessionId(session.id)
     setSessionModalOpen(true)
@@ -347,18 +360,30 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     fd.set('description', draft.description)
 
     if (editingSessionId) {
-      // Przy edycji zawsze wysyłamy pola — pusty string = null na serwerze
+      // Przy edycji zawsze wysyłamy wszystkie pola — pusty string = null na serwerze
       fd.set('planned_distance', draft.plannedDistance)
       fd.set('planned_duration', draft.plannedDuration)
       fd.set('planned_pace', draft.plannedPace)
       fd.set('url', draft.url)
       fd.set('url_label', draft.urlLabel)
+      fd.set('completed', draft.completed.toString())
+      fd.set('actual_distance', draft.actualDistance)
+      fd.set('actual_duration', draft.actualDuration)
+      fd.set('actual_pace', draft.actualPace)
+      fd.set('avg_hr', draft.avgHr)
+      fd.set('max_hr', draft.maxHr)
     } else {
       if (draft.plannedDistance) fd.set('planned_distance', draft.plannedDistance)
       if (draft.plannedDuration) fd.set('planned_duration', draft.plannedDuration)
       if (draft.plannedPace) fd.set('planned_pace', draft.plannedPace)
       if (draft.url) fd.set('url', draft.url)
       if (draft.urlLabel) fd.set('url_label', draft.urlLabel)
+      if (draft.completed) fd.set('completed', 'true')
+      if (draft.actualDistance) fd.set('actual_distance', draft.actualDistance)
+      if (draft.actualDuration) fd.set('actual_duration', draft.actualDuration)
+      if (draft.actualPace) fd.set('actual_pace', draft.actualPace)
+      if (draft.avgHr) fd.set('avg_hr', draft.avgHr)
+      if (draft.maxHr) fd.set('max_hr', draft.maxHr)
     }
 
     if (editingSessionId) {
@@ -460,6 +485,18 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           className="px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer"
           style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}
         >🗑 Usuń</button>
+      )}
+      {editingSessionId && (
+        <button
+          onClick={() => {
+            const cur = { ...draft }
+            setEditingSessionId(null)
+            setDraftDate('')
+            setDraft({ ...cur, completed: false, actualDistance: '', actualDuration: '', actualPace: '', avgHr: '', maxHr: '' })
+          }}
+          className="px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer"
+          style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
+        >📋 Duplikuj</button>
       )}
       <Button className="flex-1" onClick={saveSession} disabled={!draft.title.trim() || saving}>
         {saving ? 'Zapisywanie...' : editingSessionId ? 'Zapisz zmiany' : 'Dodaj sesję'}
@@ -616,26 +653,39 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                         )}
                         {daySessions.map(session => (
                           <div key={session.id} onClick={() => openEditSession(session)}
-                            className={`p-2 rounded-xl cursor-pointer transition-opacity hover:opacity-80 ${typeClass(session.type)}`}
-                            style={typeStyle(session.type)}>
-                            <div className="font-semibold text-xs leading-tight mb-1">{session.title}</div>
+                            className={`relative p-2 rounded-xl cursor-pointer hover:opacity-80 ${typeClass(session.type)}`}
+                            style={{ ...typeStyle(session.type), ...completionStyle(session) }}>
+                            {!session.completed && (
+                              <button
+                                onClick={async e => {
+                                  e.stopPropagation()
+                                  await markSessionCompleted(session.id, athlete.id)
+                                  startTransition(() => router.refresh())
+                                }}
+                                className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs cursor-pointer opacity-60 hover:opacity-100"
+                                style={{ background: 'rgba(0,0,0,0.25)', color: 'white' }}
+                                title="Oznacz jako wykonaną"
+                              >✓</button>
+                            )}
+                            <div className="font-semibold text-xs leading-tight mb-1 pr-5">{session.title}</div>
                             {session.description && <div className="text-xs opacity-60 leading-tight mb-1">{session.description}</div>}
                             <div className="flex flex-col gap-0.5 text-xs opacity-75">
                               {session.planned_distance && <span>📏 {session.planned_distance} km</span>}
                               {session.planned_duration && <span>⏱ {session.planned_duration} min</span>}
                               {session.planned_pace && <span>⚡ {session.planned_pace}/km</span>}
                             </div>
+                            {session.actual_distance && (
+                              <div className="flex flex-col gap-0.5 text-xs mt-1" style={{ color: 'rgba(46,204,113,0.9)' }}>
+                                <span>✓ {session.actual_distance} km</span>
+                                {session.actual_pace && <span>⚡ {session.actual_pace}/km</span>}
+                              </div>
+                            )}
                             {session.url && (
                               <a href={session.url} target="_blank" rel="noopener noreferrer"
                                 onClick={e => e.stopPropagation()}
                                 className="flex items-center gap-1 mt-1.5 text-xs opacity-80 hover:opacity-100">
                                 🔗 <span className="underline">{session.url_label || 'Link'}</span>
                               </a>
-                            )}
-                            {session.completed && (
-                              <div className="mt-1.5">
-                                <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">✓</span>
-                              </div>
                             )}
                           </div>
                         ))}
@@ -701,23 +751,15 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                               {daySessions.slice(0, 3).map(s => (
                                 <div key={s.id} onClick={() => openEditSession(s)}
                                   className={`px-1.5 py-1 rounded-lg cursor-pointer hover:opacity-80 ${typeClass(s.type)}`}
-                                  style={typeStyle(s.type)}>
+                                  style={{ ...typeStyle(s.type), ...completionStyle(s) }}>
                                   <div className="text-xs font-semibold leading-tight">{s.title}</div>
-                                  {s.description && <div className="text-xs opacity-60 leading-tight mt-0.5">{s.description}</div>}
-                                  <div className="flex flex-wrap gap-x-2 mt-0.5" style={{ fontSize: '10px', opacity: 0.75 }}>
-                                    {s.planned_distance && <span>📏 {s.planned_distance}km</span>}
-                                    {s.planned_duration && <span>⏱ {s.planned_duration}min</span>}
-                                    {s.planned_pace && <span>⚡ {s.planned_pace}/km</span>}
-                                  </div>
-                                  {s.url && (
-                                    <a href={s.url} target="_blank" rel="noopener noreferrer"
-                                      onClick={e => e.stopPropagation()}
-                                      className="flex items-center gap-0.5 mt-0.5 underline opacity-80 hover:opacity-100"
-                                      style={{ fontSize: '10px' }}>
-                                      🔗 {s.url_label || 'Link'}
-                                    </a>
-                                  )}
-                                  {s.completed && <div className="text-green-400 mt-0.5" style={{ fontSize: '10px' }}>✓ wykonany</div>}
+                                  {s.completed && s.actual_distance
+                                    ? <div style={{ fontSize: '10px', color: 'rgba(46,204,113,0.9)' }}>✓ {s.actual_distance}km</div>
+                                    : <div className="flex flex-wrap gap-x-2 mt-0.5" style={{ fontSize: '10px', opacity: 0.75 }}>
+                                        {s.planned_distance && <span>📏 {s.planned_distance}km</span>}
+                                        {s.planned_duration && <span>⏱ {s.planned_duration}min</span>}
+                                      </div>
+                                  }
                                 </div>
                               ))}
                               {daySessions.length > 3 && <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>+{daySessions.length - 3} więcej</div>}
@@ -1381,6 +1423,66 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               <input value={draft.urlLabel} onChange={e => setDraft(d => ({ ...d, urlLabel: e.target.value }))}
                 placeholder="np. Plan treningu w TrainerRoad"
                 className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+            </div>
+          )}
+
+          {/* Wyniki — widoczne przy edycji lub nowej sesji na datę przeszłą */}
+          {(editingSessionId || (draftDate && draftDate < today)) && (
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+              <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Wyniki</div>
+              <button
+                type="button"
+                onClick={() => setDraft(d => ({ ...d, completed: !d.completed }))}
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer w-full mb-3"
+                style={{
+                  background: draft.completed ? 'rgba(46,204,113,0.12)' : 'var(--bg-elevated)',
+                  color: draft.completed ? '#2ECC71' : 'var(--text-muted)',
+                  border: `1px solid ${draft.completed ? 'rgba(46,204,113,0.3)' : 'var(--border-mid)'}`,
+                  justifyContent: 'flex-start',
+                }}
+              >
+                <span>{draft.completed ? '✅' : '○'}</span>
+                <span>Sesja wykonana</span>
+              </button>
+              {draft.completed && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Dystans rzeczywisty (km)</label>
+                    <input type="number" value={draft.actualDistance}
+                      onChange={e => setDraft(d => ({ ...d, actualDistance: e.target.value }))}
+                      placeholder="np. 10.2" min="0" step="0.1"
+                      className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Czas (min)</label>
+                    <input type="number" value={draft.actualDuration}
+                      onChange={e => setDraft(d => ({ ...d, actualDuration: e.target.value }))}
+                      placeholder="np. 65" min="0"
+                      className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Tempo (/km)</label>
+                    <input value={draft.actualPace}
+                      onChange={e => setDraft(d => ({ ...d, actualPace: e.target.value }))}
+                      placeholder="np. 5:20"
+                      className="w-full px-3 py-2 rounded-xl text-sm font-mono" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Tętno śr. (bpm)</label>
+                    <input type="number" value={draft.avgHr}
+                      onChange={e => setDraft(d => ({ ...d, avgHr: e.target.value }))}
+                      placeholder="np. 155" min="0"
+                      className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Tętno max (bpm)</label>
+                    <input type="number" value={draft.maxHr}
+                      onChange={e => setDraft(d => ({ ...d, maxHr: e.target.value }))}
+                      placeholder="np. 178" min="0"
+                      className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

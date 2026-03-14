@@ -18,6 +18,12 @@ export async function createSession(_: unknown, formData: FormData) {
   const plannedPace = formData.get('planned_pace') as string || null
   const url = formData.get('url') as string || null
   const urlLabel = formData.get('url_label') as string || null
+  const completed = formData.get('completed') === 'true'
+  const actualDistance = formData.get('actual_distance') ? parseFloat(formData.get('actual_distance') as string) : null
+  const actualDuration = formData.get('actual_duration') ? parseInt(formData.get('actual_duration') as string) : null
+  const actualPace = formData.get('actual_pace') as string || null
+  const avgHr = formData.get('avg_hr') ? parseFloat(formData.get('avg_hr') as string) : null
+  const maxHr = formData.get('max_hr') ? parseFloat(formData.get('max_hr') as string) : null
 
   if (!athleteId || !date || !type || !title) return { error: 'Brak wymaganych pól' }
 
@@ -33,12 +39,35 @@ export async function createSession(_: unknown, formData: FormData) {
     planned_pace: plannedPace,
     url,
     url_label: urlLabel,
+    completed,
+    actual_distance: actualDistance,
+    actual_duration: actualDuration,
+    actual_pace: actualPace,
+    avg_hr: avgHr,
+    max_hr: maxHr,
   }).select('id').single()
 
   if (error) return { error: error.message }
 
   revalidatePath(`/coach/athletes/${athleteId}`)
   return { success: true, id: data.id }
+}
+
+export async function markSessionCompleted(id: string, athleteId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Brak autoryzacji' }
+
+  const { error } = await supabase
+    .from('training_sessions')
+    .update({ completed: true })
+    .eq('id', id)
+    .eq('coach_id', user.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/coach/athletes/${athleteId}`)
+  return { success: true }
 }
 
 export async function updateSession(_: unknown, formData: FormData) {
