@@ -131,7 +131,7 @@ type DbRow = Record<string, any>
 
 type Package = { id: string; name: string; description: string | null; price: number }
 
-interface RaceDraft { name: string; date: string; distance: string; goalTime: string; notes: string }
+interface RaceDraft { name: string; date: string; distance: string; goalTime: string; result: string; status: string; notes: string }
 
 interface Props {
   athlete: DbRow
@@ -219,7 +219,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   // ── Races state ──
   const [raceModalOpen, setRaceModalOpen] = useState(false)
   const [editingRaceId, setEditingRaceId] = useState<string | null>(null)
-  const [raceDraft, setRaceDraft] = useState<RaceDraft>({ name: '', date: '', distance: '', goalTime: '', notes: '' })
+  const [raceDraft, setRaceDraft] = useState<RaceDraft>({ name: '', date: '', distance: '', goalTime: '', result: '', status: 'planned', notes: '' })
   const [raceSaving, setRaceSaving] = useState(false)
   const [confirmDeleteRaceId, setConfirmDeleteRaceId] = useState<string | null>(null)
   const [dataSaving, setDataSaving] = useState(false)
@@ -246,14 +246,17 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     const reply = replyTexts[fbId]?.trim()
     if (!reply || replyingSaving) return
     setReplyingSaving(fbId)
-    const fd = new FormData()
-    fd.set('id', fbId)
-    fd.set('reply', reply)
-    fd.set('athlete_id', athlete.id)
-    await replyFeedback(null, fd)
-    setReplyTexts(prev => ({ ...prev, [fbId]: '' }))
-    setReplyingSaving(null)
-    startTransition(() => router.refresh())
+    try {
+      const fd = new FormData()
+      fd.set('id', fbId)
+      fd.set('reply', reply)
+      fd.set('athlete_id', athlete.id)
+      await replyFeedback(null, fd)
+      setReplyTexts(prev => ({ ...prev, [fbId]: '' }))
+      startTransition(() => router.refresh())
+    } finally {
+      setReplyingSaving(null)
+    }
   }
 
   // ── Personal bests state ──
@@ -456,13 +459,13 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
   // ── Race handlers ──
   function openNewRace() {
-    setRaceDraft({ name: '', date: '', distance: '', goalTime: '', notes: '' })
+    setRaceDraft({ name: '', date: '', distance: '', goalTime: '', result: '', status: 'planned', notes: '' })
     setEditingRaceId(null)
     setRaceModalOpen(true)
   }
 
   function openEditRace(race: DbRow) {
-    setRaceDraft({ name: race.name, date: race.date, distance: race.distance ?? '', goalTime: race.goal_time ?? '', notes: race.notes ?? '' })
+    setRaceDraft({ name: race.name, date: race.date, distance: race.distance ?? '', goalTime: race.goal_time ?? '', result: race.result ?? '', status: race.status ?? 'planned', notes: race.notes ?? '' })
     setEditingRaceId(race.id)
     setRaceModalOpen(true)
   }
@@ -476,6 +479,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     fd.set('date', raceDraft.date)
     fd.set('distance', raceDraft.distance)
     fd.set('goal_time', raceDraft.goalTime)
+    fd.set('result', raceDraft.result)
+    fd.set('status', raceDraft.status)
     fd.set('notes', raceDraft.notes)
     if (editingRaceId) {
       fd.set('id', editingRaceId)
@@ -1235,62 +1240,116 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         )}
 
         {/* ── Zawody ── */}
-        {activeTab === 'races' && (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">🏁 Planowane starty</h3>
-              <button
-                onClick={openNewRace}
-                className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
-                style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
-              >+ Dodaj start</button>
-            </div>
-            {initialRaces.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-4xl mb-3">🏁</div>
-                <div className="text-sm font-medium mb-1">Brak zaplanowanych startów</div>
-                <div className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-                  Dodaj nadchodzące zawody, aby śledzić cele i przygotowania zawodnika
+        {activeTab === 'races' && (() => {
+          const today = toISODate(new Date())
+          const upcomingRaces = initialRaces.filter(r => r.date >= today)
+          const pastRaces = initialRaces.filter(r => r.date < today).slice().reverse()
+          const statusInfo: Record<string, { label: string; color: string }> = {
+            planned: { label: 'Planowany', color: 'var(--text-muted)' },
+            completed: { label: 'Ukończony', color: '#2ECC71' },
+            dns: { label: 'DNS', color: '#E74C3C' },
+            dnf: { label: 'DNF', color: '#F39C12' },
+          }
+          return (
+            <div className="space-y-4">
+              <Card className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold">🏁 Nadchodzące starty</h3>
+                  <button onClick={openNewRace}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                    style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+                    + Dodaj start
+                  </button>
                 </div>
-                <button onClick={openNewRace}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
-                  style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-                  + Dodaj pierwszy start
-                </button>
-              </div>
-            ) : (
-              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
-                      {['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Notatki', ''].map(h => (
-                        <th key={h} className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {initialRaces.map((race, i) => (
-                      <tr key={race.id} style={{ borderBottom: i < initialRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
-                        <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
-                          {formatDate(race.date, { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </td>
-                        <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
-                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
-                        <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
-                        <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>{race.notes || '—'}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button onClick={() => openEditRace(race)}
-                            className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
-                            style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>✏️</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-        )}
+                {upcomingRaces.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="text-3xl mb-2">🏁</div>
+                    <div className="text-sm font-medium mb-1">Brak nadchodzących startów</div>
+                    <div className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+                      Dodaj zawody, aby śledzić cele i przygotowania zawodnika
+                    </div>
+                    <button onClick={openNewRace}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                      style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+                      + Dodaj pierwszy start
+                    </button>
+                  </div>
+                ) : (
+                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+                          {['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Notatki', ''].map(h => (
+                            <th key={h} className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {upcomingRaces.map((race, i) => (
+                          <tr key={race.id} style={{ borderBottom: i < upcomingRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
+                            <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                              {formatDate(race.date, { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </td>
+                            <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
+                            <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
+                            <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
+                            <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--text-muted)' }}>{race.notes || '—'}</td>
+                            <td className="px-4 py-3 text-right">
+                              <button onClick={() => openEditRace(race)}
+                                className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
+                                style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>✏️</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+
+              {pastRaces.length > 0 && (
+                <Card className="p-5">
+                  <h3 className="font-semibold mb-4">📋 Historia startów</h3>
+                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+                          {['Data', 'Zawody', 'Dystans', 'Wynik', 'Status', ''].map(h => (
+                            <th key={h} className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pastRaces.map((race, i) => {
+                          const st = statusInfo[race.status ?? 'planned'] ?? statusInfo.planned
+                          return (
+                            <tr key={race.id} style={{ borderBottom: i < pastRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
+                              <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                                {formatDate(race.date, { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </td>
+                              <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
+                              <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
+                              <td className="px-4 py-3 text-xs font-mono">{race.result || '—'}</td>
+                              <td className="px-4 py-3 text-xs">
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium"
+                                  style={{ background: `${st.color}22`, color: st.color }}>{st.label}</span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <button onClick={() => openEditRace(race)}
+                                  className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
+                                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>✏️</button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
+            </div>
+          )
+        })()}
 
         {/* ── Notatki ── */}
         {activeTab === 'notes' && (
@@ -1394,7 +1453,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       <Modal
         open={raceModalOpen}
         onClose={() => { setRaceModalOpen(false); setConfirmDeleteRaceId(null) }}
-        title={editingRaceId ? 'Edytuj start' : 'Nowy planowany start'}
+        title={editingRaceId ? 'Edytuj start' : 'Nowy start'}
         footer={
           <div className="flex gap-3">
             {editingRaceId && (
@@ -1427,25 +1486,45 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               placeholder="np. Maraton Warszawski 2026"
               className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
           </div>
-          <div>
-            <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Data *</label>
-            <input type="date" value={raceDraft.date} onChange={e => setRaceDraft(d => ({ ...d, date: e.target.value }))}
-              className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-          </div>
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Data *</label>
+              <input type="date" value={raceDraft.date} onChange={e => setRaceDraft(d => ({ ...d, date: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+            </div>
             <div>
               <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Dystans</label>
               <input value={raceDraft.distance} onChange={e => setRaceDraft(d => ({ ...d, distance: e.target.value }))}
                 placeholder="np. Maraton, 10 km"
                 className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Cel czasowy</label>
               <input value={raceDraft.goalTime} onChange={e => setRaceDraft(d => ({ ...d, goalTime: e.target.value }))}
                 placeholder="np. 3:30:00"
                 className="w-full px-3 py-2 rounded-xl text-sm font-mono" style={inputStyle} />
             </div>
+            <div>
+              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Status</label>
+              <select value={raceDraft.status} onChange={e => setRaceDraft(d => ({ ...d, status: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle}>
+                <option value="planned">Planowany</option>
+                <option value="completed">Ukończony</option>
+                <option value="dns">DNS</option>
+                <option value="dnf">DNF</option>
+              </select>
+            </div>
           </div>
+          {raceDraft.status === 'completed' && (
+            <div>
+              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Wynik</label>
+              <input value={raceDraft.result} onChange={e => setRaceDraft(d => ({ ...d, result: e.target.value }))}
+                placeholder="np. 3:24:15"
+                className="w-full px-3 py-2 rounded-xl text-sm font-mono" style={inputStyle} />
+            </div>
+          )}
           <div>
             <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Notatki</label>
             <textarea value={raceDraft.notes} onChange={e => setRaceDraft(d => ({ ...d, notes: e.target.value }))}

@@ -13,6 +13,8 @@ export async function createRace(_: unknown, formData: FormData) {
   const date = formData.get('date') as string
   const distance = formData.get('distance') as string || null
   const goalTime = formData.get('goal_time') as string || null
+  const result = formData.get('result') as string || null
+  const status = formData.get('status') as string || 'planned'
   const notes = formData.get('notes') as string || null
 
   if (!athleteId || !name || !date) return { error: 'Brak wymaganych pól' }
@@ -24,6 +26,8 @@ export async function createRace(_: unknown, formData: FormData) {
     date,
     distance,
     goal_time: goalTime,
+    result,
+    status,
     notes,
   })
 
@@ -46,6 +50,8 @@ export async function updateRace(_: unknown, formData: FormData) {
     date: formData.get('date') as string,
     distance: formData.get('distance') as string || null,
     goal_time: formData.get('goal_time') as string || null,
+    result: formData.get('result') as string || null,
+    status: formData.get('status') as string || 'planned',
     notes: formData.get('notes') as string || null,
   }).eq('id', id).eq('coach_id', user.id)
 
