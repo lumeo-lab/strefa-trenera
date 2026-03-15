@@ -1,15 +1,13 @@
 'use client'
 
-import { useState, useRef, startTransition } from 'react'
+import { useState, startTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Modal } from '@/components/ui/Modal'
-import { Button } from '@/components/ui/Button'
-import { intensityColor, sessionTypeLabel, formatDate, getWeekDays, toISODate } from '@/lib/utils'
+import { intensityColor, sessionTypeLabel, getWeekDays, toISODate } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
-import { createFeedback, updateFeedback } from '@/lib/actions/feedback'
 import { PWAInstallBanner } from '@/components/ui/PWAInstallBanner'
 import { DbRow } from '@/lib/types'
+import { FeedbackModal, FeedbackData, dbRowToFeedback } from './FeedbackModal'
 
 interface Props {
   athlete: AthleteSession
@@ -37,46 +35,8 @@ function fullDate(dateStr: string): string {
   return new Date(y, m - 1, d).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-const FEELINGS = [
-  { emoji: '😫', label: 'Fatalnie' },
-  { emoji: '😕', label: 'Słabo' },
-  { emoji: '😐', label: 'Średnio' },
-  { emoji: '😊', label: 'Dobrze' },
-  { emoji: '🤩', label: 'Świetnie' },
-]
-const FEELING_LABEL: Record<string, string> = Object.fromEntries(FEELINGS.map(f => [f.emoji, f.label]))
-const INTENSITIES = ['Bardzo lekki', 'Lekki', 'Umiarkowany', 'Ciężki', 'Bardzo ciężki', 'Maksymalny']
-const TRAINING_TYPES = ['Easy / Rozbieganie', 'Interwały', 'Tempo', 'Long Run', 'Siłownia', 'Crosstraining', 'Inny']
-const INPUT_STYLE = { background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }
-
-interface FeedbackData {
-  feeling?: string
-  trainingType?: string
-  distanceKm?: string
-  durationMin?: string
-  intensity?: string
-  notes?: string
-  voiceTranscript?: string
-  watchLink?: string
-}
-
-function parseTranscript(t: string): FeedbackData {
-  const r: FeedbackData = {}
-  for (const part of t.split(' | ')) {
-    if (part.startsWith('Samopoczucie: ')) r.feeling = part.slice(14)
-    else if (part.startsWith('Typ: ')) r.trainingType = part.slice(5)
-    else if (part.startsWith('Dystans: ')) r.distanceKm = part.slice(9).replace(' km', '')
-    else if (part.startsWith('Czas: ')) r.durationMin = part.slice(6).replace(' min', '')
-    else if (part.startsWith('Intensywność: ')) r.intensity = part.slice(14)
-    else if (part.startsWith('Notatka: ')) r.notes = part.slice(9)
-  }
-  return r
-}
-
-function dbRowToFeedback(fb: DbRow): FeedbackData {
-  const voice = fb.ai_analysis || (fb.source === 'voice' ? fb.transcript : '') || ''
-  const textSummary = fb.source !== 'voice' ? (fb.transcript ?? '') : ''
-  return { ...parseTranscript(textSummary), voiceTranscript: voice || undefined, watchLink: fb.watch_link || undefined }
+const FEELING_LABEL: Record<string, string> = {
+  '😫': 'Fatalnie', '😕': 'Słabo', '😐': 'Średnio', '😊': 'Dobrze', '🤩': 'Świetnie',
 }
 
 function TextFeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit: () => void }) {
@@ -139,20 +99,8 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
   const [optimisticVoiceFeedback, setOptimisticVoiceFeedback] = useState<FeedbackData | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [feedbackType, setFeedbackType] = useState<'text' | 'voice'>('text')
-  const [submitting, setSubmitting] = useState(false)
-
-  const [feeling, setFeeling] = useState('')
-  const [trainingType, setTrainingType] = useState('')
-  const [distanceKm, setDistanceKm] = useState('')
-  const [durationMin, setDurationMin] = useState('')
-  const [intensity, setIntensity] = useState('')
-  const [notes, setNotes] = useState('')
-  const [watchLink, setWatchLink] = useState('')
-  const [recording, setRecording] = useState(false)
-  const [recorded, setRecorded] = useState(false)
-  const [voiceTranscript, setVoiceTranscript] = useState('')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null)
+  const [modalKey, setModalKey] = useState(0)
+  const [modalInitialData, setModalInitialData] = useState<FeedbackData | null>(null)
 
   const daySession = sessions.find(s => s.date === selectedDate)
   const dayFeedbacks = feedbacks[selectedDate] ?? { text: null, voice: null }
@@ -167,8 +115,6 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
   function resetDayState() {
     setOptimisticTextFeedback(null)
     setOptimisticVoiceFeedback(null)
-    setRecorded(false)
-    setVoiceTranscript('')
   }
 
   function navigate(delta: number) {
@@ -183,138 +129,27 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
 
   function openModal(type: 'text' | 'voice', editing: boolean) {
     setFeedbackType(type)
+    let initial: FeedbackData | null = null
     if (editing) {
       const fb = type === 'text' ? textFeedback : voiceFeedback
       if (fb) {
-        const fd = dbRowToFeedback(fb)
-        if (type === 'text') {
-          setFeeling(fd.feeling ?? '')
-          setTrainingType(fd.trainingType ?? '')
-          setDistanceKm(fd.distanceKm ?? '')
-          setDurationMin(fd.durationMin ?? '')
-          setIntensity(fd.intensity ?? '')
-          setNotes(fd.notes ?? '')
-          setWatchLink(fd.watchLink ?? '')
-        } else {
-          setVoiceTranscript(fd.voiceTranscript ?? '')
-          setRecorded(!!(fd.voiceTranscript))
-        }
-      }
-    } else {
-      if (type === 'text') {
-        setFeeling(''); setTrainingType(''); setDistanceKm('')
-        setDurationMin(''); setIntensity(''); setNotes('')
-        setWatchLink('')
-      } else {
-        setVoiceTranscript('')
-        setRecorded(false)
+        initial = dbRowToFeedback(fb)
       }
     }
+    setModalInitialData(initial)
+    setModalKey(k => k + 1)
     setFeedbackOpen(true)
   }
 
-  async function submitFeedback() {
-    if (submitting) return
-    setSubmitting(true)
-    try {
-      const fd = new FormData()
-      fd.set('athlete_id', athlete.id)
-      fd.set('coach_id', athlete.coach_id)
-      fd.set('slug', athlete.slug)
-      fd.set('date', selectedDate)
-      if (daySession?.id) fd.set('session_id', daySession.id)
-
-      if (feedbackType === 'text') {
-        fd.set('feeling', feeling)
-        fd.set('training_type', trainingType)
-        fd.set('distance_km', distanceKm)
-        fd.set('duration_min', durationMin)
-        fd.set('intensity', intensity)
-        fd.set('notes', notes)
-        fd.set('watch_link', watchLink)
-        fd.set('voice_transcript', '')
-      } else {
-        fd.set('feeling', '')
-        fd.set('training_type', '')
-        fd.set('distance_km', '')
-        fd.set('duration_min', '')
-        fd.set('intensity', '')
-        fd.set('notes', '')
-        fd.set('watch_link', '')
-        fd.set('voice_transcript', voiceTranscript)
-      }
-
-      let result
-      const existingId = feedbackType === 'text' ? textFeedback?.id : voiceFeedback?.id
-      if (existingId) {
-        fd.set('id', existingId)
-        result = await updateFeedback(fd)
-      } else {
-        result = await createFeedback(fd)
-      }
-
-      if (result?.error) { alert('Błąd zapisu: ' + result.error); return }
-
-      if (feedbackType === 'text') {
-        setOptimisticTextFeedback({ feeling, trainingType, distanceKm, durationMin, intensity, notes, watchLink: watchLink || undefined })
-      } else {
-        setOptimisticVoiceFeedback({ voiceTranscript: voiceTranscript || undefined })
-      }
-      setFeedbackOpen(false)
-      setRecorded(false)
-      setVoiceTranscript('')
-      startTransition(() => router.refresh())
-    } finally {
-      setSubmitting(false)
+  function handleSubmitted(feedbackData: FeedbackData, type: 'text' | 'voice') {
+    if (type === 'text') {
+      setOptimisticTextFeedback(feedbackData)
+    } else {
+      setOptimisticVoiceFeedback(feedbackData)
     }
+    setFeedbackOpen(false)
+    startTransition(() => router.refresh())
   }
-
-  async function handleRecord() {
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true })
-    } catch {
-      alert('Brak dostępu do mikrofonu. Zezwól na dostęp w ustawieniach przeglądarki.')
-      return
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SR) {
-      alert('Twoja przeglądarka nie obsługuje nagrywania głosu. Użyj Chrome na Androidzie lub Safari na iOS.')
-      return
-    }
-    const recognition = new SR()
-    recognition.lang = 'pl-PL'
-    recognition.continuous = true
-    recognition.interimResults = true
-    recognitionRef.current = recognition
-    setVoiceTranscript('')
-    setRecording(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (e: any) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const text = Array.from(e.results).map((r: any) => r[0].transcript).join(' ')
-      setVoiceTranscript(text)
-    }
-    recognition.onend = () => { setRecording(false); setRecorded(true) }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onerror = (e: any) => {
-      setRecording(false)
-      if (e.error !== 'aborted') alert('Błąd nagrywania. Sprawdź uprawnienia mikrofonu.')
-    }
-    try { recognition.start() } catch { setRecording(false); alert('Nie można uruchomić nagrywania.') }
-  }
-
-  function stopRecord() { recognitionRef.current?.stop() }
-
-  const canSaveText = !!(feeling || trainingType || distanceKm || durationMin || intensity || notes.trim() || watchLink.trim())
-  const canSaveVoice = !!(voiceTranscript.trim())
-
-  const modalFooter = (
-    <Button className="w-full" onClick={submitFeedback}
-      disabled={(feedbackType === 'text' ? !canSaveText : !canSaveVoice) || submitting}>
-      {submitting ? 'Zapisywanie...' : 'Zapisz'}
-    </Button>
-  )
 
   return (
     <div style={{ color: 'var(--text-primary)', paddingBottom: '90px' }}>
@@ -471,153 +306,21 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
       </div>
 
       {/* Feedback Modal */}
-      <Modal open={feedbackOpen} onClose={() => setFeedbackOpen(false)}
-        title={feedbackType === 'text' ? 'Feedback po treningu' : 'Komentarz głosowy'}
-        size="sm" footer={modalFooter}>
-        <div className="space-y-4">
-          {feedbackType === 'text' && (
-            <>
-              {/* Feeling */}
-              <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Samopoczucie</label>
-                <div className="flex gap-1.5">
-                  {FEELINGS.map(f => (
-                    <button key={f.emoji} onClick={() => setFeeling(feeling === f.emoji ? '' : f.emoji)}
-                      className="flex-1 flex flex-col items-center gap-0.5 py-2 rounded-xl cursor-pointer transition-all"
-                      style={{
-                        background: feeling === f.emoji ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                        border: feeling === f.emoji ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
-                        color: feeling === f.emoji ? '#FF5C1B' : 'var(--text-muted)',
-                      }}>
-                      <span className="text-2xl">{f.emoji}</span>
-                      <span style={{ fontSize: '10px' }}>{f.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Training type */}
-              <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Rodzaj treningu</label>
-                <select value={trainingType} onChange={e => setTrainingType(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm cursor-pointer" style={INPUT_STYLE}>
-                  <option value="">— wybierz —</option>
-                  {TRAINING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-
-              {/* Distance + duration */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Dystans (km)</label>
-                  <input type="number" value={distanceKm} onChange={e => setDistanceKm(e.target.value)}
-                    placeholder="np. 10.5" min="0" step="0.1"
-                    className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Czas (min)</label>
-                  <input type="number" value={durationMin} onChange={e => setDurationMin(e.target.value)}
-                    placeholder="np. 55" min="0"
-                    className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
-                </div>
-              </div>
-
-              {/* Intensity */}
-              <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Jak ciężki był trening?</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {INTENSITIES.map(lvl => (
-                    <button key={lvl} onClick={() => setIntensity(intensity === lvl ? '' : lvl)}
-                      className="py-2 px-1 rounded-xl text-xs font-medium cursor-pointer transition-all text-center"
-                      style={{
-                        background: intensity === lvl ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                        border: intensity === lvl ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
-                        color: intensity === lvl ? '#FF5C1B' : 'var(--text-muted)',
-                      }}>{lvl}</button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Notatki (opcjonalnie)</label>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)}
-                  placeholder="Jak poszedł trening?" rows={2}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm resize-none" style={INPUT_STYLE} />
-              </div>
-
-              {/* Watch link */}
-              <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>⌚ Link z zegarka (opcjonalnie)</label>
-                <input
-                  type="url"
-                  value={watchLink}
-                  onChange={e => setWatchLink(e.target.value)}
-                  placeholder="np. https://connect.garmin.com/..."
-                  className="w-full px-3 py-2.5 rounded-xl text-sm"
-                  style={INPUT_STYLE}
-                />
-              </div>
-            </>
-          )}
-
-          {feedbackType === 'voice' && (
-            <>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                Nagraj krótki komentarz głosowy do swojego treningu. Zostanie on przekazany trenerowi.
-              </p>
-
-              {/* Voice: idle */}
-              {!recording && !recorded && (
-                <button onClick={handleRecord}
-                  className="w-full py-4 rounded-xl text-sm font-medium cursor-pointer flex items-center justify-center gap-2"
-                  style={{ background: 'var(--bg-subtle)', border: '1px dashed var(--border-mid)', color: 'var(--text-muted)' }}>
-                  🎤 Naciśnij, aby nagrać
-                </button>
-              )}
-
-              {/* Voice: recording */}
-              {recording && (
-                <div className="rounded-xl p-3 space-y-2" style={{ background: 'rgba(231,76,60,0.06)', border: '1px solid rgba(231,76,60,0.3)' }}>
-                  <div className="flex items-center gap-2">
-                    <span className="animate-pulse text-sm">🔴</span>
-                    <span className="text-sm font-medium" style={{ color: '#E74C3C' }}>Nagrywam...</span>
-                    <button onClick={stopRecord}
-                      className="ml-auto text-xs px-3 py-1 rounded-lg cursor-pointer font-medium"
-                      style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>
-                      ⏹ Zatrzymaj
-                    </button>
-                  </div>
-                  {voiceTranscript && (
-                    <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>{voiceTranscript}</p>
-                  )}
-                </div>
-              )}
-
-              {/* Voice: recorded — editable */}
-              {recorded && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-green-400">✓ Nagranie gotowe — możesz poprawić tekst</span>
-                    <button onClick={() => { setRecorded(false); setVoiceTranscript('') }}
-                      className="text-xs cursor-pointer" style={{ color: 'var(--text-muted)', background: 'none', border: 'none' }}>
-                      🔄 Nagraj ponownie
-                    </button>
-                  </div>
-                  <textarea
-                    value={voiceTranscript}
-                    onChange={e => setVoiceTranscript(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2.5 rounded-xl text-sm resize-none"
-                    style={INPUT_STYLE}
-                    placeholder="Transkrypcja nagrania..."
-                  />
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </Modal>
+      <FeedbackModal
+        key={modalKey}
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        feedbackType={feedbackType}
+        sessionId={daySession?.id ?? null}
+        athleteId={athlete.id}
+        coachId={athlete.coach_id}
+        slug={athlete.slug}
+        date={selectedDate}
+        existingTextFeedback={textFeedback}
+        existingVoiceFeedback={voiceFeedback}
+        initialData={modalInitialData}
+        onSubmitted={handleSubmitted}
+      />
 
       <PWAInstallBanner />
       <AthleteBottomNav slug={athlete.slug} />

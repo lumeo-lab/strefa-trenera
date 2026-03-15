@@ -1,104 +1,22 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
-import { Avatar } from '@/components/ui/Avatar'
 import { Modal } from '@/components/ui/Modal'
-import { formatCurrency, sessionTypeLabel, intensityColor, timeAgo, daysUntil, plural } from '@/lib/utils'
+import { formatCurrency, plural } from '@/lib/utils'
 import Link from 'next/link'
 
+import {
+  useDashboardPrefs,
+  DEFAULT_PREFS, KPI_META, SECTION_META, SECTION_COL, SETTINGS_GROUPS,
+  type KpiId, type SectionId,
+} from './useDashboardPrefs'
 
-const SIGNAL_COLOR: Record<string, string> = { green: '#2ECC71', yellow: '#F1C40F', red: '#E74C3C' }
-
-const ATHLETE_STATUS_INFO: Record<string, { label: string; color: string; bg: string }> = {
-  alert:   { label: 'Alert',  color: '#E74C3C', bg: 'rgba(231,76,60,0.1)' },
-  warning: { label: 'Uwaga',  color: '#F39C12', bg: 'rgba(243,156,18,0.1)' },
-}
-
-const INVOICE_STATUS_INFO: Record<string, { label: string; color: string }> = {
-  pending:   { label: 'Oczekuje', color: '#F1C40F' },
-  paid:      { label: 'Opłacona', color: '#2ECC71' },
-  overdue:   { label: 'Zaległa',  color: '#E74C3C' },
-  cancelled: { label: 'Anulowana', color: '#8A92A8' },
-}
-
-// ── Prefs types & constants ───────────────────────────────────────────────────
-
-const STORAGE_KEY = 'dashboard-prefs-v1'
-
-type KpiId = 'athletes' | 'feedback' | 'revenue' | 'payments'
-type SectionId =
-  | 'week_summary' | 'today_plan' | 'messages' | 'alerts' | 'no_sessions_week'
-  | 'feedback_list' | 'upcoming_races' | 'recent_athletes' | 'recent_invoices'
-
-type Prefs = {
-  kpi: { id: KpiId; visible: boolean }[]
-  sections: { id: SectionId; visible: boolean }[]
-}
-
-const DEFAULT_PREFS: Prefs = {
-  kpi: [
-    { id: 'athletes', visible: true },
-    { id: 'feedback', visible: true },
-    { id: 'revenue', visible: true },
-    { id: 'payments', visible: true },
-  ],
-  sections: [
-    { id: 'week_summary', visible: true },
-    { id: 'today_plan', visible: true },
-    { id: 'messages', visible: true },
-    { id: 'alerts', visible: true },
-    { id: 'no_sessions_week', visible: false },
-    { id: 'feedback_list', visible: true },
-    { id: 'upcoming_races', visible: true },
-    { id: 'recent_athletes', visible: false },
-    { id: 'recent_invoices', visible: false },
-  ],
-}
-
-const SECTION_COL: Record<SectionId, 'full' | 'left' | 'right'> = {
-  week_summary: 'full',
-  today_plan: 'left', messages: 'left', alerts: 'left', no_sessions_week: 'left',
-  feedback_list: 'right', upcoming_races: 'right', recent_athletes: 'right', recent_invoices: 'right',
-}
-
-const KPI_META: Record<KpiId, { label: string; icon: string }> = {
-  athletes: { label: 'Aktywni zawodnicy',      icon: '👟' },
-  feedback: { label: 'Nieprzeczytany feedback', icon: '📥' },
-  revenue:  { label: 'Przychód miesięczny',     icon: '💰' },
-  payments: { label: 'Oczekujące płatności',    icon: '💳' },
-}
-
-const SECTION_META: Record<SectionId, { label: string; icon: string; desc: string }> = {
-  week_summary:     { label: 'Podsumowanie tygodnia',     icon: '📊', desc: 'Pasek postępu bieżącego tygodnia' },
-  today_plan:       { label: 'Dziś w planie',             icon: '📅', desc: 'Sesje zaplanowane na dziś' },
-  messages:         { label: 'Ostatnie wiadomości',       icon: '💬', desc: 'Wiadomości od zawodników' },
-  alerts:           { label: 'Wymagają uwagi',            icon: '⚠️', desc: 'Zawodnicy z alertem lub ostrzeżeniem' },
-  no_sessions_week: { label: 'Bez planu w tygodniu',      icon: '🔴', desc: 'Zawodnicy bez sesji w tym tygodniu' },
-  feedback_list:    { label: 'Nieprzeczytany feedback',   icon: '📥', desc: 'Lista nieprzeczytanych feedbacków' },
-  upcoming_races:   { label: 'Nadchodzące zawody',        icon: '🏁', desc: 'Starty w ciągu 14 dni' },
-  recent_athletes:  { label: 'Ostatnio dodani zawodnicy', icon: '👤', desc: 'Nowi zawodnicy w systemie' },
-  recent_invoices:  { label: 'Ostatnie faktury',          icon: '🧾', desc: 'Ostatnio wystawione faktury' },
-}
-
-const SETTINGS_GROUPS: { label: string; col: 'kpi' | 'full' | 'left' | 'right' }[] = [
-  { label: 'KPI karty', col: 'kpi' },
-  { label: 'Pełna szerokość', col: 'full' },
-  { label: 'Lewa kolumna', col: 'left' },
-  { label: 'Prawa kolumna', col: 'right' },
-]
-
-// ── mergeWithDefaults ─────────────────────────────────────────────────────────
-
-function mergeWithDefaults(saved: Partial<Prefs>): Prefs {
-  function merge<T extends { id: string }>(savedArr: T[] | undefined, defaults: T[]): T[] {
-    const s = (savedArr ?? []).filter(x => defaults.some(d => d.id === x.id))
-    const ids = new Set(s.map(x => x.id))
-    return [...s, ...defaults.filter(d => !ids.has(d.id))]
-  }
-  return { kpi: merge(saved.kpi, DEFAULT_PREFS.kpi), sections: merge(saved.sections, DEFAULT_PREFS.sections) }
-}
+import { WeekSummarySection, TodayPlanSection } from './sections/TodaySections'
+import { MessagesSection, FeedbackListSection } from './sections/CommunicationSections'
+import { AlertsSection, NoSessionsSection, RecentAthletesSection } from './sections/AthleteSections'
+import { UpcomingRacesSection, RecentInvoicesSection } from './sections/FinanceRaceSections'
 
 // ── SettingsRow ───────────────────────────────────────────────────────────────
 
@@ -168,54 +86,13 @@ export function DashboardClient({
   pendingAmount, overdueAmount, alertAthletes, weekStats,
 }: Props) {
 
-  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [hintDismissed, setHintDismissed] = useState(true)
-
-  useEffect(() => {
-    try {
-      const s = localStorage.getItem(STORAGE_KEY)
-      if (s) setPrefs(mergeWithDefaults(JSON.parse(s)))
-      setHintDismissed(!!localStorage.getItem('dashboard-hint-dismissed'))
-    } catch { /* ignore */ }
-  }, [])
-
-  function savePrefs(next: Prefs) {
-    setPrefs(next)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  }
-
-  function toggleKpi(id: KpiId) {
-    savePrefs({ ...prefs, kpi: prefs.kpi.map(k => k.id === id ? { ...k, visible: !k.visible } : k) })
-  }
-  function toggleSection(id: SectionId) {
-    savePrefs({ ...prefs, sections: prefs.sections.map(s => s.id === id ? { ...s, visible: !s.visible } : s) })
-  }
-  function moveKpi(id: KpiId, dir: -1 | 1) {
-    const arr = [...prefs.kpi]
-    const idx = arr.findIndex(k => k.id === id)
-    const ti = idx + dir
-    if (ti < 0 || ti >= arr.length) return
-    ;[arr[idx], arr[ti]] = [arr[ti], arr[idx]]
-    savePrefs({ ...prefs, kpi: arr })
-  }
-  function moveSection(id: SectionId, dir: -1 | 1) {
-    const col = SECTION_COL[id]
-    const arr = [...prefs.sections]
-    const colItems = arr.map((s, i) => ({ ...s, i })).filter(s => SECTION_COL[s.id] === col)
-    const ci = colItems.findIndex(s => s.id === id)
-    const ti = ci + dir
-    if (ti < 0 || ti >= colItems.length) return
-    ;[arr[colItems[ci].i], arr[colItems[ti].i]] = [arr[colItems[ti].i], arr[colItems[ci].i]]
-    savePrefs({ ...prefs, sections: arr })
-  }
-
-  // Derived
-  const visibleKpi = prefs.kpi.filter(k => k.visible)
-  const visibleSections = prefs.sections.filter(s => s.visible)
-  const fullSections = visibleSections.filter(s => SECTION_COL[s.id] === 'full')
-  const leftSections = visibleSections.filter(s => SECTION_COL[s.id] === 'left')
-  const rightSections = visibleSections.filter(s => SECTION_COL[s.id] === 'right')
+  const {
+    prefs, savePrefs,
+    settingsOpen, setSettingsOpen,
+    hintDismissed, dismissHint,
+    toggleKpi, toggleSection, moveKpi, moveSection,
+    visibleKpi, fullSections, leftSections, rightSections,
+  } = useDashboardPrefs()
 
   const weekAthleteIds = useMemo(
     () => new Set(weekSessions.map((s: { athlete_id?: string }) => s.athlete_id).filter(Boolean)),
@@ -231,7 +108,7 @@ export function DashboardClient({
     [allAthletes],
   )
 
-  // ── Section renderers ─────────────────────────────────────────────────────
+  // ── KPI renderer ──────────────────────────────────────────────────────────
 
   function renderKpi(id: KpiId) {
     switch (id) {
@@ -296,310 +173,19 @@ export function DashboardClient({
     }
   }
 
+  // ── Section renderer ──────────────────────────────────────────────────────
+
   function renderSection(id: SectionId) {
     switch (id) {
-
-      case 'week_summary':
-        return weekStats.total > 0 ? (
-          <Card className="px-5 py-3">
-            <div className="flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="font-semibold" style={{ color: 'var(--text-muted)' }}>Ten tydzień:</span>
-              <span className="font-medium">{weekStats.total} {plural(weekStats.total, 'sesja', 'sesje', 'sesji')} w planie</span>
-              <span style={{ color: 'var(--border)' }}>·</span>
-              <span className="font-medium text-green-400">{weekStats.completed} ukończonych</span>
-              <span style={{ color: 'var(--border)' }}>·</span>
-              <span className="font-medium" style={{ color: weekStats.rate >= 70 ? '#2ECC71' : weekStats.rate >= 40 ? '#F1C40F' : '#E74C3C' }}>
-                {weekStats.rate}% realizacji
-              </span>
-              {weekStats.km > 0 && (
-                <>
-                  <span style={{ color: 'var(--border)' }}>·</span>
-                  <span className="font-medium">🏃 {weekStats.km.toFixed(0)} km</span>
-                </>
-              )}
-            </div>
-          </Card>
-        ) : null
-
-      case 'today_plan':
-        return (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Dziś w planie</h3>
-              <div className="flex items-center gap-2">
-                {sessions.length > 0 && (
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{todayCompleted}/{sessions.length} wykonane</span>
-                )}
-                <span className="text-xs px-2 py-1 rounded-lg" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
-                  {sessions.length} {plural(sessions.length, 'sesja', 'sesje', 'sesji')}
-                </span>
-              </div>
-            </div>
-            {sessions.length === 0 ? (
-              <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
-                <div className="text-3xl mb-2">🌿</div>
-                <div className="text-sm">Brak zaplanowanych sesji na dziś</div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {sessions.map((s: any) => {
-                  const ath = s.athletes as { name: string; avatar: string } | null
-                  return (
-                    <Link key={s.id} href={`/coach/athletes/${s.athlete_id}`}
-                      className="flex items-center gap-3 p-3 rounded-xl transition-opacity hover:opacity-80"
-                      style={{ background: 'var(--bg-elevated)' }}>
-                      <Avatar initials={ath?.avatar ?? '?'} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{ath?.name ?? '—'}</div>
-                        <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{s.title}</div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${intensityColor(s.type)}`}>
-                          {sessionTypeLabel(s.type)}
-                        </span>
-                        {s.planned_distance && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{s.planned_distance} km</span>}
-                        {s.completed ? <span className="text-xs text-green-400 font-bold">✓</span> : <span className="text-xs" style={{ color: 'var(--border)' }}>○</span>}
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-          </Card>
-        )
-
-      case 'messages':
-        return (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Ostatnie wiadomości</h3>
-              <Link href="/coach/chat" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Otwórz czat →</Link>
-            </div>
-            {messages.length === 0 ? (
-              <div className="text-center py-6" style={{ color: 'var(--text-muted)' }}>
-                <div className="text-2xl mb-2">💬</div>
-                <div className="text-sm">Brak nowych wiadomości</div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {messages.map((m: any) => {
-                  const ath = m.athletes as { name: string; avatar: string } | null
-                  return (
-                    <Link key={m.id} href={`/coach/chat?athlete=${m.athlete_id}`}
-                      className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
-                      style={{ background: 'var(--bg-elevated)' }}>
-                      <Avatar initials={ath?.avatar ?? '?'} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium">{ath?.name ?? '—'}</div>
-                        <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{m.content}</div>
-                      </div>
-                      <div className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>{timeAgo(m.created_at)}</div>
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-          </Card>
-        )
-
-      case 'alerts':
-        return alertAthletes.length > 0 ? (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Wymagają uwagi</h3>
-              <Link href="/coach/athletes" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Wszyscy →</Link>
-            </div>
-            <div className="space-y-2">
-              {alertAthletes.map((a: any) => {
-                const info = ATHLETE_STATUS_INFO[a.status]
-                return (
-                  <Link key={a.id} href={`/coach/athletes/${a.id}`}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
-                    style={{ background: 'var(--bg-elevated)' }}>
-                    <Avatar initials={a.avatar} size="sm" />
-                    <div className="flex-1 text-sm font-medium">{a.name}</div>
-                    {info && <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: info.bg, color: info.color }}>{info.label}</span>}
-                  </Link>
-                )
-              })}
-            </div>
-          </Card>
-        ) : null
-
-      case 'no_sessions_week':
-        return (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Bez planu w tygodniu</h3>
-              <span className="text-xs px-2 py-0.5 rounded-lg" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
-                {noSessionsAthletes.length}
-              </span>
-            </div>
-            {noSessionsAthletes.length === 0 ? (
-              <div className="text-center py-6 text-sm" style={{ color: 'var(--text-muted)' }}>
-                ✅ Wszyscy zawodnicy mają plan na ten tydzień
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {noSessionsAthletes.slice(0, 6).map((a: any) => (
-                  <Link key={a.id} href={`/coach/athletes/${a.id}`}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
-                    style={{ background: 'var(--bg-elevated)' }}>
-                    <Avatar initials={a.avatar} size="sm" />
-                    <div className="flex-1 text-sm font-medium">{a.name}</div>
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>brak sesji</span>
-                  </Link>
-                ))}
-                {noSessionsAthletes.length > 6 && (
-                  <div className="text-xs text-center pt-1" style={{ color: 'var(--text-muted)' }}>
-                    i {noSessionsAthletes.length - 6} więcej
-                  </div>
-                )}
-              </div>
-            )}
-          </Card>
-        )
-
-      case 'feedback_list':
-        return (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Nieprzeczytany feedback</h3>
-              <Link href="/coach/feedback" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Wszystkie →</Link>
-            </div>
-            {feedbacks.length === 0 ? (
-              <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
-                <div className="text-3xl mb-2">📥</div>
-                <div className="text-sm">Brak nieprzeczytanego feedbacku</div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {feedbacks.map((f: any) => {
-                  const ath = f.athletes as { name: string; avatar: string } | null
-                  const sigColor = SIGNAL_COLOR[f.signal] ?? '#6B7280'
-                  return (
-                    <Link key={f.id} href="/coach/feedback"
-                      className="block p-3 rounded-xl hover:opacity-80 transition-opacity"
-                      style={{ background: 'var(--bg-elevated)', borderLeft: `3px solid ${sigColor}` }}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <Avatar initials={ath?.avatar ?? '?'} size="sm" />
-                          <span className="text-sm font-medium">{ath?.name ?? '—'}</span>
-                        </div>
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{timeAgo(f.created_at)}</span>
-                      </div>
-                      {f.ai_summary && (
-                        <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{f.ai_summary}</p>
-                      )}
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-          </Card>
-        )
-
-      case 'upcoming_races':
-        return races.length > 0 ? (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Nadchodzące zawody</h3>
-              <span className="text-xs px-2 py-0.5 rounded-lg" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>14 dni</span>
-            </div>
-            <div className="space-y-2">
-              {races.map((race: any) => {
-                const ath = race.athletes as { name: string; avatar: string } | null
-                const { days } = daysUntil(race.date)
-                return (
-                  <Link key={race.id} href={`/coach/athletes/${race.athlete_id}`}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
-                    style={{ background: 'var(--bg-elevated)' }}>
-                    <Avatar initials={ath?.avatar ?? '?'} size="sm" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{ath?.name ?? '—'}</div>
-                      <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-                        {race.name}{race.distance ? ` · ${race.distance}` : ''}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-xs font-semibold" style={{ color: days === 0 ? '#E74C3C' : days <= 3 ? '#F39C12' : days <= 7 ? '#F1C40F' : 'var(--text-muted)' }}>
-                        {days === 0 ? 'Dziś!' : days === 1 ? 'Jutro' : `za ${days} dni`}
-                      </div>
-                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {new Date(race.date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}
-                      </div>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          </Card>
-        ) : null
-
-      case 'recent_athletes':
-        return (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Ostatnio dodani zawodnicy</h3>
-              <Link href="/coach/athletes" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Wszyscy →</Link>
-            </div>
-            {recentAthletesData.length === 0 ? (
-              <div className="text-center py-6 text-sm" style={{ color: 'var(--text-muted)' }}>Brak zawodników</div>
-            ) : (
-              <div className="space-y-2">
-                {recentAthletesData.map((a: any) => (
-                  <Link key={a.id} href={`/coach/athletes/${a.id}`}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
-                    style={{ background: 'var(--bg-elevated)' }}>
-                    <Avatar initials={a.avatar} size="sm" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium">{a.name}</div>
-                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{a.package}</div>
-                    </div>
-                    <div className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>
-                      {a.created_at ? new Date(a.created_at).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }) : ''}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </Card>
-        )
-
-      case 'recent_invoices':
-        return (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Ostatnie faktury</h3>
-              <Link href="/coach/invoices" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Wszystkie →</Link>
-            </div>
-            {recentInvoices.length === 0 ? (
-              <div className="text-center py-6 text-sm" style={{ color: 'var(--text-muted)' }}>Brak faktur</div>
-            ) : (
-              <div className="space-y-2">
-                {recentInvoices.map((inv: any) => {
-                  const ath = inv.athletes as { name: string; avatar: string } | null
-                  const st = INVOICE_STATUS_INFO[inv.status] ?? INVOICE_STATUS_INFO.pending
-                  return (
-                    <Link key={inv.id} href="/coach/invoices"
-                      className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
-                      style={{ background: 'var(--bg-elevated)' }}>
-                      <Avatar initials={ath?.avatar ?? '?'} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{ath?.name ?? '—'}</div>
-                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{inv.number}</div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-sm font-semibold">{formatCurrency(inv.amount)}</div>
-                        <div className="text-xs font-medium" style={{ color: st.color }}>{st.label}</div>
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-          </Card>
-        )
+      case 'week_summary':      return <WeekSummarySection weekStats={weekStats} />
+      case 'today_plan':        return <TodayPlanSection sessions={sessions} todayCompleted={todayCompleted} />
+      case 'messages':          return <MessagesSection messages={messages} />
+      case 'alerts':            return <AlertsSection alertAthletes={alertAthletes} />
+      case 'no_sessions_week':  return <NoSessionsSection noSessionsAthletes={noSessionsAthletes} />
+      case 'feedback_list':     return <FeedbackListSection feedbacks={feedbacks} />
+      case 'upcoming_races':    return <UpcomingRacesSection races={races} />
+      case 'recent_athletes':   return <RecentAthletesSection recentAthletesData={recentAthletesData} />
+      case 'recent_invoices':   return <RecentInvoicesSection recentInvoices={recentInvoices} />
     }
   }
 
@@ -638,7 +224,7 @@ export function DashboardClient({
               </button>.
             </span>
             <button
-              onClick={() => { setHintDismissed(true); localStorage.setItem('dashboard-hint-dismissed', '1') }}
+              onClick={dismissHint}
               className="shrink-0 text-lg leading-none cursor-pointer hover:opacity-70"
               style={{ color: 'var(--text-muted)' }}
             >×</button>
