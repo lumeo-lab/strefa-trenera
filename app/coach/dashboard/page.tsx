@@ -1,5 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { DashboardClient } from './_components/DashboardClient'
+import type {
+  DashboardAthleteRow,
+  DashboardFeedbackRow,
+  DashboardMessageRow,
+  DashboardSessionRow,
+  DashboardWeekSessionRow,
+  DashboardRaceRow,
+  DashboardInvoiceRow,
+} from './_components/types'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -64,7 +73,7 @@ export default async function DashboardPage() {
       .order('created_at'),
     // added athlete_id for "no sessions this week" section
     supabase.from('training_sessions')
-      .select('id, athlete_id, completed, actual_distance')
+      .select('athlete_id, completed, actual_distance')
       .eq('coach_id', user!.id)
       .gte('date', weekStart)
       .lte('date', weekEnd),
@@ -84,15 +93,15 @@ export default async function DashboardPage() {
       .limit(5),
   ])
 
-  const allAthletes = athletes ?? []
+  // Supabase client without generated types returns loose shapes for joins;
+  // we cast through `unknown` at this server/client boundary.
+  const allAthletes = (athletes ?? []) as DashboardAthleteRow[]
   const allInvoices = invoices ?? []
-  const feedbacks = unreadFeedbacks ?? []
-  const messages = recentMessages ?? []
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sessions = (todaySessions ?? []) as any[]
-  const weekSess = weekSessions ?? []
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const races = (upcomingRaces ?? []) as any[]
+  const feedbacks = (unreadFeedbacks ?? []) as unknown as DashboardFeedbackRow[]
+  const messages = (recentMessages ?? []) as unknown as DashboardMessageRow[]
+  const sessions = (todaySessions ?? []) as unknown as DashboardSessionRow[]
+  const weekSess = (weekSessions ?? []) as DashboardWeekSessionRow[]
+  const races = (upcomingRaces ?? []) as unknown as DashboardRaceRow[]
 
   // KPI
   const activeCount = allAthletes.filter(a => a.status !== 'inactive').length
@@ -121,7 +130,7 @@ export default async function DashboardPage() {
       sessions={sessions}
       weekSessions={weekSess}
       races={races}
-      recentInvoices={recentInvoices ?? []}
+      recentInvoices={(recentInvoices ?? []) as unknown as DashboardInvoiceRow[]}
       totalUnread={totalUnread}
       mrr={mrr}
       activeCount={activeCount}

@@ -4,14 +4,14 @@ import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import { timeAgo } from '@/lib/utils'
 import Link from 'next/link'
+import type { DashboardMessageRow, DashboardFeedbackRow } from '../types'
 
 const SIGNAL_COLOR: Record<string, string> = { green: '#2ECC71', yellow: '#F1C40F', red: '#E74C3C' }
 
 // ── MessagesSection ──────────────────────────────────────────────────────────
 
 export function MessagesSection({ messages }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  messages: any[]
+  messages: DashboardMessageRow[]
 }) {
   return (
     <Card className="p-5">
@@ -26,8 +26,8 @@ export function MessagesSection({ messages }: {
         </div>
       ) : (
         <div className="space-y-2">
-          {messages.map((m: any) => {
-            const ath = m.athletes as { name: string; avatar: string } | null
+          {messages.map((m) => {
+            const ath = m.athletes
             return (
               <Link key={m.id} href={`/coach/chat?athlete=${m.athlete_id}`}
                 className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
@@ -50,8 +50,7 @@ export function MessagesSection({ messages }: {
 // ── FeedbackListSection ──────────────────────────────────────────────────────
 
 export function FeedbackListSection({ feedbacks }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  feedbacks: any[]
+  feedbacks: DashboardFeedbackRow[]
 }) {
   return (
     <Card className="p-5">
@@ -66,8 +65,8 @@ export function FeedbackListSection({ feedbacks }: {
         </div>
       ) : (
         <div className="space-y-3">
-          {feedbacks.map((f: any) => {
-            const ath = f.athletes as { name: string; avatar: string } | null
+          {feedbacks.map((f) => {
+            const ath = f.athletes
             const sigColor = SIGNAL_COLOR[f.signal] ?? '#6B7280'
             return (
               <Link key={f.id} href="/coach/feedback"

@@ -3,7 +3,9 @@
 import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import { sessionTypeLabel, intensityColor, plural } from '@/lib/utils'
+import type { SessionType } from '@/lib/types'
 import Link from 'next/link'
+import type { DashboardSessionRow } from '../types'
 
 // ── WeekSummarySection ───────────────────────────────────────────────────────
 
@@ -36,8 +38,7 @@ export function WeekSummarySection({ weekStats }: {
 // ── TodayPlanSection ─────────────────────────────────────────────────────────
 
 export function TodayPlanSection({ sessions, todayCompleted }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sessions: any[]
+  sessions: DashboardSessionRow[]
   todayCompleted: number
 }) {
   return (
@@ -60,8 +61,8 @@ export function TodayPlanSection({ sessions, todayCompleted }: {
         </div>
       ) : (
         <div className="space-y-2">
-          {sessions.map((s: any) => {
-            const ath = s.athletes as { name: string; avatar: string } | null
+          {sessions.map((s) => {
+            const ath = s.athletes
             return (
               <Link key={s.id} href={`/coach/athletes/${s.athlete_id}`}
                 className="flex items-center gap-3 p-3 rounded-xl transition-opacity hover:opacity-80"
@@ -72,8 +73,8 @@ export function TodayPlanSection({ sessions, todayCompleted }: {
                   <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{s.title}</div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${intensityColor(s.type)}`}>
-                    {sessionTypeLabel(s.type)}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${intensityColor(s.type as SessionType)}`}>
+                    {sessionTypeLabel(s.type as SessionType)}
                   </span>
                   {s.planned_distance && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{s.planned_distance} km</span>}
                   {s.completed ? <span className="text-xs text-green-400 font-bold">✓</span> : <span className="text-xs" style={{ color: 'var(--border)' }}>○</span>}

@@ -9,6 +9,13 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { formatDate, signalColor, signalBg } from '@/lib/utils'
 import { replyFeedback, markFeedbackRead } from '@/lib/actions/feedback'
+import type { FeedbackRow } from '@/lib/supabase/database.types'
+import type { FeedbackSignal } from '@/lib/types'
+
+type FeedbackWithJoins = FeedbackRow & {
+  athletes: { id: string; name: string; avatar: string } | null
+  training_sessions: { id: string; title: string } | null
+}
 
 type Filter = 'all' | 'today' | 'unread' | 'alert'
 
@@ -29,8 +36,7 @@ function parseTranscript(transcript: string) {
   return result
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: any[] }) {
+export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: FeedbackWithJoins[] }) {
   const router = useRouter()
   const today = new Date().toISOString().split('T')[0]
   const [filter, setFilter] = useState<Filter>('all')
@@ -117,7 +123,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: any
               : !!(parsed.feeling || parsed.trainingType || parsed.distance || parsed.duration || parsed.intensity || parsed.notes)
 
             return (
-              <Card key={fb.id} className={`overflow-hidden border-l-4 ${signalColor(fb.signal)} ${!fb.read ? 'ring-1 ring-white/5' : ''}`}>
+              <Card key={fb.id} className={`overflow-hidden border-l-4 ${signalColor(fb.signal as FeedbackSignal)} ${!fb.read ? 'ring-1 ring-white/5' : ''}`}>
                 <div className="p-4">
                   <div className="flex items-start gap-3">
                     <Avatar initials={athlete?.avatar || '?'} size="sm" />
@@ -128,7 +134,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: any
                         <span className="font-semibold text-sm">{athlete?.name}</span>
                         {!fb.read && <Badge variant="orange">Nowy</Badge>}
                         {fb.ai_summary && (
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${signalBg(fb.signal)}`}>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${signalBg(fb.signal as FeedbackSignal)}`}>
                             {fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'} {fb.ai_summary}
                           </span>
                         )}
@@ -198,7 +204,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: any
                       )}
 
                       {/* Watch sensor data */}
-                      {fb.watch_data && (fb.watch_data.avgHR || fb.watch_data.maxHR || fb.watch_data.distance) && (
+                      {fb.watch_data && !!(fb.watch_data.avgHR || fb.watch_data.maxHR || fb.watch_data.distance) && (
                         <div className="grid grid-cols-3 gap-2">
                           {([
                             fb.watch_data.avgHR ? ['Tętno śr.', `${fb.watch_data.avgHR} bpm`] : null,

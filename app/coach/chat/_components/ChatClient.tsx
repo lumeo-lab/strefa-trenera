@@ -8,9 +8,18 @@ import { Button } from '@/components/ui/Button'
 import { formatDateTime } from '@/lib/utils'
 import { sendMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
+import type { MessageRow } from '@/lib/supabase/database.types'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function ChatClient({ athletes, messages, coachId, coachName, initialAthleteId }: { athletes: any[]; messages: any[]; coachId: string; coachName: string; initialAthleteId?: string }) {
+type ChatAthlete = {
+  id: string
+  name: string
+  avatar: string
+  goal: string
+  package: string
+  slug: string
+}
+
+export function ChatClient({ athletes, messages, coachId, coachName, initialAthleteId }: { athletes: ChatAthlete[]; messages: MessageRow[]; coachId: string; coachName: string; initialAthleteId?: string }) {
   const router = useRouter()
   const [selectedAthleteId, setSelectedAthleteId] = useState(initialAthleteId ?? athletes[0]?.id ?? '')
   const [input, setInput] = useState('')

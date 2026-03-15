@@ -18,6 +18,16 @@ import { MessagesSection, FeedbackListSection } from './sections/CommunicationSe
 import { AlertsSection, NoSessionsSection, RecentAthletesSection } from './sections/AthleteSections'
 import { UpcomingRacesSection, RecentInvoicesSection } from './sections/FinanceRaceSections'
 
+import type {
+  DashboardAthleteRow,
+  DashboardFeedbackRow,
+  DashboardMessageRow,
+  DashboardSessionRow,
+  DashboardWeekSessionRow,
+  DashboardRaceRow,
+  DashboardInvoiceRow,
+} from './types'
+
 // ── SettingsRow ───────────────────────────────────────────────────────────────
 
 function SettingsRow({ icon, label, desc, visible, onToggle, onUp, onDown, canUp, canDown }: {
@@ -54,27 +64,19 @@ function SettingsRow({ icon, label, desc, visible, onToggle, onUp, onDown, canUp
 interface Props {
   coachName: string
   todayLabel: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  allAthletes: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  feedbacks: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  messages: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sessions: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  weekSessions: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  races: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  recentInvoices: any[]
+  allAthletes: DashboardAthleteRow[]
+  feedbacks: DashboardFeedbackRow[]
+  messages: DashboardMessageRow[]
+  sessions: DashboardSessionRow[]
+  weekSessions: DashboardWeekSessionRow[]
+  races: DashboardRaceRow[]
+  recentInvoices: DashboardInvoiceRow[]
   totalUnread: number
   mrr: number
   activeCount: number
   pendingAmount: number
   overdueAmount: number
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  alertAthletes: any[]
+  alertAthletes: DashboardAthleteRow[]
   weekStats: { total: number; completed: number; km: number; rate: number }
 }
 

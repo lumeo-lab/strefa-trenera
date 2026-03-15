@@ -10,6 +10,18 @@ import { InvoiceStatusDropdown } from '@/components/ui/InvoiceStatusDropdown'
 import { formatDate, formatCurrency, invoiceStatusLabel } from '@/lib/utils'
 import { createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus } from '@/lib/actions/invoices'
 import { InvoiceStatus } from '@/lib/types'
+import type { InvoiceRow } from '@/lib/supabase/database.types'
+
+type InvoiceWithJoins = InvoiceRow & {
+  athletes: { id: string; name: string; package: string } | null
+}
+
+type AthleteOption = {
+  id: string
+  name: string
+  package: string
+  package_price: number
+}
 
 type Filter = 'all' | InvoiceStatus
 type SortKey = 'number' | 'athlete' | 'date' | 'due_date' | 'amount' | 'status'
@@ -23,8 +35,7 @@ const inputStyle = {
 }
 const labelStyle = { color: 'var(--text-muted)' }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function InvoicesClient({ invoices, athletes }: { invoices: any[]; athletes: any[] }) {
+export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJoins[]; athletes: AthleteOption[] }) {
   const router = useRouter()
 
   // ── Filter & sort ────────────────────────────────────────────────
@@ -110,14 +121,12 @@ export function InvoicesClient({ invoices, athletes }: { invoices: any[]; athlet
   }
 
   // ── Edit modal ───────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [editingInvoice, setEditingInvoice] = useState<any | null>(null)
+  const [editingInvoice, setEditingInvoice] = useState<InvoiceWithJoins | null>(null)
   const [editForm, setEditForm] = useState({ description: '', amount: '', dueDate: '', status: '' })
   const [saving, setSaving] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function openEdit(inv: any) {
+  function openEdit(inv: InvoiceWithJoins) {
     setEditingInvoice(inv)
     setEditForm({
       description: inv.description ?? '',
@@ -263,7 +272,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: any[]; athlet
                   <td className="px-5 py-4 text-xs font-semibold">{formatCurrency(inv.amount)}</td>
                   <td className="px-5 py-4">
                     <InvoiceStatusDropdown
-                      status={inv.status}
+                      status={inv.status as InvoiceStatus}
                       onChange={next => handleStatusChange(inv.id, inv.athlete_id, next)}
                       loading={statusChangingId === inv.id}
                     />

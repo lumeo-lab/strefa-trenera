@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import { formatCurrency, daysUntil } from '@/lib/utils'
 import Link from 'next/link'
+import type { DashboardRaceRow, DashboardInvoiceRow } from '../types'
 
 const INVOICE_STATUS_INFO: Record<string, { label: string; color: string }> = {
   pending:   { label: 'Oczekuje', color: '#F1C40F' },
@@ -15,8 +16,7 @@ const INVOICE_STATUS_INFO: Record<string, { label: string; color: string }> = {
 // ── UpcomingRacesSection ─────────────────────────────────────────────────────
 
 export function UpcomingRacesSection({ races }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  races: any[]
+  races: DashboardRaceRow[]
 }) {
   if (races.length === 0) return null
   return (
@@ -26,8 +26,8 @@ export function UpcomingRacesSection({ races }: {
         <span className="text-xs px-2 py-0.5 rounded-lg" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>14 dni</span>
       </div>
       <div className="space-y-2">
-        {races.map((race: any) => {
-          const ath = race.athletes as { name: string; avatar: string } | null
+        {races.map((race) => {
+          const ath = race.athletes
           const { days } = daysUntil(race.date)
           return (
             <Link key={race.id} href={`/coach/athletes/${race.athlete_id}`}
@@ -59,8 +59,7 @@ export function UpcomingRacesSection({ races }: {
 // ── RecentInvoicesSection ────────────────────────────────────────────────────
 
 export function RecentInvoicesSection({ recentInvoices }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  recentInvoices: any[]
+  recentInvoices: DashboardInvoiceRow[]
 }) {
   return (
     <Card className="p-5">
@@ -72,8 +71,8 @@ export function RecentInvoicesSection({ recentInvoices }: {
         <div className="text-center py-6 text-sm" style={{ color: 'var(--text-muted)' }}>Brak faktur</div>
       ) : (
         <div className="space-y-2">
-          {recentInvoices.map((inv: any) => {
-            const ath = inv.athletes as { name: string; avatar: string } | null
+          {recentInvoices.map((inv) => {
+            const ath = inv.athletes
             const st = INVOICE_STATUS_INFO[inv.status] ?? INVOICE_STATUS_INFO.pending
             return (
               <Link key={inv.id} href="/coach/invoices"

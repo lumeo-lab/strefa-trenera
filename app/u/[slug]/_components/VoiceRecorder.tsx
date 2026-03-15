@@ -11,6 +11,7 @@ interface VoiceRecorderProps {
 
 export function VoiceRecorder({ transcript, onTranscriptChange }: VoiceRecorderProps) {
   const [recording, setRecording] = useState(false)
+  // Web Speech API has no standard TypeScript definitions — `any` is intentional here
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
 

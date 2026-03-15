@@ -3,6 +3,7 @@
 import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import Link from 'next/link'
+import type { DashboardAthleteRow } from '../types'
 
 const ATHLETE_STATUS_INFO: Record<string, { label: string; color: string; bg: string }> = {
   alert:   { label: 'Alert',  color: '#E74C3C', bg: 'rgba(231,76,60,0.1)' },
@@ -12,8 +13,7 @@ const ATHLETE_STATUS_INFO: Record<string, { label: string; color: string; bg: st
 // ── AlertsSection ────────────────────────────────────────────────────────────
 
 export function AlertsSection({ alertAthletes }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  alertAthletes: any[]
+  alertAthletes: DashboardAthleteRow[]
 }) {
   if (alertAthletes.length === 0) return null
   return (
@@ -23,7 +23,7 @@ export function AlertsSection({ alertAthletes }: {
         <Link href="/coach/athletes" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Wszyscy →</Link>
       </div>
       <div className="space-y-2">
-        {alertAthletes.map((a: any) => {
+        {alertAthletes.map((a) => {
           const info = ATHLETE_STATUS_INFO[a.status]
           return (
             <Link key={a.id} href={`/coach/athletes/${a.id}`}
@@ -43,8 +43,7 @@ export function AlertsSection({ alertAthletes }: {
 // ── NoSessionsSection ────────────────────────────────────────────────────────
 
 export function NoSessionsSection({ noSessionsAthletes }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  noSessionsAthletes: any[]
+  noSessionsAthletes: DashboardAthleteRow[]
 }) {
   return (
     <Card className="p-5">
@@ -60,7 +59,7 @@ export function NoSessionsSection({ noSessionsAthletes }: {
         </div>
       ) : (
         <div className="space-y-2">
-          {noSessionsAthletes.slice(0, 6).map((a: any) => (
+          {noSessionsAthletes.slice(0, 6).map((a) => (
             <Link key={a.id} href={`/coach/athletes/${a.id}`}
               className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
               style={{ background: 'var(--bg-elevated)' }}>
@@ -83,8 +82,7 @@ export function NoSessionsSection({ noSessionsAthletes }: {
 // ── RecentAthletesSection ────────────────────────────────────────────────────
 
 export function RecentAthletesSection({ recentAthletesData }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  recentAthletesData: any[]
+  recentAthletesData: DashboardAthleteRow[]
 }) {
   return (
     <Card className="p-5">
@@ -96,7 +94,7 @@ export function RecentAthletesSection({ recentAthletesData }: {
         <div className="text-center py-6 text-sm" style={{ color: 'var(--text-muted)' }}>Brak zawodników</div>
       ) : (
         <div className="space-y-2">
-          {recentAthletesData.map((a: any) => (
+          {recentAthletesData.map((a) => (
             <Link key={a.id} href={`/coach/athletes/${a.id}`}
               className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
               style={{ background: 'var(--bg-elevated)' }}>
