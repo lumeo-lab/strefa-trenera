@@ -9,6 +9,16 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+      SUPABASE_SERVICE_ROLE_KEY: placeholder
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: placeholder
+      VAPID_PRIVATE_KEY: placeholder
+      VAPID_EMAIL: mailto:ci@example.com
+      STRAVA_CLIENT_ID: "0"
+      STRAVA_CLIENT_SECRET: placeholder
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
