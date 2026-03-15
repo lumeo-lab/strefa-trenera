@@ -12,6 +12,7 @@ export default async function FeedbackPage() {
       training_sessions(id, title)
     `)
     .order('created_at', { ascending: false })
+    .limit(200)
 
   return <FeedbackClient feedbacks={feedbacks ?? []} />
 }

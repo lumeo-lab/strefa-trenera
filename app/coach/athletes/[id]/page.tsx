@@ -28,17 +28,20 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
       .from('training_sessions')
       .select('*')
       .eq('athlete_id', id)
-      .order('date', { ascending: false }),
+      .order('date', { ascending: false })
+      .limit(200),
     supabase
       .from('feedbacks')
       .select('*')
       .eq('athlete_id', id)
-      .order('date', { ascending: false }),
+      .order('date', { ascending: false })
+      .limit(200),
     supabase
       .from('invoices')
       .select('*')
       .eq('athlete_id', id)
-      .order('date', { ascending: false }),
+      .order('date', { ascending: false })
+      .limit(100),
     supabase
       .from('packages')
       .select('id, name, description, price')
