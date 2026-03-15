@@ -148,7 +148,7 @@ export function timeAgo(dateStr: string): string {
 }
 
 export function plural(n: number, one: string, few: string, many: string): string {
-  if (n === 1) return one
+  if (n === 1 || (n % 10 === 1 && n % 100 !== 11)) return one
   if (n % 10 >= 2 && n % 10 <= 4 && !(n % 100 >= 12 && n % 100 <= 14)) return few
   return many
 }
