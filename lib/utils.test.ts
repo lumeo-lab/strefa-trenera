@@ -97,6 +97,7 @@ describe('intensityColor', () => {
     expect(intensityColor('tempo')).toBe('session-tempo')
   })
   it('returns fallback for unknown type', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(intensityColor('unknown' as any)).toBe('session-easy')
   })
 })

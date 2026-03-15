@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { SessionType } from './types'
 import { sessionTypeLabel } from './utils'
 
@@ -16,19 +16,19 @@ export type SessionTypeDef = {
 const STORAGE_KEY = 'coach_session_types_v1'
 
 export function useCustomSessionTypes() {
-  const [labelOverrides, setLabelOverrides] = useState<Record<string, string>>({})
-  const [custom, setCustom] = useState<SessionTypeDef[]>([])
-
-  useEffect(() => {
+  const [savedData] = useState(() => {
+    if (typeof window === 'undefined') return { overrides: {} as Record<string, string>, custom: [] as SessionTypeDef[] }
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
         const d = JSON.parse(saved)
-        setLabelOverrides(d.overrides ?? {})
-        setCustom(d.custom ?? [])
+        return { overrides: (d.overrides ?? {}) as Record<string, string>, custom: (d.custom ?? []) as SessionTypeDef[] }
       }
     } catch { /* ignore */ }
-  }, [])
+    return { overrides: {} as Record<string, string>, custom: [] as SessionTypeDef[] }
+  })
+  const [labelOverrides, setLabelOverrides] = useState<Record<string, string>>(savedData.overrides)
+  const [custom, setCustom] = useState<SessionTypeDef[]>(savedData.custom)
 
   const builtins: SessionTypeDef[] = BUILTIN_SESSION_TYPE_KEYS.map(k => ({
     key: k,

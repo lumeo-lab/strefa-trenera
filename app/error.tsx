@@ -1,6 +1,6 @@
 'use client'
 
-export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
+export default function GlobalError({ error: _error, reset }: { error: Error; reset: () => void }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '32px', background: '#0D0F14', color: '#E8EAF0' }}>
       <div style={{ textAlign: 'center', maxWidth: '400px' }}>

@@ -173,7 +173,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
                           {parsed.intensity && <Row label="Intensywność">{parsed.intensity}</Row>}
                           {parsed.notes && (
                             <div className="pt-1" style={{ borderTop: '1px solid var(--border)' }}>
-                              <p className="text-sm italic" style={{ color: 'var(--text-primary)' }}>"{parsed.notes}"</p>
+                              <p className="text-sm italic" style={{ color: 'var(--text-primary)' }}>&ldquo;{parsed.notes}&rdquo;</p>
                             </div>
                           )}
                         </div>
@@ -183,7 +183,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
                       {isVoice && fb.ai_analysis && (
                         <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)' }}>
                           <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>🎤 Nagranie głosowe</div>
-                          <p className="text-sm italic">"{fb.ai_analysis}"</p>
+                          <p className="text-sm italic">&ldquo;{fb.ai_analysis}&rdquo;</p>
                         </div>
                       )}
 

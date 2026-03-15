@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 export const DEFAULT_STATUSES = [
   { key: 'ok',       label: 'OK',             color: '#2ECC71' },
@@ -14,14 +14,14 @@ export type StatusDef = { key: string; label: string; color: string }
 const STORAGE_KEY = 'coach_statuses_v2'
 
 export function useCustomStatuses() {
-  const [all, setAll] = useState<StatusDef[]>(DEFAULT_STATUSES)
-
-  useEffect(() => {
+  const [all, setAll] = useState<StatusDef[]>(() => {
+    if (typeof window === 'undefined') return DEFAULT_STATUSES
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) setAll(JSON.parse(saved))
+      if (saved) return JSON.parse(saved)
     } catch { /* ignore */ }
-  }, [])
+    return DEFAULT_STATUSES
+  })
 
   function saveAll(statuses: StatusDef[]) {
     setAll(statuses)

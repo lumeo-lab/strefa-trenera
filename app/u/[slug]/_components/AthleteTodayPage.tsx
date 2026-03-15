@@ -62,7 +62,7 @@ function TextFeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit
               {feedback.durationMin && <span>⏱️ {feedback.durationMin} min</span>}
             </div>
           )}
-          {feedback.notes && <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>"{feedback.notes}"</p>}
+          {feedback.notes && <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>&ldquo;{feedback.notes}&rdquo;</p>}
         </div>
       )}
       {feedback.watchLink && (

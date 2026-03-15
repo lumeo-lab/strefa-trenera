@@ -1,15 +1,14 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 
 export function usePushSubscription(userId: string, userType: 'coach' | 'athlete') {
-  const [permission, setPermission] = useState<NotificationPermission>('default')
-
-  useEffect(() => {
-    if (typeof Notification !== 'undefined') {
-      setPermission(Notification.permission)
+  const [permission, setPermission] = useState<NotificationPermission>(() => {
+    if (typeof window !== 'undefined' && typeof Notification !== 'undefined') {
+      return Notification.permission
     }
-  }, [])
+    return 'default'
+  })
 
   const subscribe = useCallback(async () => {
     if (!userId || !('serviceWorker' in navigator) || !('PushManager' in window)) return

@@ -16,9 +16,9 @@ export async function getUnreadNotifications() {
     .order('created_at', { ascending: false })
     .limit(20)
 
-  return (data ?? []).map((fb: any) => ({
-    id: fb.id as string,
-    athlete_name: (fb.athletes as any)?.name as string ?? 'Zawodnik',
+  return (data ?? []).map((fb: { id: string; created_at: string; source: string; ai_summary: string; athletes: { name: string }[] }) => ({
+    id: fb.id,
+    athlete_name: fb.athletes?.[0]?.name ?? 'Zawodnik',
     source: fb.source as string,
     ai_summary: fb.ai_summary as string,
     created_at: fb.created_at as string,

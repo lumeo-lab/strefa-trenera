@@ -69,7 +69,7 @@ export function PWAInstallBanner() {
               Tapnij{' '}
               <span className="font-bold" style={{ color: '#FF5C1B' }}>□↑</span>
               {' '}na dole ekranu, potem{' '}
-              <span className="font-bold" style={{ color: '#FF5C1B' }}>„Dodaj do ekranu głównego"</span>
+              <span className="font-bold" style={{ color: '#FF5C1B' }}>&bdquo;Dodaj do ekranu głównego&rdquo;</span>
             </p>
           )}
 

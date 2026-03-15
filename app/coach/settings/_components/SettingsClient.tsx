@@ -56,25 +56,19 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
     setSelectedEmoji('')
   }
 
-  function PreviewAvatar() {
-    if (previewUrl) {
-      // eslint-disable-next-line @next/next/no-img-element
-      return <img src={previewUrl} alt="avatar" className="w-20 h-20 rounded-full object-cover" />
-    }
-    if (selectedEmoji) {
-      return (
-        <div className="w-20 h-20 rounded-full flex items-center justify-center text-5xl"
-          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-          {selectedEmoji}
-        </div>
-      )
-    }
-    return (
-      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-2xl text-white">
-        {initials(name)}
-      </div>
-    )
-  }
+  const previewAvatarEl = previewUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={previewUrl} alt="avatar" className="w-20 h-20 rounded-full object-cover" />
+  ) : selectedEmoji ? (
+    <div className="w-20 h-20 rounded-full flex items-center justify-center text-5xl"
+      style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+      {selectedEmoji}
+    </div>
+  ) : (
+    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-2xl text-white">
+      {initials(name)}
+    </div>
+  )
 
   return (
     <div>
@@ -108,7 +102,7 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
               <h3 className="font-semibold mb-5">Zdjęcie profilowe</h3>
               <div className="flex items-start gap-6">
                 <div className="shrink-0 flex flex-col items-center gap-2">
-                  <PreviewAvatar />
+                  {previewAvatarEl}
                   <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Podgląd</div>
                 </div>
                 <div className="flex-1 space-y-5">
