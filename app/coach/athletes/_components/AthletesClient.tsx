@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect, useActionState, startTransition, useRef, useMemo } from 'react'
+import { useState, useEffect, startTransition, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatCurrency, sessionTypeLabel, intensityColor, daysAgo, daysUntil, sesjaLabel, tenureLabel } from '@/lib/utils'
-import { createAthlete, updateAthlete } from '@/lib/actions/athletes'
+import { updateAthlete } from '@/lib/actions/athletes'
 import { useCustomStatuses, StatusDef } from '@/lib/useCustomStatuses'
 import Link from 'next/link'
+import { AddAthleteModal } from './AddAthleteModal'
+import { StatusEditorModal } from './StatusEditorModal'
 
 // ── Column picker ──────────────────────────────────────────────────────────
 type ColumnKey = 'signal' | 'compliance' | 'weekly_load' | 'package' | 'next_session' | 'last_session' | 'join_date' | 'phone' | 'age' | 'city'
@@ -75,31 +77,10 @@ interface Props {
   unpaidInvoiceSet: Record<string, boolean>
 }
 
-const inputStyle = {
-  width: '100%',
-  padding: '9px 12px',
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border-mid)',
-  borderRadius: 10,
-  color: 'var(--text-primary)',
-  fontSize: 14,
-  outline: 'none',
-  boxSizing: 'border-box' as const,
-}
-
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 12,
-  fontWeight: 600,
-  color: 'var(--text-muted)',
-  marginBottom: 5,
-}
-
 type SortKey = 'name' | 'package' | 'status' | 'join_date' | 'last_session' | 'next_session' | 'signal' | 'weekly_load' | 'compliance' | null
 type QuickFilter = 'unread' | 'unpaid' | 'no_session' | null
 
 const ORDER_KEY = 'coach_athlete_order'
-const PRESET_COLORS = ['#2ECC71', '#F1C40F', '#E74C3C', '#6B7280', '#3B82F6', '#8B5CF6', '#EC4899', '#F97316']
 
 export function AthletesClient({
   athletes, lastSessionMap, weeklyLoadMap, weeklySessionCountMap, packages,
@@ -120,14 +101,9 @@ export function AthletesClient({
 
   // Add athlete modal
   const [modalOpen, setModalOpen] = useState(false)
-  const [selectedPkg, setSelectedPkg] = useState<Package | null>(packages[0] ?? null)
-  const [state, formAction, pending] = useActionState(createAthlete, null)
 
   // Status editor modal
   const [statusModalOpen, setStatusModalOpen] = useState(false)
-  const [editingStatuses, setEditingStatuses] = useState<StatusDef[]>([])
-  const [newStatusLabel, setNewStatusLabel] = useState('')
-  const [newStatusColor, setNewStatusColor] = useState(PRESET_COLORS[4])
 
   // Inline status edit
   const [editingStatusFor, setEditingStatusFor] = useState<string | null>(null)
@@ -154,15 +130,7 @@ export function AthletesClient({
   }, [athletes])
 
   function openStatusModal() {
-    setEditingStatuses(allStatuses.map(s => ({ ...s })))
-    setNewStatusLabel('')
-    setNewStatusColor(PRESET_COLORS[4])
     setStatusModalOpen(true)
-  }
-
-  function saveStatuses() {
-    saveAll(editingStatuses)
-    setStatusModalOpen(false)
   }
 
   async function handleStatusChange(athleteId: string, newStatus: string) {
@@ -175,13 +143,6 @@ export function AthletesClient({
     setStatusDropdownPos(null)
     setUpdatingStatus(false)
     startTransition(() => router.refresh())
-  }
-
-  function addStatus() {
-    if (!newStatusLabel.trim()) return
-    const key = `custom_${Date.now()}`
-    setEditingStatuses(prev => [...prev, { key, label: newStatusLabel.trim(), color: newStatusColor }])
-    setNewStatusLabel('')
   }
 
   function saveColumns(cols: ColumnKey[]) {
@@ -434,7 +395,7 @@ export function AthletesClient({
             )}
           </div>
 
-          <Button size="sm" onClick={() => { setSelectedPkg(packages[0] ?? null); setModalOpen(true) }}>
+          <Button size="sm" onClick={() => { setModalOpen(true) }}>
             + Dodaj zawodnika
           </Button>
         </div>
@@ -530,7 +491,7 @@ export function AthletesClient({
             <div className="text-5xl mb-4">👟</div>
             <div className="text-lg font-semibold mb-2">Brak zawodników</div>
             <div className="text-sm mb-6">Dodaj pierwszego zawodnika i wyślij mu link zaproszenia</div>
-            <Button onClick={() => { setSelectedPkg(packages[0] ?? null); setModalOpen(true) }}>+ Dodaj zawodnika</Button>
+            <Button onClick={() => { setModalOpen(true) }}>+ Dodaj zawodnika</Button>
           </div>
         )}
 
@@ -868,127 +829,14 @@ export function AthletesClient({
         })()}
       </div>
 
-      {/* Add Athlete Modal */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Dodaj zawodnika" size="sm">
-        <form action={async (fd) => {
-          if (selectedPkg) fd.set('package_price', selectedPkg.price.toString())
-          await formAction(fd)
-          if (!state?.error) setModalOpen(false)
-        }}>
-          <div className="space-y-3">
-            <div>
-              <label style={labelStyle}>Imię i nazwisko *</label>
-              <input name="name" required placeholder="np. Katarzyna Wiśniewska" style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Email</label>
-              <input name="email" type="email" placeholder="np. katarzyna@email.com" style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Telefon</label>
-              <input name="phone" placeholder="np. 600 123 456" style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Cel treningowy</label>
-              <input name="goal" placeholder="np. Maraton sub 4h" style={inputStyle} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label style={labelStyle}>Wiek</label>
-                <input name="age" type="number" min={10} max={99} placeholder="np. 32" style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Miasto</label>
-                <input name="city" placeholder="np. Warszawa" style={inputStyle} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label style={labelStyle}>Wzrost (cm)</label>
-                <input name="height" type="number" min={100} max={250} placeholder="np. 175" style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Waga (kg)</label>
-                <input name="weight" type="number" min={30} max={200} step={0.1} placeholder="np. 70" style={inputStyle} />
-              </div>
-            </div>
-            <div>
-              <label style={labelStyle}>Pakiet</label>
-              {packages.length === 0 ? (
-                <div className="px-3 py-2.5 rounded-xl text-sm" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-muted)' }}>
-                  Brak pakietów — <a href="/coach/packages" style={{ color: '#FF5C1B' }} className="underline">dodaj pakiet w zakładce Pakiety</a>
-                </div>
-              ) : (
-                <select name="package" value={selectedPkg?.name ?? ''} onChange={e => setSelectedPkg(packages.find(p => p.name === e.target.value) ?? null)} style={inputStyle} className="cursor-pointer">
-                  {packages.map(p => <option key={p.id} value={p.name}>{p.name} — {formatCurrency(p.price)}</option>)}
-                </select>
-              )}
-            </div>
-            {state?.error && <p className="text-xs" style={{ color: '#f87171' }}>{state.error}</p>}
-            <div className="flex gap-2 pt-1">
-              <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Anuluj</Button>
-              <Button type="submit" disabled={pending}>{pending ? 'Dodawanie...' : 'Dodaj zawodnika'}</Button>
-            </div>
-          </div>
-        </form>
-      </Modal>
+      <AddAthleteModal open={modalOpen} packages={packages} onClose={() => setModalOpen(false)} />
 
-      {/* Status editor modal */}
-      <Modal
+      <StatusEditorModal
         open={statusModalOpen}
+        statuses={allStatuses}
         onClose={() => setStatusModalOpen(false)}
-        title="Edytuj statusy"
-        size="sm"
-        footer={
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setStatusModalOpen(false)}>Anuluj</Button>
-            <Button onClick={saveStatuses}>Zapisz</Button>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            {editingStatuses.map((s, idx) => (
-              <div key={s.key} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full shrink-0" style={{ background: s.color }} />
-                <input
-                  value={s.label}
-                  onChange={e => setEditingStatuses(prev => prev.map((x, i) => i === idx ? { ...x, label: e.target.value } : x))}
-                  className="flex-1 px-3 py-2 rounded-xl text-sm"
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
-                />
-                <button onClick={() => setEditingStatuses(prev => prev.filter((_, i) => i !== idx))}
-                  className="text-xs px-2.5 py-2 rounded-xl cursor-pointer"
-                  style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>✕</button>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-            <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Dodaj nowy status</div>
-            <div className="flex items-center gap-2 mb-2">
-              <input
-                value={newStatusLabel}
-                onChange={e => setNewStatusLabel(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addStatus()}
-                placeholder="Nazwa statusu (np. Kontuzja)"
-                className="flex-1 px-3 py-2 rounded-xl text-sm"
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1.5">
-                {PRESET_COLORS.map(c => (
-                  <button key={c} type="button" onClick={() => setNewStatusColor(c)}
-                    className="w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110"
-                    style={{ background: c, outline: newStatusColor === c ? '2px solid white' : 'none', outlineOffset: '2px', boxShadow: newStatusColor === c ? `0 0 0 3px ${c}` : 'none' }} />
-                ))}
-              </div>
-              <Button size="sm" onClick={addStatus} disabled={!newStatusLabel.trim()}>+ Dodaj</Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
+        onSave={(statuses) => { saveAll(statuses); setStatusModalOpen(false) }}
+      />
     </div>
   )
 }
