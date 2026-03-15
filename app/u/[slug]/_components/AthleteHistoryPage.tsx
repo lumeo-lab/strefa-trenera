@@ -55,7 +55,7 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
       await fetch('/api/strava/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ athleteId: athlete.id }),
+        body: JSON.stringify({ slug: athlete.slug }),
       })
       startTransition(() => router.refresh())
     } finally {

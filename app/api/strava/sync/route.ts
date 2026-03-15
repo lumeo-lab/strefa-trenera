@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabase/admin'
+import { getAthleteFromSession } from '@/lib/athlete-auth'
 
 export async function POST(req: NextRequest) {
-  const { athleteId } = await req.json()
-  if (!athleteId) return NextResponse.json({ error: 'Brak athleteId' }, { status: 400 })
+  const { slug } = await req.json()
+  if (!slug) return NextResponse.json({ error: 'Brak slug' }, { status: 400 })
+
+  const athlete = await getAthleteFromSession(slug)
+  if (!athlete) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const athleteId = athlete.id
 
   const { data: conn } = await adminClient
     .from('strava_connections')

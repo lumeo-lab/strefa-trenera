@@ -23,7 +23,7 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  const { permission, subscribe } = usePushSubscription(athlete.id, 'athlete')
+  const { permission, subscribe } = usePushSubscription(athlete.id, 'athlete', athlete.slug)
 
   // Poll for new messages every 5s
   useEffect(() => {
@@ -45,7 +45,7 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
     setSending(true)
     setInput('')
     try {
-      await sendAthleteMessage(athlete.id, athlete.coach_id, content, athlete.name)
+      await sendAthleteMessage(athlete.slug, content)
       startTransition(() => router.refresh())
     } catch {
       setInput(content)

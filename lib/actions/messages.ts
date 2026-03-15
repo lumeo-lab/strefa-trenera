@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { AUTH_ERROR, FIELDS_ERROR } from '@/lib/constants'
+import { getAthleteFromSession } from '@/lib/athlete-auth'
 
 function firePush(userId: string, payload: { title: string; body: string; url: string }) {
   // Fire-and-forget — błąd push nigdy nie blokuje wysyłania wiadomości
@@ -12,17 +13,20 @@ function firePush(userId: string, payload: { title: string; body: string; url: s
     .catch(() => {})
 }
 
-export async function sendAthleteMessage(athleteId: string, coachId: string, content: string, athleteName: string) {
+export async function sendAthleteMessage(slug: string, content: string) {
+  const athlete = await getAthleteFromSession(slug)
+  if (!athlete) return { error: AUTH_ERROR }
+
   const { error } = await adminClient.from('messages').insert({
-    coach_id: coachId,
-    athlete_id: athleteId,
+    coach_id: athlete.coach_id,
+    athlete_id: athlete.id,
     sender_type: 'athlete',
     content: content.trim(),
   })
   if (error) return { error: error.message }
 
-  firePush(coachId, {
-    title: `Wiadomość od ${athleteName}`,
+  firePush(athlete.coach_id, {
+    title: `Wiadomość od ${athlete.name}`,
     body: content.trim().slice(0, 100),
     url: '/coach/chat',
   })

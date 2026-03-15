@@ -1,14 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHmac } from 'crypto'
 import { adminClient } from '@/lib/supabase/admin'
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code')
-  const slug = req.nextUrl.searchParams.get('state')
+  const stateParam = req.nextUrl.searchParams.get('state')
   const error = req.nextUrl.searchParams.get('error')
   const appUrl = req.nextUrl.origin
 
+  // Parse signed state: "slug:signature"
+  const colonIdx = stateParam?.lastIndexOf(':') ?? -1
+  const slug = colonIdx > 0 ? stateParam!.slice(0, colonIdx) : stateParam
+  const signature = colonIdx > 0 ? stateParam!.slice(colonIdx + 1) : null
+
   if (error || !code || !slug) {
     return NextResponse.redirect(`${appUrl}/u/${slug ?? ''}?strava=denied`)
+  }
+
+  // Verify HMAC signature
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  const expectedSig = createHmac('sha256', secret).update(slug).digest('hex').slice(0, 16)
+  if (signature !== expectedSig) {
+    console.error('[strava] invalid state signature')
+    return NextResponse.redirect(`${appUrl}/u/${slug}?strava=error`)
   }
 
   // Znajdź zawodnika po slug

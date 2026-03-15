@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { AUTH_ERROR, FIELDS_ERROR } from '@/lib/constants'
+import { getAthleteFromSession } from '@/lib/athlete-auth'
 
 function buildFeedbackFields(formData: FormData) {
   const feeling = formData.get('feeling') as string || ''
@@ -46,18 +47,22 @@ function buildFeedbackFields(formData: FormData) {
 }
 
 export async function createFeedback(formData: FormData) {
-  const athleteId = formData.get('athlete_id') as string
-  const coachId = formData.get('coach_id') as string
+  const slug = formData.get('slug') as string
+  if (!slug) return { error: 'Brak wymaganych danych' }
+
+  const athlete = await getAthleteFromSession(slug)
+  if (!athlete) return { error: AUTH_ERROR }
+
   const sessionId = formData.get('session_id') as string || null
   const date = formData.get('date') as string
 
-  if (!athleteId || !coachId || !date) return { error: 'Brak wymaganych danych' }
+  if (!date) return { error: 'Brak wymaganych danych' }
 
   const fields = buildFeedbackFields(formData)
 
   const { error } = await adminClient.from('feedbacks').insert({
-    athlete_id: athleteId,
-    coach_id: coachId,
+    athlete_id: athlete.id,
+    coach_id: athlete.coach_id,
     session_id: sessionId,
     date,
     read: false,
@@ -66,25 +71,27 @@ export async function createFeedback(formData: FormData) {
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/u/${formData.get('slug')}`)
+  revalidatePath(`/u/${slug}`)
   revalidatePath('/coach/feedback')
   return { success: true }
 }
 
 export async function updateFeedback(formData: FormData) {
+  const slug = formData.get('slug') as string
   const id = formData.get('id') as string
-  const athleteId = formData.get('athlete_id') as string
+  if (!slug || !id) return { error: 'Brak wymaganych danych' }
 
-  if (!id || !athleteId) return { error: 'Brak wymaganych danych' }
+  const athlete = await getAthleteFromSession(slug)
+  if (!athlete) return { error: AUTH_ERROR }
 
   const fields = buildFeedbackFields(formData)
 
   const { error } = await adminClient.from('feedbacks').update(fields)
-    .eq('id', id).eq('athlete_id', athleteId)
+    .eq('id', id).eq('athlete_id', athlete.id)
 
   if (error) return { error: error.message }
 
-  revalidatePath(`/u/${formData.get('slug')}`)
+  revalidatePath(`/u/${slug}`)
   revalidatePath('/coach/feedback')
   return { success: true }
 }

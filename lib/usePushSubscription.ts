@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 
-export function usePushSubscription(userId: string, userType: 'coach' | 'athlete') {
+export function usePushSubscription(userId: string, userType: 'coach' | 'athlete', slug?: string) {
   const [permission, setPermission] = useState<NotificationPermission>(() => {
     if (typeof window !== 'undefined' && typeof Notification !== 'undefined') {
       return Notification.permission
@@ -30,12 +30,12 @@ export function usePushSubscription(userId: string, userType: 'coach' | 'athlete
       await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub, userId, userType }),
+        body: JSON.stringify({ subscription: sub, userType, ...(slug ? { slug } : {}) }),
       })
     } catch {
       // Silent — push not supported or denied
     }
-  }, [userId, userType])
+  }, [userId, userType, slug])
 
   return { permission, subscribe }
 }
