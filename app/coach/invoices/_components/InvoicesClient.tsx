@@ -11,6 +11,7 @@ import { formatDate, formatCurrency, invoiceStatusLabel } from '@/lib/utils'
 import { createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus } from '@/lib/actions/invoices'
 import { InvoiceStatus } from '@/lib/types'
 import type { InvoiceRow } from '@/lib/supabase/database.types'
+import { INPUT_STYLE } from '@/lib/styles'
 
 type InvoiceWithJoins = InvoiceRow & {
   athletes: { id: string; name: string; package: string } | null
@@ -27,8 +28,6 @@ type Filter = 'all' | InvoiceStatus
 type SortKey = 'number' | 'athlete' | 'date' | 'due_date' | 'amount' | 'status'
 
 const STATUS_OPTIONS: InvoiceStatus[] = ['pending', 'paid', 'overdue', 'cancelled']
-
-import { INPUT_STYLE } from '@/lib/styles'
 
 const inputStyle = INPUT_STYLE
 const labelStyle = { color: 'var(--text-muted)' }

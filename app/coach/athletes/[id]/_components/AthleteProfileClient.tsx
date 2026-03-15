@@ -54,7 +54,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     navigator.clipboard.writeText(inviteUrl).then(() => {
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
-    })
+    }).catch(() => {})
   }
 
   const unreadFeedbackCount = athleteFeedbacks.filter(f => !f.read).length

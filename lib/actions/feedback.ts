@@ -94,14 +94,17 @@ export async function markFeedbackRead(id: string, athleteId?: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
 
-  await supabase
+  const { error } = await supabase
     .from('feedbacks')
     .update({ read: true })
     .eq('id', id)
     .eq('coach_id', user.id)
 
+  if (error) return { error: error.message }
+
   revalidatePath('/coach/feedback')
   if (athleteId) revalidatePath(`/coach/athletes/${athleteId}`)
+  return { success: true }
 }
 
 export async function replyFeedback(_: unknown, formData: FormData) {
