@@ -1,35 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import { Modal } from '@/components/ui/Modal'
-import { formatCurrency, sessionTypeLabel, intensityColor } from '@/lib/utils'
+import { formatCurrency, sessionTypeLabel, intensityColor, timeAgo, daysUntil, plural } from '@/lib/utils'
 import Link from 'next/link'
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const min = Math.floor(diff / 60000)
-  if (min < 60) return `${min} min temu`
-  const h = Math.floor(min / 60)
-  if (h < 24) return `${h} godz. temu`
-  return `${Math.floor(h / 24)} dni temu`
-}
-
-function daysUntil(dateStr: string): number {
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const target = new Date(dateStr); target.setHours(0, 0, 0, 0)
-  return Math.round((target.getTime() - today.getTime()) / 86400000)
-}
-
-function plural(n: number, one: string, few: string, many: string) {
-  if (n === 1) return one
-  if (n >= 2 && n <= 4) return few
-  return many
-}
 
 const SIGNAL_COLOR: Record<string, string> = { green: '#2ECC71', yellow: '#F1C40F', red: '#E74C3C' }
 
@@ -103,6 +81,13 @@ const SECTION_META: Record<SectionId, { label: string; icon: string; desc: strin
   recent_athletes:  { label: 'Ostatnio dodani zawodnicy', icon: '👤', desc: 'Nowi zawodnicy w systemie' },
   recent_invoices:  { label: 'Ostatnie faktury',          icon: '🧾', desc: 'Ostatnio wystawione faktury' },
 }
+
+const SETTINGS_GROUPS: { label: string; col: 'kpi' | 'full' | 'left' | 'right' }[] = [
+  { label: 'KPI karty', col: 'kpi' },
+  { label: 'Pełna szerokość', col: 'full' },
+  { label: 'Lewa kolumna', col: 'left' },
+  { label: 'Prawa kolumna', col: 'right' },
+]
 
 // ── mergeWithDefaults ─────────────────────────────────────────────────────────
 
@@ -185,13 +170,12 @@ export function DashboardClient({
 
   const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [hintDismissed, setHintDismissed] = useState(true) // start hidden, update after mount
+  const [hintDismissed, setHintDismissed] = useState(true)
 
   useEffect(() => {
     try {
       const s = localStorage.getItem(STORAGE_KEY)
       if (s) setPrefs(mergeWithDefaults(JSON.parse(s)))
-      // Show hint only if user has never interacted with dashboard settings
       setHintDismissed(!!localStorage.getItem('dashboard-hint-dismissed'))
     } catch { /* ignore */ }
   }, [])
@@ -233,9 +217,19 @@ export function DashboardClient({
   const leftSections = visibleSections.filter(s => SECTION_COL[s.id] === 'left')
   const rightSections = visibleSections.filter(s => SECTION_COL[s.id] === 'right')
 
-  const weekAthleteIds = new Set(weekSessions.map((s: { athlete_id?: string }) => s.athlete_id).filter(Boolean))
-  const noSessionsAthletes = allAthletes.filter(a => a.status !== 'inactive' && !weekAthleteIds.has(a.id))
+  const weekAthleteIds = useMemo(
+    () => new Set(weekSessions.map((s: { athlete_id?: string }) => s.athlete_id).filter(Boolean)),
+    [weekSessions],
+  )
+  const noSessionsAthletes = useMemo(
+    () => allAthletes.filter(a => a.status !== 'inactive' && !weekAthleteIds.has(a.id)),
+    [allAthletes, weekAthleteIds],
+  )
   const todayCompleted = sessions.filter((s: { completed: boolean }) => s.completed).length
+  const recentAthletesData = useMemo(
+    () => [...allAthletes].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '')).slice(0, 4),
+    [allAthletes],
+  )
 
   // ── Section renderers ─────────────────────────────────────────────────────
 
@@ -515,7 +509,7 @@ export function DashboardClient({
             <div className="space-y-2">
               {races.map((race: any) => {
                 const ath = race.athletes as { name: string; avatar: string } | null
-                const days = daysUntil(race.date)
+                const { days } = daysUntil(race.date)
                 return (
                   <Link key={race.id} href={`/coach/athletes/${race.athlete_id}`}
                     className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
@@ -542,21 +536,18 @@ export function DashboardClient({
           </Card>
         ) : null
 
-      case 'recent_athletes': {
-        const sorted = [...allAthletes]
-          .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
-          .slice(0, 4)
+      case 'recent_athletes':
         return (
           <Card className="p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Ostatnio dodani zawodnicy</h3>
               <Link href="/coach/athletes" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Wszyscy →</Link>
             </div>
-            {sorted.length === 0 ? (
+            {recentAthletesData.length === 0 ? (
               <div className="text-center py-6 text-sm" style={{ color: 'var(--text-muted)' }}>Brak zawodników</div>
             ) : (
               <div className="space-y-2">
-                {sorted.map((a: any) => (
+                {recentAthletesData.map((a: any) => (
                   <Link key={a.id} href={`/coach/athletes/${a.id}`}
                     className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
                     style={{ background: 'var(--bg-elevated)' }}>
@@ -574,7 +565,6 @@ export function DashboardClient({
             )}
           </Card>
         )
-      }
 
       case 'recent_invoices':
         return (
@@ -612,15 +602,6 @@ export function DashboardClient({
         )
     }
   }
-
-  // ── Settings modal content ────────────────────────────────────────────────
-
-  const settingsGroups: { label: string; col: 'kpi' | 'full' | 'left' | 'right' }[] = [
-    { label: 'KPI karty', col: 'kpi' },
-    { label: 'Pełna szerokość', col: 'full' },
-    { label: 'Lewa kolumna', col: 'left' },
-    { label: 'Prawa kolumna', col: 'right' },
-  ]
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -725,7 +706,7 @@ export function DashboardClient({
         }
       >
         <div className="space-y-6">
-          {settingsGroups.map(group => {
+          {SETTINGS_GROUPS.map(group => {
             if (group.col === 'kpi') {
               return (
                 <div key="kpi">

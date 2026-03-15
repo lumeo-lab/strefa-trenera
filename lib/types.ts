@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type DbRow = Record<string, any>
+
 export type SessionType = 'easy' | 'interval' | 'tempo' | 'long' | 'rest' | 'gym' | 'bike'
 export type FeedbackSource = 'voice' | 'text' | 'auto'
 export type FeedbackSignal = 'green' | 'yellow' | 'red'

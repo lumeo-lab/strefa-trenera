@@ -9,9 +9,7 @@ import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
 import { createFeedback, updateFeedback } from '@/lib/actions/feedback'
 import { PWAInstallBanner } from '@/components/ui/PWAInstallBanner'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type DbRow = Record<string, any>
+import { DbRow } from '@/lib/types'
 
 interface Props {
   athlete: AthleteSession

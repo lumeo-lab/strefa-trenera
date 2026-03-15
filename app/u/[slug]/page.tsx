@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getAthleteFromSession } from '@/lib/athlete-auth'
 import { adminClient } from '@/lib/supabase/admin'
+import { DbRow } from '@/lib/types'
 import { AthleteTodayPage } from './_components/AthleteTodayPage'
 
 interface Props {
@@ -74,8 +75,6 @@ export default async function SlugPage({ params, searchParams }: Props) {
     .gte('date', rangeStart.toISOString().split('T')[0])
     .lte('date', rangeEnd.toISOString().split('T')[0])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  type DbRow = Record<string, any>
   const feedbacksByDate: Record<string, { text: DbRow | null; voice: DbRow | null }> = {}
   for (const fb of feedbacksArr ?? []) {
     if (!feedbacksByDate[fb.date]) feedbacksByDate[fb.date] = { text: null, voice: null }

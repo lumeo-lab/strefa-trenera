@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation'
 import { intensityColor, sessionTypeLabel, formatDate } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type DbRow = Record<string, any>
+import { DbRow } from '@/lib/types'
 
 interface Props {
   athlete: AthleteSession

@@ -13,7 +13,7 @@ import {
   formatDate, formatCurrency, intensityColor, sessionTypeLabel,
   signalColor, getWeekDays, toISODate, dayName, isToday, isPast,
 } from '@/lib/utils'
-import { SessionType, InvoiceStatus } from '@/lib/types'
+import { SessionType, InvoiceStatus, DbRow } from '@/lib/types'
 import { createSession, updateSession, deleteSession as deleteSessionAction, markSessionCompleted } from '@/lib/actions/sessions'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
@@ -152,9 +152,6 @@ const emptyDraft = (): SessionDraft => ({
   title: '', type: 'easy', description: '', plannedDistance: '', plannedDuration: '', plannedPace: '', url: '', urlLabel: '',
   completed: false, actualDistance: '', actualDuration: '', actualPace: '', avgHr: '', maxHr: '',
 })
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type DbRow = Record<string, any>
 
 type Package = { id: string; name: string; description: string | null; price: number }
 

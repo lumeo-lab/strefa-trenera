@@ -6,7 +6,7 @@ import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { formatDate, formatCurrency, sessionTypeLabel, intensityColor } from '@/lib/utils'
+import { formatDate, formatCurrency, sessionTypeLabel, intensityColor, daysAgo, daysUntil, sesjaLabel, tenureLabel } from '@/lib/utils'
 import { createAthlete, updateAthlete } from '@/lib/actions/athletes'
 import { useCustomStatuses, StatusDef } from '@/lib/useCustomStatuses'
 import Link from 'next/link'
@@ -39,50 +39,6 @@ const QUICK_FILTER_DEFS = [
 const SIGNAL_COLORS: Record<string, string> = { green: '#2ECC71', yellow: '#F1C40F', red: '#E74C3C' }
 const SIGNAL_LABELS: Record<string, string> = { green: 'Dobra', yellow: 'Średnia', red: 'Słaba' }
 
-function daysAgo(dateStr: string): { text: string; color: string } {
-  const now = new Date(); now.setHours(0, 0, 0, 0)
-  const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
-  const diff = Math.floor((now.getTime() - d.getTime()) / 86400000)
-  if (diff === 0) return { text: 'dziś', color: '#2ECC71' }
-  if (diff === 1) return { text: 'wczoraj', color: 'var(--text-muted)' }
-  if (diff > 21) return { text: `${diff} dni temu`, color: '#E74C3C' }
-  return { text: `${diff} dni temu`, color: 'var(--text-muted)' }
-}
-
-function daysUntil(dateStr: string): { text: string; color: string } {
-  const now = new Date(); now.setHours(0, 0, 0, 0)
-  const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
-  const diff = Math.floor((d.getTime() - now.getTime()) / 86400000)
-  if (diff < 0) return { text: '—', color: 'var(--text-muted)' }
-  if (diff === 0) return { text: 'dziś', color: '#FF5C1B' }
-  if (diff === 1) return { text: 'jutro', color: '#F1C40F' }
-  return { text: `za ${diff} dni`, color: 'var(--text-muted)' }
-}
-
-function sesjaLabel(n: number): string {
-  if (n === 1) return '1 sesja'
-  const mod10 = n % 10
-  const mod100 = n % 100
-  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return `${n} sesje`
-  return `${n} sesji`
-}
-
-function tenureLabel(joinDateStr: string): string {
-  const join = new Date(joinDateStr)
-  const now = new Date()
-  const months = (now.getFullYear() - join.getFullYear()) * 12 + (now.getMonth() - join.getMonth())
-  if (months < 1) return 'Nowy'
-  if (months < 12) return `${months} mies.`
-  const years = Math.floor(months / 12)
-  const rem = months % 12
-  const yMod10 = years % 10
-  const yMod100 = years % 100
-  let yLabel = 'lat'
-  if (years === 1) yLabel = 'rok'
-  else if (yMod10 >= 2 && yMod10 <= 4 && !(yMod100 >= 12 && yMod100 <= 14)) yLabel = 'lata'
-  if (rem === 0) return `${years} ${yLabel}`
-  return `${years} ${yLabel} ${rem} mies.`
-}
 
 // ── Interfaces ─────────────────────────────────────────────────────────────
 interface Athlete {

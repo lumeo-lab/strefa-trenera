@@ -115,3 +115,59 @@ export function isToday(isoDate: string): boolean {
 export function isPast(isoDate: string): boolean {
   return isoDate < new Date().toISOString().split('T')[0]
 }
+
+// ── Pomocniki dat ────────────────────────────────────────────────────────────
+
+export function daysAgo(dateStr: string): { text: string; color: string } {
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
+  const diff = Math.floor((now.getTime() - d.getTime()) / 86400000)
+  if (diff === 0) return { text: 'dziś', color: '#2ECC71' }
+  if (diff === 1) return { text: 'wczoraj', color: 'var(--text-muted)' }
+  if (diff > 21) return { text: `${diff} dni temu`, color: '#E74C3C' }
+  return { text: `${diff} dni temu`, color: 'var(--text-muted)' }
+}
+
+export function daysUntil(dateStr: string): { days: number; text: string; color: string } {
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
+  const diff = Math.floor((d.getTime() - now.getTime()) / 86400000)
+  if (diff < 0) return { days: diff, text: '—', color: 'var(--text-muted)' }
+  if (diff === 0) return { days: 0, text: 'dziś', color: '#FF5C1B' }
+  if (diff === 1) return { days: 1, text: 'jutro', color: '#F1C40F' }
+  return { days: diff, text: `za ${diff} dni`, color: 'var(--text-muted)' }
+}
+
+export function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const min = Math.floor(diff / 60000)
+  if (min < 60) return `${min} min temu`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `${h} godz. temu`
+  return `${Math.floor(h / 24)} dni temu`
+}
+
+export function plural(n: number, one: string, few: string, many: string): string {
+  if (n === 1) return one
+  if (n % 10 >= 2 && n % 10 <= 4 && !(n % 100 >= 12 && n % 100 <= 14)) return few
+  return many
+}
+
+export function sesjaLabel(n: number): string {
+  return `${n} ${plural(n, 'sesja', 'sesje', 'sesji')}`
+}
+
+export function tenureLabel(joinDateStr: string): string {
+  const join = new Date(joinDateStr)
+  const now = new Date()
+  const months = (now.getFullYear() - join.getFullYear()) * 12 + (now.getMonth() - join.getMonth())
+  if (months < 1) return 'Nowy'
+  if (months < 12) return `${months} mies.`
+  const years = Math.floor(months / 12)
+  const rem = months % 12
+  const yLabel = years === 1 ? 'rok'
+    : (years % 10 >= 2 && years % 10 <= 4 && !(years % 100 >= 12 && years % 100 <= 14)) ? 'lata'
+    : 'lat'
+  if (rem === 0) return `${years} ${yLabel}`
+  return `${years} ${yLabel} ${rem} mies.`
+}

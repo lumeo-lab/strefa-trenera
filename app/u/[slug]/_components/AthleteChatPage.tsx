@@ -9,9 +9,7 @@ import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
 import { sendAthleteMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type DbRow = Record<string, any>
+import { DbRow } from '@/lib/types'
 
 interface Props {
   athlete: AthleteSession
