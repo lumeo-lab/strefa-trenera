@@ -2,11 +2,12 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { AUTH_ERROR, FIELDS_ERROR } from '@/lib/constants'
 
 export async function createInvoice(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const athleteId = formData.get('athlete_id') as string
   const description = formData.get('description') as string
@@ -15,7 +16,7 @@ export async function createInvoice(_: unknown, formData: FormData) {
   const pkg = formData.get('package') as string
   const file = formData.get('attachment') as File | null
 
-  if (!athleteId || !amount) return { error: 'Brak wymaganych pól' }
+  if (!athleteId || !amount) return { error: FIELDS_ERROR }
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -73,7 +74,7 @@ export async function updateInvoice(id: string, data: {
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const { error } = await supabase
     .from('invoices')
@@ -90,7 +91,7 @@ export async function updateInvoice(id: string, data: {
 export async function deleteInvoice(id: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   // Fetch attachment_url before delete for storage cleanup
   const { data: inv } = await supabase
@@ -123,7 +124,7 @@ export async function deleteInvoice(id: string) {
 export async function updateInvoiceStatus(id: string, status: string, athleteId?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const { error } = await supabase
     .from('invoices')

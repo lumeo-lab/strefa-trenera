@@ -5,6 +5,7 @@ import { intensityColor, sessionTypeLabel, formatDate, getWeekDays, toISODate, d
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
 import { DbRow } from '@/lib/types'
+import { SESSION_TYPES } from '@/lib/constants'
 
 interface Props {
   athlete: AthleteSession
@@ -29,7 +30,7 @@ export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) 
   const weekStart = toISODate(weekDays[0])
   const weekEnd = toISODate(weekDays[6])
 
-  const SESSION_TYPES = ['easy', 'interval', 'tempo', 'long', 'rest', 'gym'] as const
+  // SESSION_TYPES imported from @/lib/constants
 
   function getMonthCalendar(monthStr: string) {
     const [y, mo] = monthStr.split('-').map(Number)

@@ -6,8 +6,9 @@ import { Card } from '@/components/ui/Card'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { DbRow } from '@/lib/types'
 import { updateAthlete } from '@/lib/actions/athletes'
+import { INPUT_STYLE } from '@/lib/styles'
 
-const inputStyle = { background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }
+const inputStyle = INPUT_STYLE
 const DEFAULT_PB_DISTANCES = ['5 km', '10 km', 'Półmaraton', 'Maraton']
 
 type Package = { id: string; name: string; description: string | null; price: number }

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { AUTH_ERROR } from '@/lib/constants'
 
 function safeJsonField(raw: FormDataEntryValue | null): unknown {
   if (raw === null) return undefined
@@ -30,7 +31,7 @@ function generateAvatar(name: string): string {
 export async function createAthlete(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const name = formData.get('name') as string
   const email = formData.get('email') as string
@@ -91,7 +92,7 @@ export async function createAthlete(_: unknown, formData: FormData) {
 export async function updateAthlete(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const id = formData.get('id') as string
   const updates: Record<string, unknown> = {}
@@ -132,7 +133,7 @@ export async function updateAthlete(_: unknown, formData: FormData) {
 export async function deleteAthlete(id: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const { error } = await supabase
     .from('athletes')

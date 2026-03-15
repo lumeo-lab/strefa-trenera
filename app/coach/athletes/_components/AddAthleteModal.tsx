@@ -5,28 +5,21 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/utils'
 import { createAthlete } from '@/lib/actions/athletes'
+import { INPUT_STYLE, LABEL_STYLE } from '@/lib/styles'
 
 interface Package { id: string; name: string; price: number }
 
 const inputStyle = {
+  ...INPUT_STYLE,
   width: '100%',
   padding: '9px 12px',
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border-mid)',
   borderRadius: 10,
-  color: 'var(--text-primary)',
   fontSize: 14,
   outline: 'none',
   boxSizing: 'border-box' as const,
 }
 
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 12,
-  fontWeight: 600,
-  color: 'var(--text-muted)',
-  marginBottom: 5,
-}
+const labelStyle = LABEL_STYLE
 
 interface AddAthleteModalProps {
   open: boolean

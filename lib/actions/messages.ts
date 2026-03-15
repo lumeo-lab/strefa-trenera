@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { AUTH_ERROR, FIELDS_ERROR } from '@/lib/constants'
 
 function firePush(userId: string, payload: { title: string; body: string; url: string }) {
   // Fire-and-forget — błąd push nigdy nie blokuje wysyłania wiadomości
@@ -32,13 +33,13 @@ export async function sendAthleteMessage(athleteId: string, coachId: string, con
 export async function sendMessage(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const athleteId = formData.get('athlete_id') as string
   const content = formData.get('content') as string
   const coachName = formData.get('coach_name') as string
 
-  if (!athleteId || !content?.trim()) return { error: 'Brak wymaganych pól' }
+  if (!athleteId || !content?.trim()) return { error: FIELDS_ERROR }
 
   const { error } = await supabase.from('messages').insert({
     coach_id: user.id,

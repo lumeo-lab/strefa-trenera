@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { AUTH_ERROR, FIELDS_ERROR } from '@/lib/constants'
 
 function buildFeedbackFields(formData: FormData) {
   const feeling = formData.get('feeling') as string || ''
@@ -91,7 +92,7 @@ export async function updateFeedback(formData: FormData) {
 export async function markFeedbackRead(id: string, athleteId?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   await supabase
     .from('feedbacks')
@@ -106,13 +107,13 @@ export async function markFeedbackRead(id: string, athleteId?: string) {
 export async function replyFeedback(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const id = formData.get('id') as string
   const reply = formData.get('reply') as string
   const athleteId = formData.get('athlete_id') as string
 
-  if (!id || !reply) return { error: 'Brak wymaganych pól' }
+  if (!id || !reply) return { error: FIELDS_ERROR }
 
   const { error } = await supabase
     .from('feedbacks')

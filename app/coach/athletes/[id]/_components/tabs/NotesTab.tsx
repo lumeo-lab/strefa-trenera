@@ -4,8 +4,9 @@ import { useState, startTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
 import { updateAthlete } from '@/lib/actions/athletes'
+import { INPUT_STYLE } from '@/lib/styles'
 
-const inputStyle = { background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }
+const inputStyle = INPUT_STYLE
 
 interface NotesTabProps {
   athleteId: string

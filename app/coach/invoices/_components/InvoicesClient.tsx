@@ -28,11 +28,9 @@ type SortKey = 'number' | 'athlete' | 'date' | 'due_date' | 'amount' | 'status'
 
 const STATUS_OPTIONS: InvoiceStatus[] = ['pending', 'paid', 'overdue', 'cancelled']
 
-const inputStyle = {
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border-mid)',
-  color: 'var(--text-primary)',
-}
+import { INPUT_STYLE } from '@/lib/styles'
+
+const inputStyle = INPUT_STYLE
 const labelStyle = { color: 'var(--text-muted)' }
 
 export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJoins[]; athletes: AthleteOption[] }) {

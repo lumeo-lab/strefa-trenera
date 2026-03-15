@@ -2,11 +2,12 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { AUTH_ERROR } from '@/lib/constants'
 
 export async function updateCoachAvatar(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const file = formData.get('avatar_file') as File | null
   let avatar = formData.get('avatar_type') as string ?? ''
@@ -32,7 +33,7 @@ export async function updateCoachAvatar(_: unknown, formData: FormData) {
 export async function updateCoachName(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const name = (formData.get('name') as string)?.trim()
   if (!name) return { error: 'Imię jest wymagane' }
@@ -47,7 +48,7 @@ export async function updateCoachName(_: unknown, formData: FormData) {
 export async function updateCoachEmail(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const email = (formData.get('email') as string)?.trim()
   if (!email) return { error: 'Email jest wymagany' }
@@ -62,7 +63,7 @@ export async function updateCoachEmail(_: unknown, formData: FormData) {
 export async function updateCoachPassword(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const password = formData.get('password') as string
   const confirm = formData.get('confirm_password') as string

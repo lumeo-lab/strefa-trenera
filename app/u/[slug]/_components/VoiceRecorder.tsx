@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 
-const INPUT_STYLE = { background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }
+import { INPUT_STYLE } from '@/lib/styles'
 
 interface VoiceRecorderProps {
   transcript: string

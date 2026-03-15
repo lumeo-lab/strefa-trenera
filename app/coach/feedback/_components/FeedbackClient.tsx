@@ -19,9 +19,7 @@ type FeedbackWithJoins = FeedbackRow & {
 
 type Filter = 'all' | 'today' | 'unread' | 'alert'
 
-const FEELING_LABEL: Record<string, string> = {
-  '😫': 'Fatalnie', '😕': 'Słabo', '😐': 'Średnio', '😊': 'Dobrze', '🤩': 'Świetnie',
-}
+import { FEELING_LABELS as FEELING_LABEL } from '@/lib/constants'
 
 function parseTranscript(transcript: string) {
   const result: Record<string, string> = {}

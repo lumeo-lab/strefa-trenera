@@ -10,10 +10,10 @@ import { DbRow } from '@/lib/types'
 import { SessionType } from '@/lib/types'
 import { getWeekDays, toISODate, dayName, intensityColor, sessionTypeLabel, formatDate, isToday } from '@/lib/utils'
 import { createSession, updateSession, deleteSession } from '@/lib/actions/sessions'
+import { INPUT_STYLE } from '@/lib/styles'
+import { SESSION_TYPES } from '@/lib/constants'
 
-const SESSION_TYPES: SessionType[] = ['easy', 'interval', 'tempo', 'long', 'rest', 'gym']
-
-const inputStyle = { background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }
+const inputStyle = INPUT_STYLE
 
 interface Props {
   athletes: DbRow[]

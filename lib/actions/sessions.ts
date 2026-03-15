@@ -2,11 +2,12 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { AUTH_ERROR, FIELDS_ERROR } from '@/lib/constants'
 
 export async function createSession(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const athleteId = formData.get('athlete_id') as string
   const date = formData.get('date') as string
@@ -25,7 +26,7 @@ export async function createSession(_: unknown, formData: FormData) {
   const avgHr = formData.get('avg_hr') ? parseFloat(formData.get('avg_hr') as string) : null
   const maxHr = formData.get('max_hr') ? parseFloat(formData.get('max_hr') as string) : null
 
-  if (!athleteId || !date || !type || !title) return { error: 'Brak wymaganych pól' }
+  if (!athleteId || !date || !type || !title) return { error: FIELDS_ERROR }
 
   const { data, error } = await supabase.from('training_sessions').insert({
     athlete_id: athleteId,
@@ -56,7 +57,7 @@ export async function createSession(_: unknown, formData: FormData) {
 export async function updateSession(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const id = formData.get('id') as string
   const athleteId = formData.get('athlete_id') as string
@@ -95,7 +96,7 @@ export async function updateSession(_: unknown, formData: FormData) {
 export async function markSessionCompleted(id: string, athleteId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   await supabase
     .from('training_sessions')
@@ -110,7 +111,7 @@ export async function markSessionCompleted(id: string, athleteId: string) {
 export async function deleteSession(id: string, athleteId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const { error } = await supabase
     .from('training_sessions')

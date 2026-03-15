@@ -6,10 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { DbRow } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
 import { markFeedbackRead, replyFeedback } from '@/lib/actions/feedback'
-
-const FEELING_LABELS: Record<string, string> = {
-  '😫': 'Fatalnie', '😕': 'Słabo', '😐': 'Średnio', '😊': 'Dobrze', '🤩': 'Świetnie',
-}
+import { FEELING_LABELS } from '@/lib/constants'
 
 function parseFeedback(fb: DbRow) {
   const textSummary = fb.source !== 'voice' ? (fb.transcript ?? '') : ''

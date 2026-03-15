@@ -16,7 +16,7 @@ const FEELINGS = [
 ]
 const INTENSITIES = ['Bardzo lekki', 'Lekki', 'Umiarkowany', 'Ciężki', 'Bardzo ciężki', 'Maksymalny']
 const TRAINING_TYPES = ['Easy / Rozbieganie', 'Interwały', 'Tempo', 'Long Run', 'Siłownia', 'Crosstraining', 'Inny']
-const INPUT_STYLE = { background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }
+import { INPUT_STYLE } from '@/lib/styles'
 
 export interface FeedbackData {
   feeling?: string

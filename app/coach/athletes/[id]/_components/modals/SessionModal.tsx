@@ -8,8 +8,9 @@ import { intensityColor, sessionTypeLabel } from '@/lib/utils'
 import { SessionType, DbRow } from '@/lib/types'
 import { createSession, updateSession, deleteSession as deleteSessionAction } from '@/lib/actions/sessions'
 import { useCustomSessionTypes, BUILTIN_SESSION_TYPE_KEYS, SessionTypeDef } from '@/lib/useCustomSessionTypes'
+import { INPUT_STYLE } from '@/lib/styles'
 
-const inputStyle = { background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }
+const inputStyle = INPUT_STYLE
 const PRESET_TYPE_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F97316', '#10B981', '#EF4444', '#F59E0B', '#06B6D4']
 
 interface SessionDraft {

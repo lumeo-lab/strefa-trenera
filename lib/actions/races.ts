@@ -2,11 +2,12 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { AUTH_ERROR, FIELDS_ERROR } from '@/lib/constants'
 
 export async function createRace(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const athleteId = formData.get('athlete_id') as string
   const name = formData.get('name') as string
@@ -17,7 +18,7 @@ export async function createRace(_: unknown, formData: FormData) {
   const status = formData.get('status') as string || 'planned'
   const notes = formData.get('notes') as string || null
 
-  if (!athleteId || !name || !date) return { error: 'Brak wymaganych pól' }
+  if (!athleteId || !name || !date) return { error: FIELDS_ERROR }
 
   const { error } = await supabase.from('athlete_races').insert({
     athlete_id: athleteId,
@@ -40,7 +41,7 @@ export async function createRace(_: unknown, formData: FormData) {
 export async function updateRace(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const id = formData.get('id') as string
   const athleteId = formData.get('athlete_id') as string
@@ -64,7 +65,7 @@ export async function updateRace(_: unknown, formData: FormData) {
 export async function deleteRace(id: string, athleteId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const { error } = await supabase.from('athlete_races').delete().eq('id', id).eq('coach_id', user.id)
 

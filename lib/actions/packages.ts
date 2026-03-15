@@ -2,11 +2,12 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { AUTH_ERROR } from '@/lib/constants'
 
 export async function createPackage(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const name = formData.get('name') as string
   const description = formData.get('description') as string | null
@@ -31,7 +32,7 @@ export async function createPackage(_: unknown, formData: FormData) {
 export async function updatePackage(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const id = formData.get('id') as string
   const name = formData.get('name') as string
@@ -56,7 +57,7 @@ export async function updatePackage(_: unknown, formData: FormData) {
 export async function deletePackage(id: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Brak autoryzacji' }
+  if (!user) return { error: AUTH_ERROR }
 
   const { error } = await supabase
     .from('packages')

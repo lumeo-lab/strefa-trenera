@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/Button'
 import { formatDate } from '@/lib/utils'
 import { DbRow } from '@/lib/types'
 import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
+import { INPUT_STYLE } from '@/lib/styles'
 
-const inputStyle = { background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }
+const inputStyle = INPUT_STYLE
 
 type RaceStatus = 'planned' | 'completed' | 'dns' | 'dnf'
 

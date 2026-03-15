@@ -8,6 +8,7 @@ import { AthleteSession } from '@/lib/athlete-auth'
 import { PWAInstallBanner } from '@/components/ui/PWAInstallBanner'
 import { DbRow } from '@/lib/types'
 import { FeedbackModal, FeedbackData, dbRowToFeedback } from './FeedbackModal'
+import { FEELING_LABELS } from '@/lib/constants'
 
 interface Props {
   athlete: AthleteSession
@@ -35,9 +36,7 @@ function fullDate(dateStr: string): string {
   return new Date(y, m - 1, d).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-const FEELING_LABEL: Record<string, string> = {
-  '😫': 'Fatalnie', '😕': 'Słabo', '😐': 'Średnio', '😊': 'Dobrze', '🤩': 'Świetnie',
-}
+const FEELING_LABEL = FEELING_LABELS
 
 function TextFeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit: () => void }) {
   const hasText = !!(feedback.feeling || feedback.trainingType || feedback.distanceKm || feedback.durationMin || feedback.intensity || feedback.notes)
