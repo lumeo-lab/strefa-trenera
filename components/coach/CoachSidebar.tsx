@@ -10,6 +10,7 @@ const navSections = [
     label: 'Zawodnicy',
     items: [
       { href: '/coach/athletes', icon: '👟', label: 'Zawodnicy' },
+      { href: '/coach/planner', icon: '📅', label: 'Planer' },
       { href: '/coach/feedback', icon: '📥', label: 'Feedback' },
       { href: '/coach/chat', icon: '💬', label: 'Czat' },
     ],
