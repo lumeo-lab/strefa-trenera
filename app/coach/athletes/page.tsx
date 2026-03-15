@@ -1,5 +1,8 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { AthletesClient } from './_components/AthletesClient'
+
+export const metadata: Metadata = { title: 'Zawodnicy | Strefa Trenera' }
 
 export default async function AthletesPage() {
   const supabase = await createClient()

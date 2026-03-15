@@ -1,6 +1,14 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { AthleteProfileClient } from './_components/AthleteProfileClient'
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: athlete } = await supabase.from('athletes').select('name').eq('id', id).single()
+  return { title: athlete ? `${athlete.name} | Strefa Trenera` : 'Zawodnik | Strefa Trenera' }
+}
 
 export default async function AthleteProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

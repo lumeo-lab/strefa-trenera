@@ -1,5 +1,8 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { InvoicesClient } from './_components/InvoicesClient'
+
+export const metadata: Metadata = { title: 'Faktury | Strefa Trenera' }
 
 export default async function InvoicesPage() {
   const supabase = await createClient()

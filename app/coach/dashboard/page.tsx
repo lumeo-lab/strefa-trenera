@@ -1,4 +1,7 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+
+export const metadata: Metadata = { title: 'Dashboard | Strefa Trenera' }
 import { DashboardClient } from './_components/DashboardClient'
 import type {
   DashboardAthleteRow,

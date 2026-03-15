@@ -1,5 +1,8 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { FeedbackClient } from './_components/FeedbackClient'
+
+export const metadata: Metadata = { title: 'Feedback | Strefa Trenera' }
 
 export default async function FeedbackPage() {
   const supabase = await createClient()

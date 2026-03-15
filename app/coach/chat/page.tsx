@@ -1,5 +1,8 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { ChatClient } from './_components/ChatClient'
+
+export const metadata: Metadata = { title: 'Czat | Strefa Trenera' }
 
 export default async function CoachChatPage({ searchParams }: { searchParams: Promise<{ athlete?: string }> }) {
   const supabase = await createClient()

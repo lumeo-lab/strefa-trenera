@@ -1,6 +1,9 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { PlannerClient } from './_components/PlannerClient'
+
+export const metadata: Metadata = { title: 'Planer | Strefa Trenera' }
 
 export default async function PlannerPage() {
   const supabase = await createClient()

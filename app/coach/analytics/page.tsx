@@ -1,5 +1,8 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
+
+export const metadata: Metadata = { title: 'Analityka | Strefa Trenera' }
 import { Card } from '@/components/ui/Card'
 import { formatCurrency } from '@/lib/utils'
 

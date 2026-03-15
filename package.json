@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "format": "prettier --write 'app/**/*.{ts,tsx}' 'lib/**/*.{ts,tsx}' 'components/**/*.{ts,tsx}'",
+    "format:check": "prettier --check 'app/**/*.{ts,tsx}' 'lib/**/*.{ts,tsx}' 'components/**/*.{ts,tsx}'"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
