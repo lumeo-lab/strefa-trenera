@@ -36,7 +36,7 @@ export function HistoryTab({ sessions, feedbacks, feedbackBySession, feedbackByD
   function toggleRow(sessionId: string) {
     setExpandedRows(prev => {
       const next = new Set(prev)
-      next.has(sessionId) ? next.delete(sessionId) : next.add(sessionId)
+      if (next.has(sessionId)) { next.delete(sessionId) } else { next.add(sessionId) }
       return next
     })
   }

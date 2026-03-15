@@ -3,8 +3,8 @@
 import React, { useState, startTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  formatDate, intensityColor, sessionTypeLabel,
-  getWeekDays, toISODate, dayName, isToday, isPast,
+  formatDate, intensityColor,
+  getWeekDays, toISODate, dayName, isToday,
 } from '@/lib/utils'
 import { SessionType, DbRow } from '@/lib/types'
 import { markSessionCompleted } from '@/lib/actions/sessions'
@@ -146,7 +146,6 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
               const dateStr = toISODate(day)
               const daySessions = weekSessions.filter(s => s.date === dateStr)
               const todayFlag = isToday(dateStr)
-              const pastFlag = isPast(dateStr)
 
               return (
                 <div key={dateStr} className="flex flex-col rounded-2xl overflow-hidden"

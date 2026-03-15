@@ -49,7 +49,7 @@ export function FeedbackDetail({ fb }: { fb: DbRow }) {
               {d.durationMin && <span>⏱ {d.durationMin} min</span>}
             </div>
           )}
-          {d.notes && <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>"{d.notes}"</p>}
+          {d.notes && <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>&quot;{d.notes}&quot;</p>}
         </div>
       )}
       {d.voice && (
@@ -82,7 +82,7 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
   async function toggleFeedback(fbId: string, read: boolean) {
     setExpandedFeedbacks(prev => {
       const next = new Set(prev)
-      next.has(fbId) ? next.delete(fbId) : next.add(fbId)
+      if (next.has(fbId)) { next.delete(fbId) } else { next.add(fbId) }
       return next
     })
     if (!read) {

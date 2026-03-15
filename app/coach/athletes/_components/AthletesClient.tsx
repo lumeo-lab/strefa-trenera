@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
 import { formatDate, formatCurrency, sessionTypeLabel, intensityColor, daysAgo, daysUntil, sesjaLabel, tenureLabel } from '@/lib/utils'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { useCustomStatuses, StatusDef } from '@/lib/useCustomStatuses'
@@ -82,6 +81,19 @@ type QuickFilter = 'unread' | 'unpaid' | 'no_session' | null
 
 const ORDER_KEY = 'coach_athlete_order'
 
+function SortHeader({ label, sk, sortKey, sortDir, onSort }: { label: string; sk: SortKey; sortKey: SortKey; sortDir: 'asc' | 'desc'; onSort: (key: SortKey) => void }) {
+  const isActive = sortKey === sk
+  return (
+    <th
+      className="text-left px-5 py-4 font-medium cursor-pointer select-none hover:opacity-80 transition-opacity"
+      style={{ color: isActive ? '#FF5C1B' : 'var(--text-muted)' }}
+      onClick={() => onSort(sk)}
+    >
+      {label}{isActive && <span className="ml-1 text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+    </th>
+  )
+}
+
 export function AthletesClient({
   athletes, lastSessionMap, weeklyLoadMap, weeklySessionCountMap, packages,
   signalMap, lastFeedbackDateMap, nextSessionMap, unreadMessagesMap, unreadFeedbackMap,
@@ -95,7 +107,13 @@ export function AthletesClient({
   const [quickFilter, setQuickFilter] = useState<QuickFilter>(null)
   const [sortKey, setSortKey] = useState<SortKey>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  const [masterOrder, setMasterOrder] = useState<string[]>([])
+  const [masterOrder, setMasterOrder] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem(ORDER_KEY)
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
 
@@ -111,7 +129,13 @@ export function AthletesClient({
   const [updatingStatus, setUpdatingStatus] = useState(false)
 
   // Column picker
-  const [activeColumns, setActiveColumns] = useState<ColumnKey[]>(DEFAULT_COLUMNS)
+  const [activeColumns, setActiveColumns] = useState<ColumnKey[]>(() => {
+    if (typeof window === 'undefined') return DEFAULT_COLUMNS
+    try {
+      const saved = localStorage.getItem(COLUMNS_STORAGE_KEY)
+      return saved ? JSON.parse(saved) : DEFAULT_COLUMNS
+    } catch { return DEFAULT_COLUMNS }
+  })
   const [colPickerOpen, setColPickerOpen] = useState(false)
   const colPickerRef = useRef<HTMLDivElement>(null)
 
@@ -149,18 +173,6 @@ export function AthletesClient({
     setActiveColumns(cols)
     localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(cols))
   }
-
-  // Load persisted state
-  useEffect(() => {
-    try {
-      const savedOrder = localStorage.getItem(ORDER_KEY)
-      if (savedOrder) setMasterOrder(JSON.parse(savedOrder))
-    } catch { /* ignore */ }
-    try {
-      const savedCols = localStorage.getItem(COLUMNS_STORAGE_KEY)
-      if (savedCols) setActiveColumns(JSON.parse(savedCols))
-    } catch { /* ignore */ }
-  }, [])
 
   // Close column picker on outside click
   useEffect(() => {
@@ -276,19 +288,6 @@ export function AthletesClient({
 
   function getStatusDef(key: string): StatusDef {
     return allStatuses.find(s => s.key === key) ?? { key, label: key, color: '#6B7280' }
-  }
-
-  function SortHeader({ label, sk }: { label: string; sk: SortKey }) {
-    const isActive = sortKey === sk
-    return (
-      <th
-        className="text-left px-5 py-4 font-medium cursor-pointer select-none hover:opacity-80 transition-opacity"
-        style={{ color: isActive ? '#FF5C1B' : 'var(--text-muted)' }}
-        onClick={() => handleSort(sk)}
-      >
-        {label}{isActive && <span className="ml-1 text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>}
-      </th>
-    )
   }
 
   return (
@@ -513,18 +512,18 @@ export function AthletesClient({
                 <thead>
                   <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
                     {!sortKey && <th className="px-3 py-4 w-8" style={{ color: 'var(--text-muted)' }} />}
-                    <SortHeader label="Zawodnik" sk="name" />
-                    {col('signal') && <SortHeader label="Forma" sk="signal" />}
-                    {col('compliance') && <SortHeader label="Realizacja" sk="compliance" />}
-                    {col('weekly_load') && <SortHeader label="Obciążenie 7 dni" sk="weekly_load" />}
-                    {col('package') && <SortHeader label="Pakiet" sk="package" />}
-                    {col('next_session') && <SortHeader label="Następna sesja" sk="next_session" />}
-                    {col('last_session') && <SortHeader label="Ostatni trening" sk="last_session" />}
-                    {col('join_date') && <SortHeader label="Data dołączenia" sk="join_date" />}
+                    <SortHeader sortKey={sortKey} sortDir={sortDir} onSort={handleSort} label="Zawodnik" sk="name" />
+                    {col('signal') && <SortHeader sortKey={sortKey} sortDir={sortDir} onSort={handleSort} label="Forma" sk="signal" />}
+                    {col('compliance') && <SortHeader sortKey={sortKey} sortDir={sortDir} onSort={handleSort} label="Realizacja" sk="compliance" />}
+                    {col('weekly_load') && <SortHeader sortKey={sortKey} sortDir={sortDir} onSort={handleSort} label="Obciążenie 7 dni" sk="weekly_load" />}
+                    {col('package') && <SortHeader sortKey={sortKey} sortDir={sortDir} onSort={handleSort} label="Pakiet" sk="package" />}
+                    {col('next_session') && <SortHeader sortKey={sortKey} sortDir={sortDir} onSort={handleSort} label="Następna sesja" sk="next_session" />}
+                    {col('last_session') && <SortHeader sortKey={sortKey} sortDir={sortDir} onSort={handleSort} label="Ostatni trening" sk="last_session" />}
+                    {col('join_date') && <SortHeader sortKey={sortKey} sortDir={sortDir} onSort={handleSort} label="Data dołączenia" sk="join_date" />}
                     {col('phone') && <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Telefon</th>}
                     {col('age') && <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Wiek</th>}
                     {col('city') && <th className="text-left px-5 py-4 font-medium" style={{ color: 'var(--text-muted)' }}>Miasto</th>}
-                    <SortHeader label="Status" sk="status" />
+                    <SortHeader sortKey={sortKey} sortDir={sortDir} onSort={handleSort} label="Status" sk="status" />
                   </tr>
                 </thead>
                 <tbody>
