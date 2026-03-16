@@ -24,7 +24,7 @@ type AthleteOption = {
   package_price: number
 }
 
-type Filter = 'all' | InvoiceStatus
+type Filter = 'all' | 'pending' | 'paid' | 'overdue'
 type SortKey = 'number' | 'athlete' | 'date' | 'due_date' | 'amount' | 'status'
 
 const STATUS_OPTIONS: InvoiceStatus[] = ['pending', 'paid', 'overdue', 'cancelled']
@@ -261,10 +261,18 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
     { id: 'overdue', label: 'Przeterminowane' },
   ]
 
-  // Count per filter (respecting athlete filter)
-  const athleteFiltered = athleteFilter !== 'all'
-    ? localInvoices.filter(i => i.athlete_id === athleteFilter)
-    : localInvoices
+  // Memoized filter counts (respecting athlete filter)
+  const filterCounts = useMemo(() => {
+    const base = athleteFilter !== 'all'
+      ? localInvoices.filter(i => i.athlete_id === athleteFilter)
+      : localInvoices
+    return {
+      all: base.length,
+      pending: base.filter(i => i.status === 'pending').length,
+      paid: base.filter(i => i.status === 'paid').length,
+      overdue: base.filter(i => i.status === 'overdue').length,
+    }
+  }, [localInvoices, athleteFilter])
 
   return (
     <div>
@@ -299,7 +307,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
                 color: filter === f.id ? '#FF5C1B' : 'var(--text-muted)',
                 border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
               }}>
-              {f.label} ({athleteFiltered.filter(i => f.id === 'all' || i.status === f.id).length})
+              {f.label} ({filterCounts[f.id]})
             </button>
           ))}
           <select

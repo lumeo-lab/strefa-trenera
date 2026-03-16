@@ -55,33 +55,33 @@ export async function GET(request: NextRequest) {
   }
 
   const nowIso = new Date().toISOString()
-
-  // Extend invite token expiry (do NOT rotate — same link keeps working)
-  await adminClient
-    .from('athletes')
-    .update({
-      invite_token_expires_at: addSecondsToNow(ATHLETE_INVITE_TTL_SECONDS),
-      invite_token_used_at: nowIso,
-    })
-    .eq('id', athlete.id)
-    .eq('invite_token', token)
-
-  // Check if athlete already has an active session from this browser
   const existingSessionToken = request.cookies.get('athlete_session')?.value
-  if (existingSessionToken) {
-    const { data: existingSession } = await adminClient
-      .from('athlete_sessions')
-      .select('id')
-      .eq('token', existingSessionToken)
-      .eq('athlete_id', athlete.id)
-      .is('revoked_at', null)
-      .gt('expires_at', nowIso)
-      .single()
 
-    if (existingSession) {
-      // Existing valid session — just redirect, no need for new session
-      return NextResponse.redirect(new URL(`/u/${slug}`, request.url))
-    }
+  // Run invite expiry extension + existing session check in parallel
+  const [, existingSession] = await Promise.all([
+    adminClient
+      .from('athletes')
+      .update({
+        invite_token_expires_at: addSecondsToNow(ATHLETE_INVITE_TTL_SECONDS),
+        invite_token_used_at: nowIso,
+      })
+      .eq('id', athlete.id)
+      .eq('invite_token', token),
+    existingSessionToken
+      ? adminClient
+          .from('athlete_sessions')
+          .select('id')
+          .eq('token', existingSessionToken)
+          .eq('athlete_id', athlete.id)
+          .is('revoked_at', null)
+          .gt('expires_at', nowIso)
+          .single()
+          .then(r => r.data)
+      : Promise.resolve(null),
+  ])
+
+  if (existingSession) {
+    return NextResponse.redirect(new URL(`/u/${slug}`, request.url))
   }
 
   // Create new session
