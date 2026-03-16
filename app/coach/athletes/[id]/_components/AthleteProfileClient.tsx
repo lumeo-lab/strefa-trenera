@@ -67,17 +67,23 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     : `/u/${athlete.slug}?t=${inviteToken}`
 
   const isInviteExpired = !inviteExpiresAt || new Date(inviteExpiresAt) <= new Date()
+  const [inviteError, setInviteError] = useState<string | null>(null)
 
-  async function ensureFreshLink(): Promise<string | null> {
-    // If invite token is expired, auto-regenerate before copying
-    if (!isInviteExpired) return inviteUrl
+  async function doRegenerate(): Promise<string | null> {
+    setInviteError(null)
     const result = await regenerateAthleteInviteLink(athlete.id)
-    if (result?.success) {
+    if (result && 'error' in result) {
+      setInviteError(result.error ?? 'Nie udało się wygenerować linku')
+      return null
+    }
+    if (result?.success && result.inviteToken) {
       setInviteToken(result.inviteToken)
-      setInviteExpiresAt(result.inviteExpiresAt)
+      setInviteExpiresAt(result.inviteExpiresAt ?? null)
+      setLinkCopied(false)
       const origin = typeof window !== 'undefined' ? window.location.origin : ''
       return `${origin}/u/${result.slug}?t=${result.inviteToken}`
     }
+    setInviteError('Nie udało się wygenerować linku')
     return null
   }
 
@@ -85,13 +91,18 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     if (regeneratingInvite) return
     setRegeneratingInvite(true)
     try {
-      const url = await ensureFreshLink()
-      if (url) {
-        await navigator.clipboard.writeText(url)
-        setLinkCopied(true)
-        setTimeout(() => setLinkCopied(false), 2000)
+      let url = inviteUrl
+      if (isInviteExpired) {
+        const freshUrl = await doRegenerate()
+        if (!freshUrl) return
+        url = freshUrl
       }
-    } catch { /* clipboard error */ } finally {
+      await navigator.clipboard.writeText(url)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      setInviteError('Nie udało się skopiować — skopiuj ręcznie z pola powyżej')
+    } finally {
       setRegeneratingInvite(false)
     }
   }
@@ -100,12 +111,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     if (regeneratingInvite) return
     setRegeneratingInvite(true)
     try {
-      const result = await regenerateAthleteInviteLink(athlete.id)
-      if (result?.success) {
-        setInviteToken(result.inviteToken)
-        setInviteExpiresAt(result.inviteExpiresAt)
-        setLinkCopied(false)
-      }
+      await doRegenerate()
     } finally {
       setRegeneratingInvite(false)
     }
@@ -180,9 +186,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   : `Ważny do ${formatDate(inviteExpiresAt, { day: 'numeric', month: 'long', year: 'numeric' })}`}
               </div>
             )}
+            {inviteError && (
+              <div className="text-xs mb-2" style={{ color: '#E74C3C' }}>{inviteError}</div>
+            )}
             <div className="flex items-center gap-2">
-              <code className="flex-1 px-3 py-2 rounded-xl text-xs font-mono truncate" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                /u/{athlete.slug}?t={inviteToken.slice(0, 8)}…
+              <code className="flex-1 px-3 py-2 rounded-xl text-xs font-mono truncate select-all" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                {inviteUrl}
               </code>
               <button
                 onClick={copyInviteLink}
