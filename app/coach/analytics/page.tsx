@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { getBusinessToday } from '@/lib/date'
 
 export const metadata: Metadata = { title: 'Analityka | Strefa Trenera' }
@@ -26,9 +26,11 @@ export default async function AnalyticsPage() {
 
   // ── KPIs ──────────────────────────────────────────────────────
   const paidInvoices = allInvoices.filter(i => i.status === 'paid')
+  const pendingInvoices = allInvoices.filter(i => i.status === 'pending')
+  const overdueInvoices = allInvoices.filter(i => i.status === 'overdue')
   const totalPaid = paidInvoices.reduce((s, i) => s + i.amount, 0)
-  const overdueAmount = allInvoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0)
-  const pendingAmount = allInvoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0)
+  const pendingAmount = pendingInvoices.reduce((s, i) => s + i.amount, 0)
+  const overdueAmount = overdueInvoices.reduce((s, i) => s + i.amount, 0)
 
   // Current vs previous month
   const prevYM = (() => {
@@ -121,7 +123,7 @@ export default async function AnalyticsPage() {
               {formatCurrency(pendingAmount)}
             </div>
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              {allInvoices.filter(i => i.status === 'pending').length} faktur
+              {pendingInvoices.length} faktur
             </div>
           </Card>
           <Card className="p-5">
@@ -130,7 +132,7 @@ export default async function AnalyticsPage() {
               {formatCurrency(overdueAmount)}
             </div>
             <div className="text-xs" style={{ color: overdueAmount > 0 ? '#E74C3C' : '#2ECC71' }}>
-              {overdueAmount > 0 ? `${allInvoices.filter(i => i.status === 'overdue').length} faktur` : 'Brak zaległości'}
+              {overdueAmount > 0 ? `${overdueInvoices.length} faktur` : 'Brak zaległości'}
             </div>
           </Card>
         </div>
@@ -244,7 +246,7 @@ export default async function AnalyticsPage() {
                       <td className="px-4 py-3 text-xs text-right font-semibold" style={{ color: '#2ECC71' }}>{formatCurrency(a.paid)}</td>
                       <td className="px-4 py-3 text-xs text-right" style={{ color: 'var(--text-muted)' }}>{a.invoiceCount}</td>
                       <td className="px-4 py-3 text-xs text-right" style={{ color: 'var(--text-muted)' }}>
-                        {new Date(a.joinDate).toLocaleDateString('pl-PL', { month: 'short', year: 'numeric' })}
+                        {formatDate(a.joinDate, { month: 'short', year: 'numeric' })}
                       </td>
                     </tr>
                   ))}
