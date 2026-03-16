@@ -11,7 +11,7 @@ import type { NextRequest } from 'next/server'
 
 // Simple in-memory rate limiter per slug (resets on deploy/restart)
 const attempts = new Map<string, { count: number; resetAt: number }>()
-const MAX_ATTEMPTS = 5
+const MAX_ATTEMPTS = 10
 const WINDOW_MS = 15 * 60 * 1000 // 15 minutes
 
 function isRateLimited(slug: string): boolean {
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // Rate limit: max 5 attempts per slug per 15 minutes
+  // Rate limit
   if (isRateLimited(slug)) {
     return NextResponse.redirect(new URL(`/u/${slug}?invalid=1`, request.url))
   }
@@ -50,38 +50,44 @@ export async function GET(request: NextRequest) {
     .single()
 
   if (!athlete || !athlete.invite_token_expires_at || new Date(athlete.invite_token_expires_at) <= new Date()) {
-    // Invalid token — redirect back with error
+    // Invalid or expired token — redirect back (page.tsx will check session cookie as fallback)
     return NextResponse.redirect(new URL(`/u/${slug}?invalid=1`, request.url))
   }
 
   const nowIso = new Date().toISOString()
-  const nextInviteToken = generateSecureToken(24)
-  const nextInviteExpiresAt = addSecondsToNow(ATHLETE_INVITE_TTL_SECONDS)
-  const sessionToken = generateSecureToken(32)
-  const sessionExpiresAt = addSecondsToNow(ATHLETE_SESSION_TTL_SECONDS)
-  const userAgent = request.headers.get('user-agent')?.slice(0, 500) ?? null
 
-  const { data: rotatedAthlete, error: rotateError } = await adminClient
+  // Extend invite token expiry (do NOT rotate — same link keeps working)
+  await adminClient
     .from('athletes')
     .update({
-      invite_token: nextInviteToken,
-      invite_token_expires_at: nextInviteExpiresAt,
+      invite_token_expires_at: addSecondsToNow(ATHLETE_INVITE_TTL_SECONDS),
       invite_token_used_at: nowIso,
     })
     .eq('id', athlete.id)
     .eq('invite_token', token)
-    .select('id')
-    .single()
 
-  if (rotateError || !rotatedAthlete) {
-    return NextResponse.redirect(new URL(`/u/${slug}?invalid=1`, request.url))
+  // Check if athlete already has an active session from this browser
+  const existingSessionToken = request.cookies.get('athlete_session')?.value
+  if (existingSessionToken) {
+    const { data: existingSession } = await adminClient
+      .from('athlete_sessions')
+      .select('id')
+      .eq('token', existingSessionToken)
+      .eq('athlete_id', athlete.id)
+      .is('revoked_at', null)
+      .gt('expires_at', nowIso)
+      .single()
+
+    if (existingSession) {
+      // Existing valid session — just redirect, no need for new session
+      return NextResponse.redirect(new URL(`/u/${slug}`, request.url))
+    }
   }
 
-  await adminClient
-    .from('athlete_sessions')
-    .update({ revoked_at: nowIso })
-    .eq('athlete_id', athlete.id)
-    .is('revoked_at', null)
+  // Create new session
+  const sessionToken = generateSecureToken(32)
+  const sessionExpiresAt = addSecondsToNow(ATHLETE_SESSION_TTL_SECONDS)
+  const userAgent = request.headers.get('user-agent')?.slice(0, 500) ?? null
 
   const { error: sessionError } = await adminClient
     .from('athlete_sessions')

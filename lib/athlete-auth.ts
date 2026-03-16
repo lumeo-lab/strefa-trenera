@@ -4,8 +4,8 @@ import { adminClient } from '@/lib/supabase/admin'
 import type { Database } from '@/lib/supabase/database.types'
 
 export const ATHLETE_SESSION_COOKIE = 'athlete_session'
-export const ATHLETE_INVITE_TTL_SECONDS = 60 * 60 * 24 * 14
-export const ATHLETE_SESSION_TTL_SECONDS = 60 * 60 * 24 * 14
+export const ATHLETE_INVITE_TTL_SECONDS = 60 * 60 * 24 * 365 // 1 year
+export const ATHLETE_SESSION_TTL_SECONDS = 60 * 60 * 24 * 90  // 90 days
 
 export interface AthleteSession {
   id: string
