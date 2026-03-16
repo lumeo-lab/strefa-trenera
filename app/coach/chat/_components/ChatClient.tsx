@@ -60,15 +60,12 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     }
   }, [])
 
-  // Load messages + mark read concurrently on thread select
+  // Load messages + mark read on thread select
   useEffect(() => {
     if (!selectedAthleteId) return
-    const thread = threadSummaries.find(t => t.athlete.id === selectedAthleteId)
-    void Promise.all([
-      loadMessages(selectedAthleteId),
-      thread && thread.unreadCount > 0 ? markCoachThreadRead(selectedAthleteId) : null,
-    ])
-  }, [selectedAthleteId, loadMessages, threadSummaries])
+    void loadMessages(selectedAthleteId)
+    void markCoachThreadRead(selectedAthleteId)
+  }, [selectedAthleteId, loadMessages])
 
   // Poll: refresh sidebar summaries + current thread every 5s
   useEffect(() => {
