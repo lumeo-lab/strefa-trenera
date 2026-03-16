@@ -8,7 +8,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { getBusinessToday } from '@/lib/date'
-import { formatDate, hasParsedContent, parseFeedbackTranscript, signalBg, signalColor, timeAgo } from '@/lib/utils'
+import { formatDate, hasParsedContent, parseFeedbackTranscript, plural, signalBg, signalColor, timeAgo } from '@/lib/utils'
 import { markFeedbackRead, replyFeedback } from '@/lib/actions/feedback'
 import { FEELING_LABELS } from '@/lib/constants'
 import type { FeedbackRow } from '@/lib/supabase/database.types'
@@ -302,10 +302,10 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
 
   const unreadCount = initialFeedbacks.filter(f => !f.read).length
 
-  async function handleExpand(id: string, isRead: boolean) {
+  async function handleExpand(id: string, isRead: boolean, athleteId?: string) {
     setExpandedId(prev => prev === id ? null : id)
     if (!isRead) {
-      await markFeedbackRead(id)
+      await markFeedbackRead(id, athleteId)
       startTransition(() => router.refresh())
     }
   }
@@ -345,7 +345,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
         replyText={replyingId === fb.id ? replyText : ''}
         submitting={submitting}
         showAthleteName={showAthleteName}
-        onExpand={() => handleExpand(fb.id, fb.read)}
+        onExpand={() => handleExpand(fb.id, fb.read, fb.athletes?.id)}
         onReplyStart={() => { setReplyingId(fb.id); setReplyText(fb.coach_reply ?? '') }}
         onReplyChange={setReplyText}
         onReplySubmit={() => handleReply(fb.id, fb.athletes?.id ?? '')}
@@ -449,7 +449,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
                   <div className="flex-1 min-w-0">
                     <span className="font-semibold text-sm">{group.athlete.name}</span>
                     <span className="text-xs ml-2" style={{ color: 'var(--text-muted)' }}>
-                      {group.feedbacks.length} {group.feedbacks.length === 1 ? 'feedback' : 'feedbacków'}
+                      {group.feedbacks.length} {plural(group.feedbacks.length, 'feedback', 'feedbacki', 'feedbacków')}
                     </span>
                   </div>
                   {group.hasUnread && (

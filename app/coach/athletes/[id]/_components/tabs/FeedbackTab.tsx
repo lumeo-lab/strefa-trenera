@@ -134,7 +134,7 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
                   <div className="pt-3">
                     <FeedbackDetail fb={fb} />
                   </div>
-                  {!fb.coach_reply && (
+                  {replyTexts[fb.id] !== undefined ? (
                     <div className="mt-4 space-y-2">
                       <textarea
                         value={replyTexts[fb.id] ?? ''}
@@ -143,14 +143,34 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
                         rows={3}
                         className="w-full px-3 py-2 rounded-xl text-sm resize-none"
                         style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                        autoFocus
                       />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => sendReply(fb.id)}
+                          disabled={!replyTexts[fb.id]?.trim() || replyingSaving === fb.id}
+                          className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                          style={{ background: '#FF5C1B', color: 'white', opacity: !replyTexts[fb.id]?.trim() ? 0.5 : 1 }}
+                        >
+                          {replyingSaving === fb.id ? 'Wysyłanie...' : 'Wyślij odpowiedź'}
+                        </button>
+                        <button
+                          onClick={() => setReplyTexts(prev => { const next = { ...prev }; delete next[fb.id]; return next })}
+                          className="px-4 py-2 rounded-xl text-sm cursor-pointer"
+                          style={{ color: 'var(--text-muted)', background: 'var(--bg-subtle)', border: '1px solid var(--border)' }}
+                        >
+                          Anuluj
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4">
                       <button
-                        onClick={() => sendReply(fb.id)}
-                        disabled={!replyTexts[fb.id]?.trim() || replyingSaving === fb.id}
-                        className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
-                        style={{ background: '#FF5C1B', color: 'white', opacity: !replyTexts[fb.id]?.trim() ? 0.5 : 1 }}
+                        onClick={() => setReplyTexts(prev => ({ ...prev, [fb.id]: fb.coach_reply ?? '' }))}
+                        className="px-4 py-2 rounded-xl text-sm cursor-pointer"
+                        style={{ color: 'var(--text-muted)', background: 'var(--bg-subtle)', border: '1px solid var(--border)' }}
                       >
-                        {replyingSaving === fb.id ? 'Wysyłanie...' : 'Wyślij odpowiedź'}
+                        {fb.coach_reply ? '✏️ Edytuj odpowiedź' : '💬 Odpowiedz'}
                       </button>
                     </div>
                   )}
