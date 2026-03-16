@@ -66,11 +66,34 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     ? `${window.location.origin}/u/${athlete.slug}?t=${inviteToken}`
     : `/u/${athlete.slug}?t=${inviteToken}`
 
-  function copyInviteLink() {
-    navigator.clipboard.writeText(inviteUrl).then(() => {
-      setLinkCopied(true)
-      setTimeout(() => setLinkCopied(false), 2000)
-    }).catch(() => {})
+  const isInviteExpired = !inviteExpiresAt || new Date(inviteExpiresAt) <= new Date()
+
+  async function ensureFreshLink(): Promise<string | null> {
+    // If invite token is expired, auto-regenerate before copying
+    if (!isInviteExpired) return inviteUrl
+    const result = await regenerateAthleteInviteLink(athlete.id)
+    if (result?.success) {
+      setInviteToken(result.inviteToken)
+      setInviteExpiresAt(result.inviteExpiresAt)
+      const origin = typeof window !== 'undefined' ? window.location.origin : ''
+      return `${origin}/u/${result.slug}?t=${result.inviteToken}`
+    }
+    return null
+  }
+
+  async function copyInviteLink() {
+    if (regeneratingInvite) return
+    setRegeneratingInvite(true)
+    try {
+      const url = await ensureFreshLink()
+      if (url) {
+        await navigator.clipboard.writeText(url)
+        setLinkCopied(true)
+        setTimeout(() => setLinkCopied(false), 2000)
+      }
+    } catch { /* clipboard error */ } finally {
+      setRegeneratingInvite(false)
+    }
   }
 
   async function handleRegenerateInvite() {
@@ -151,8 +174,10 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
             <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>🔗 Link zaproszenia dla zawodnika</div>
             {inviteExpiresAt && (
-              <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
-                Ważny do {formatDate(inviteExpiresAt, { day: 'numeric', month: 'long', year: 'numeric' })}
+              <div className="text-xs mb-2" style={{ color: isInviteExpired ? '#E74C3C' : 'var(--text-muted)' }}>
+                {isInviteExpired
+                  ? 'Link wygasł — kliknij „Kopiuj" lub „Nowy link" aby wygenerować nowy'
+                  : `Ważny do ${formatDate(inviteExpiresAt, { day: 'numeric', month: 'long', year: 'numeric' })}`}
               </div>
             )}
             <div className="flex items-center gap-2">
