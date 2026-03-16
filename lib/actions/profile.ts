@@ -45,7 +45,7 @@ export async function updateCoachName(_: unknown, formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
 
-  const name = (formData.get('name') as string)?.trim()
+  const name = (formData.get('name') as string)?.trim().slice(0, 200)
   if (!name) return { error: 'Imię jest wymagane' }
 
   const { error } = await supabase.from('coaches').update({ name }).eq('id', user.id)

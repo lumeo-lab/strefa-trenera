@@ -6,6 +6,8 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { updateCoachAvatar, updateCoachEmail, updateCoachName, updateCoachPassword } from '@/lib/actions/profile'
 import { PackagesClient } from '@/app/coach/packages/_components/PackagesClient'
+import { getInitials } from '@/lib/utils'
+import { INPUT_STYLE } from '@/lib/styles'
 
 type Package = { id: string; name: string; description: string | null; price: number }
 
@@ -17,24 +19,23 @@ interface Props {
   packages: Package[]
 }
 
-import { INPUT_STYLE } from '@/lib/styles'
-
 const inputStyle = INPUT_STYLE
 
 const AVATAR_EMOJIS = [
-  '🏃', '🚴', '🏊', '🏋️', '⛹️', '🤸',
-  '🧘', '🏄', '🏇', '🤺', '🥊', '⛷️',
-  '🎯', '🏆', '🔥', '💪', '⚡', '🦁',
-  '🌟', '🎽', '🧗', '🚣', '🏌️', '⚽',
+  '🏃', '🏃‍♀️', '🏅', '🎽', '👟', '🦵',
+  '🏋️', '💪', '🔥', '⚡', '🏆', '🥇',
+  '⏱️', '❤️‍🔥', '🫁', '🏔️', '🌄', '🛤️',
+  '🚀', '💨', '🎯', '🌟', '🦁', '🐆',
 ]
-
-function initials(n: string) {
-  return n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
-}
 
 function currentEmoji(avatar: string): string {
   if (avatar.startsWith('emoji:')) return avatar.slice(6)
   return ''
+}
+
+function planLabel(plan: string) {
+  const map: Record<string, string> = { starter: 'Starter', pro: 'Pro', standard: 'Standard' }
+  return map[plan] ?? plan
 }
 
 export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
@@ -48,6 +49,7 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
   const [selectedEmoji, setSelectedEmoji] = useState<string>(currentEmoji(avatar))
   const [previewUrl, setPreviewUrl] = useState<string | null>(avatar.startsWith('http') ? avatar : null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const passFormRef = useRef<HTMLFormElement>(null)
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -66,7 +68,7 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
     </div>
   ) : (
     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center font-bold text-2xl text-white">
-      {initials(name)}
+      {getInitials(name) || '?'}
     </div>
   )
 
@@ -142,6 +144,7 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
                         ✕ Usuń
                       </button>
                     )}
+                    <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>JPG, PNG lub WEBP, max 2 MB</p>
                   </div>
                 </div>
               </div>
@@ -160,23 +163,26 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
 
             {/* Plan info */}
             <Card className="p-5">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center justify-between">
                 <div>
                   <div className="font-bold text-lg">{name || '—'}</div>
                   <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{email}</div>
                   <div className="text-xs mt-1 px-2 py-0.5 rounded-full inline-block"
                     style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-                    Plan {plan}
+                    Plan {planLabel(plan)}
                   </div>
                 </div>
               </div>
+              <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
+                Aby zmienić plan, skontaktuj się z nami.
+              </p>
             </Card>
 
             {/* Name */}
             <Card className="p-5">
               <h3 className="font-semibold mb-4">Imię i nazwisko</h3>
               <form action={nameAction} className="space-y-3">
-                <input name="name" defaultValue={name} placeholder="Twoje imię i nazwisko" required
+                <input name="name" defaultValue={name} placeholder="Twoje imię i nazwisko" required maxLength={200}
                   className="w-full px-3 py-2.5 rounded-xl text-sm" style={inputStyle} />
                 {nameState?.error && <p className="text-xs text-red-400">{nameState.error}</p>}
                 {nameState?.success && <p className="text-xs text-green-400">✓ Zapisano</p>}
@@ -206,7 +212,11 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
             {/* Password */}
             <Card className="p-5">
               <h3 className="font-semibold mb-4">Zmiana hasła</h3>
-              <form action={passAction} className="space-y-3">
+              <form ref={passFormRef} action={async (fd) => {
+                await passAction(fd)
+                // Reset form on success (passState updates after re-render)
+                passFormRef.current?.reset()
+              }} className="space-y-3">
                 <div>
                   <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Nowe hasło</label>
                   <input name="password" type="password" placeholder="Minimum 6 znaków" required minLength={6}

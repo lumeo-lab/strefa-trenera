@@ -60,7 +60,14 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
 
   async function handleDelete(id: string) {
     setDeleting(true)
-    await deletePackage(id)
+    setError(null)
+    const result = await deletePackage(id)
+    if (result && 'error' in result) {
+      setError(result.error ?? 'Nie udało się usunąć pakietu')
+      setDeleteConfirm(null)
+      setDeleting(false)
+      return
+    }
     setDeleteConfirm(null)
     setDeleting(false)
     router.refresh()
@@ -81,6 +88,11 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
           + Dodaj pakiet
         </button>
       </div>
+
+      {/* Error from delete */}
+      {error && !modalOpen && (
+        <div className="text-xs text-red-400 mb-4">{error}</div>
+      )}
 
       {/* Empty state */}
       {packages.length === 0 && (
