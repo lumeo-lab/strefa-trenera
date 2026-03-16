@@ -1,8 +1,45 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
 
 import { INPUT_STYLE } from '@/lib/styles'
+
+interface SpeechRecognitionResultAlternativeLike {
+  transcript: string
+}
+
+interface SpeechRecognitionResultLike {
+  0: SpeechRecognitionResultAlternativeLike
+  length: number
+}
+
+interface SpeechRecognitionEventLike {
+  results: ArrayLike<SpeechRecognitionResultLike>
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string
+}
+
+interface SpeechRecognitionLike {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onend: (() => void) | null
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null
+  start: () => void
+  stop: () => void
+}
+
+interface SpeechRecognitionConstructorLike {
+  new (): SpeechRecognitionLike
+}
+
+type SpeechRecognitionWindow = Window & {
+  SpeechRecognition?: SpeechRecognitionConstructorLike
+  webkitSpeechRecognition?: SpeechRecognitionConstructorLike
+}
 
 interface VoiceRecorderProps {
   transcript: string
@@ -11,9 +48,7 @@ interface VoiceRecorderProps {
 
 export function VoiceRecorder({ transcript, onTranscriptChange }: VoiceRecorderProps) {
   const [recording, setRecording] = useState(false)
-  // Web Speech API has no standard TypeScript definitions — `any` is intentional here
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null)
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
 
   async function handleRecord() {
     try {
@@ -22,8 +57,8 @@ export function VoiceRecorder({ transcript, onTranscriptChange }: VoiceRecorderP
       alert('Brak dostępu do mikrofonu. Zezwól na dostęp w ustawieniach przeglądarki.')
       return
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    const speechWindow = window as SpeechRecognitionWindow
+    const SR = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
     if (!SR) {
       alert('Twoja przeglądarka nie obsługuje nagrywania głosu. Użyj Chrome na Androidzie lub Safari na iOS.')
       return
@@ -35,15 +70,12 @@ export function VoiceRecorder({ transcript, onTranscriptChange }: VoiceRecorderP
     recognitionRef.current = recognition
     onTranscriptChange('')
     setRecording(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (e: any) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const text = Array.from(e.results).map((r: any) => r[0].transcript).join(' ')
+    recognition.onresult = (e: SpeechRecognitionEventLike) => {
+      const text = Array.from(e.results).map((r) => r[0].transcript).join(' ')
       onTranscriptChange(text)
     }
     recognition.onend = () => { setRecording(false) }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onerror = (e: any) => {
+    recognition.onerror = (e: SpeechRecognitionErrorEventLike) => {
       setRecording(false)
       if (e.error !== 'aborted') alert('Błąd nagrywania. Sprawdź uprawnienia mikrofonu.')
     }

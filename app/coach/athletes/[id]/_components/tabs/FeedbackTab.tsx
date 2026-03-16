@@ -1,31 +1,23 @@
 'use client'
 
-import { useState, startTransition } from 'react'
+import { startTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
-import { DbRow } from '@/lib/types'
-import { formatDate } from '@/lib/utils'
+import { formatDate, parseFeedbackTranscript } from '@/lib/utils'
 import { markFeedbackRead, replyFeedback } from '@/lib/actions/feedback'
 import { FEELING_LABELS } from '@/lib/constants'
+import type { CoachFeedbackRow } from '../types'
 
-function parseFeedback(fb: DbRow) {
+function parseFeedback(fb: CoachFeedbackRow) {
   const textSummary = fb.source !== 'voice' ? (fb.transcript ?? '') : ''
   const voice = fb.ai_analysis || (fb.source === 'voice' ? fb.transcript : '') || ''
-  let feeling = '', trainingType = '', distanceKm = '', durationMin = '', intensity = '', notes = ''
-  for (const part of textSummary.split(' | ')) {
-    if (part.startsWith('Samopoczucie: ')) feeling = part.slice(14)
-    else if (part.startsWith('Typ: ')) trainingType = part.slice(5)
-    else if (part.startsWith('Dystans: ')) distanceKm = part.slice(9).replace(' km', '')
-    else if (part.startsWith('Czas: ')) durationMin = part.slice(6).replace(' min', '')
-    else if (part.startsWith('Intensywność: ')) intensity = part.slice(14)
-    else if (part.startsWith('Notatka: ')) notes = part.slice(9)
-  }
-  return { feeling, trainingType, distanceKm, durationMin, intensity, notes, voice }
+  const parsed = parseFeedbackTranscript(textSummary)
+  return { ...parsed, distanceKm: parsed.distance, durationMin: parsed.duration, voice }
 }
 
-export function FeedbackDetail({ fb }: { fb: DbRow }) {
+export function FeedbackDetail({ fb }: { fb: CoachFeedbackRow }) {
   const d = parseFeedback(fb)
-  const hasText = !!(d.feeling || d.trainingType || d.distanceKm || d.durationMin || d.intensity || d.notes)
+  const hasText = !!(d.feeling || d.trainingType || d.distance || d.duration || d.intensity || d.notes)
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -70,7 +62,7 @@ export function FeedbackDetail({ fb }: { fb: DbRow }) {
 
 interface FeedbackTabProps {
   athleteId: string
-  feedbacks: DbRow[]
+  feedbacks: CoachFeedbackRow[]
 }
 
 export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { PlannerClient } from './_components/PlannerClient'
+import type { PlannerAthleteRow, PlannerSessionRow } from './_components/types'
 
 export const metadata: Metadata = { title: 'Planer | Strefa Trenera' }
 
@@ -23,5 +24,10 @@ export default async function PlannerPage() {
       .eq('coach_id', user.id),
   ])
 
-  return <PlannerClient athletes={athletes ?? []} sessions={sessions ?? []} />
+  return (
+    <PlannerClient
+      athletes={(athletes ?? []) as PlannerAthleteRow[]}
+      sessions={(sessions ?? []) as PlannerSessionRow[]}
+    />
+  )
 }

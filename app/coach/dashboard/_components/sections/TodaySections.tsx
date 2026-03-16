@@ -2,7 +2,7 @@
 
 import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
-import { sessionTypeLabel, intensityColor, plural } from '@/lib/utils'
+import { intensityColor, plural, sessionTypeLabel } from '@/lib/utils'
 import type { SessionType } from '@/lib/types'
 import Link from 'next/link'
 import type { DashboardSessionRow } from '../types'

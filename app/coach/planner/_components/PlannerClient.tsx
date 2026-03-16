@@ -1,23 +1,22 @@
 'use client'
 
-import { useState, startTransition } from 'react'
+import { startTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { Avatar } from '@/components/ui/Avatar'
-import { DbRow } from '@/lib/types'
 import { SessionType } from '@/lib/types'
-import { getWeekDays, toISODate, dayName, intensityColor, sessionTypeLabel, formatDate, isToday } from '@/lib/utils'
-import { createSession, updateSession, deleteSession } from '@/lib/actions/sessions'
+import { dayName, formatDate, getWeekDays, intensityColor, isToday, sessionTypeLabel, toISODate } from '@/lib/utils'
+import { createSession, deleteSession, updateSession } from '@/lib/actions/sessions'
 import { INPUT_STYLE } from '@/lib/styles'
 import { SESSION_TYPES } from '@/lib/constants'
+import type { PlannerAthleteRow, PlannerSessionRow } from './types'
 
 const inputStyle = INPUT_STYLE
 
 interface Props {
-  athletes: DbRow[]
-  sessions: DbRow[]
+  athletes: PlannerAthleteRow[]
+  sessions: PlannerSessionRow[]
 }
 
 export function PlannerClient({ athletes, sessions: initialSessions }: Props) {
@@ -25,7 +24,7 @@ export function PlannerClient({ athletes, sessions: initialSessions }: Props) {
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedAthleteId, setSelectedAthleteId] = useState(athletes[0]?.id ?? '')
   const [modalOpen, setModalOpen] = useState(false)
-  const [editingSession, setEditingSession] = useState<DbRow | null>(null)
+  const [editingSession, setEditingSession] = useState<PlannerSessionRow | null>(null)
   const [selectedDate, setSelectedDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -54,7 +53,7 @@ export function PlannerClient({ athletes, sessions: initialSessions }: Props) {
     setModalOpen(true)
   }
 
-  function openEditModal(session: DbRow) {
+  function openEditModal(session: PlannerSessionRow) {
     setEditingSession(session)
     setForm({
       type: session.type,

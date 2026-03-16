@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
 import { adminClient } from '@/lib/supabase/admin'
 
 export async function GET(req: NextRequest) {
@@ -8,33 +7,39 @@ export async function GET(req: NextRequest) {
   const error = req.nextUrl.searchParams.get('error')
   const appUrl = req.nextUrl.origin
 
-  // Parse signed state: "slug:signature"
-  const colonIdx = stateParam?.lastIndexOf(':') ?? -1
-  const slug = colonIdx > 0 ? stateParam!.slice(0, colonIdx) : stateParam
-  const signature = colonIdx > 0 ? stateParam!.slice(colonIdx + 1) : null
-
-  if (error || !code || !slug) {
-    return NextResponse.redirect(`${appUrl}/u/${slug ?? ''}?strava=denied`)
+  if (error || !code || !stateParam) {
+    const fallbackSlug = encodeURIComponent(req.nextUrl.searchParams.get('slug') ?? '')
+    return NextResponse.redirect(`${appUrl}/u/${fallbackSlug}?strava=denied`)
   }
 
-  // Verify HMAC signature
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY!
-  const expectedSig = createHmac('sha256', secret).update(slug).digest('hex').slice(0, 16)
-  if (signature !== expectedSig) {
-    console.error('[strava] invalid state signature')
-    return NextResponse.redirect(`${appUrl}/u/${slug}?strava=error`)
-  }
-
-  // Znajdź zawodnika po slug
-  const { data: athlete, error: athleteErr } = await adminClient
-    .from('athletes')
-    .select('id')
-    .eq('slug', slug)
+  const { data: oauthState, error: stateError } = await adminClient
+    .from('strava_oauth_states')
+    .select('id, athlete_id, slug, expires_at, consumed_at')
+    .eq('nonce', stateParam)
+    .is('consumed_at', null)
+    .gt('expires_at', new Date().toISOString())
     .single()
 
-  if (athleteErr || !athlete) {
-    console.error('[strava] athlete not found:', athleteErr?.message ?? 'no row')
-    return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=error`)
+  const safeSlug = encodeURIComponent(oauthState?.slug ?? '')
+
+  if (stateError || !oauthState) {
+    console.error('[strava] invalid or expired oauth state')
+    return NextResponse.redirect(`${appUrl}/u/${safeSlug}?strava=error`)
+  }
+
+  const { error: consumeError } = await adminClient
+    .from('strava_oauth_states')
+    .update({ consumed_at: new Date().toISOString() })
+    .eq('id', oauthState.id)
+    .is('consumed_at', null)
+
+  if (consumeError) {
+    console.error('[strava] failed to consume oauth state')
+    return NextResponse.redirect(`${appUrl}/u/${safeSlug}?strava=error`)
+  }
+
+  if (error || !code) {
+    return NextResponse.redirect(`${appUrl}/u/${safeSlug}?strava=denied`)
   }
 
   // Wymień code na tokeny
@@ -52,14 +57,20 @@ export async function GET(req: NextRequest) {
   if (!tokenRes.ok) {
     const body = await tokenRes.text()
     console.error('[strava] token exchange failed:', tokenRes.status, body.slice(0, 200))
-    return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=error`)
+    return NextResponse.redirect(`${appUrl}/u/${safeSlug}/history?strava=error`)
   }
 
   const tokens = await tokenRes.json()
 
+  // Validate required token fields
+  if (!tokens.access_token || !tokens.refresh_token || !tokens.expires_at) {
+    console.error('[strava] invalid token response: missing required fields')
+    return NextResponse.redirect(`${appUrl}/u/${safeSlug}/history?strava=error`)
+  }
+
   // Zapisz połączenie
   const { error: upsertErr } = await adminClient.from('strava_connections').upsert({
-    athlete_id: athlete.id,
+    athlete_id: oauthState.athlete_id,
     strava_athlete_id: tokens.athlete?.id ?? null,
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
@@ -68,15 +79,15 @@ export async function GET(req: NextRequest) {
 
   if (upsertErr) {
     console.error('[strava] upsert failed:', upsertErr.message)
-    return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=error`)
+    return NextResponse.redirect(`${appUrl}/u/${safeSlug}/history?strava=error`)
   }
 
   // Pobierz aktywności w tle (nie blokuje redirectu)
-  syncStravaActivities(athlete.id, tokens.access_token).catch(e =>
+  syncStravaActivities(oauthState.athlete_id, tokens.access_token).catch(e =>
     console.error('[strava] sync failed:', e)
   )
 
-  return NextResponse.redirect(`${appUrl}/u/${slug}/history?strava=connected`)
+  return NextResponse.redirect(`${appUrl}/u/${safeSlug}/history?strava=connected`)
 }
 
 async function syncStravaActivities(athleteId: string, accessToken: string) {

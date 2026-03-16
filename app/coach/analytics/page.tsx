@@ -8,10 +8,12 @@ import { formatCurrency } from '@/lib/utils'
 
 export default async function AnalyticsPage() {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const coachId = user?.id ?? ''
 
   const [{ data: athletes }, { data: invoices }] = await Promise.all([
-    supabase.from('athletes').select('id, name, status, package, package_price, join_date'),
-    supabase.from('invoices').select('amount, status, date').order('date'),
+    supabase.from('athletes').select('id, name, status, package, package_price, join_date').eq('coach_id', coachId),
+    supabase.from('invoices').select('amount, status, date').eq('coach_id', coachId).order('date'),
   ])
 
   const allAthletes = athletes ?? []

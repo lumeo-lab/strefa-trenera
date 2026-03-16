@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getAthleteFromSession, AthleteSession } from '@/lib/athlete-auth'
-import { adminClient } from '@/lib/supabase/admin'
+import { AthleteSession, getAthleteFromSession } from '@/lib/athlete-auth'
 import { AUTH_ERROR } from '@/lib/constants'
 
 /**
@@ -29,7 +28,8 @@ export async function requireAthlete(slug: string): Promise<{ athlete: AthleteSe
  * Returns true if the athlete belongs to the coach.
  */
 export async function assertCoachOwnsAthlete(coachId: string, athleteId: string): Promise<boolean> {
-  const { data } = await adminClient
+  const supabase = await createClient()
+  const { data } = await supabase
     .from('athletes')
     .select('id')
     .eq('id', athleteId)

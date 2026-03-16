@@ -2,23 +2,30 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { AUTH_ERROR, FIELDS_ERROR } from '@/lib/constants'
+import { AUTH_ERROR } from '@/lib/constants'
+import { assertCoachOwnsAthlete } from '@/lib/auth-guards'
+import { createRaceSchema, updateRaceSchema, validateFormData } from '@/lib/schemas'
 
 export async function createRace(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
 
-  const athleteId = formData.get('athlete_id') as string
-  const name = formData.get('name') as string
-  const date = formData.get('date') as string
-  const distance = formData.get('distance') as string || null
-  const goalTime = formData.get('goal_time') as string || null
-  const result = formData.get('result') as string || null
-  const status = formData.get('status') as string || 'planned'
-  const notes = formData.get('notes') as string || null
+  const parsed = validateFormData(createRaceSchema, formData)
+  if ('error' in parsed) return parsed
+  const {
+    athlete_id: athleteId,
+    name,
+    date,
+    distance,
+    goal_time: goalTime,
+    result,
+    status,
+    notes,
+  } = parsed.data
 
-  if (!athleteId || !name || !date) return { error: FIELDS_ERROR }
+  const ownsAthlete = await assertCoachOwnsAthlete(user.id, athleteId)
+  if (!ownsAthlete) return { error: AUTH_ERROR }
 
   const { error } = await supabase.from('athlete_races').insert({
     athlete_id: athleteId,
@@ -43,18 +50,12 @@ export async function updateRace(_: unknown, formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
 
-  const id = formData.get('id') as string
-  const athleteId = formData.get('athlete_id') as string
+  const parsed = validateFormData(updateRaceSchema, formData)
+  if ('error' in parsed) return parsed
 
-  const { error } = await supabase.from('athlete_races').update({
-    name: formData.get('name') as string,
-    date: formData.get('date') as string,
-    distance: formData.get('distance') as string || null,
-    goal_time: formData.get('goal_time') as string || null,
-    result: formData.get('result') as string || null,
-    status: formData.get('status') as string || 'planned',
-    notes: formData.get('notes') as string || null,
-  }).eq('id', id).eq('coach_id', user.id)
+  const { id, athlete_id: athleteId, ...updates } = parsed.data
+
+  const { error } = await supabase.from('athlete_races').update(updates).eq('id', id).eq('coach_id', user.id)
 
   if (error) return { error: error.message }
 

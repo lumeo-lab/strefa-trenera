@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { AUTH_ERROR } from '@/lib/constants'
 
+const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024
+const ALLOWED_AVATAR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
 export async function updateCoachAvatar(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -13,6 +16,13 @@ export async function updateCoachAvatar(_: unknown, formData: FormData) {
   let avatar = formData.get('avatar_type') as string ?? ''
 
   if (file && file.size > 0) {
+    if (!ALLOWED_AVATAR_TYPES.has(file.type)) {
+      return { error: 'Dozwolone są tylko pliki JPG, PNG lub WEBP' }
+    }
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
+      return { error: 'Avatar może mieć maksymalnie 2 MB' }
+    }
+
     const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
     const path = `${user.id}/avatar.${ext}`
     const { error: uploadError } = await supabase.storage

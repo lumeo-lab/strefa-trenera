@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { addDaysToBusinessDate, getBusinessToday } from './date'
 import {
-  plural, sesjaLabel, tenureLabel, formatCurrency,
-  intensityColor, sessionTypeLabel, signalColor, signalBg,
-  statusColor, invoiceStatusColor, invoiceStatusLabel,
-  isToday, isPast, toISODate, getWeekDays,
+  formatCurrency, getWeekDays, intensityColor, invoiceStatusColor,
+  invoiceStatusLabel, isPast, isToday, plural,
+  sesjaLabel, sessionTypeLabel, signalBg,
+  signalColor, statusColor, tenureLabel, toISODate,
 } from './utils'
 
 // ── plural ──────────────────────────────────────────────────────────────────
@@ -58,19 +59,19 @@ describe('tenureLabel', () => {
   it('returns months for < 12 months', () => {
     const d = new Date()
     d.setMonth(d.getMonth() - 6)
-    const sixMonthsAgo = d.toISOString().split('T')[0]
+    const sixMonthsAgo = toISODate(d)
     expect(tenureLabel(sixMonthsAgo)).toBe('6 mies.')
   })
   it('returns "1 rok" for exactly 12 months', () => {
     const d = new Date()
     d.setFullYear(d.getFullYear() - 1)
-    const oneYearAgo = d.toISOString().split('T')[0]
+    const oneYearAgo = toISODate(d)
     expect(tenureLabel(oneYearAgo)).toBe('1 rok')
   })
   it('returns "2 lata" for exactly 24 months', () => {
     const d = new Date()
     d.setFullYear(d.getFullYear() - 2)
-    const twoYearsAgo = d.toISOString().split('T')[0]
+    const twoYearsAgo = toISODate(d)
     expect(tenureLabel(twoYearsAgo)).toBe('2 lata')
   })
 })
@@ -152,29 +153,23 @@ describe('invoiceStatusLabel', () => {
 
 describe('isToday', () => {
   it('returns true for today', () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = getBusinessToday()
     expect(isToday(today)).toBe(true)
   })
   it('returns false for yesterday', () => {
-    const d = new Date()
-    d.setDate(d.getDate() - 1)
-    expect(isToday(d.toISOString().split('T')[0])).toBe(false)
+    expect(isToday(addDaysToBusinessDate(getBusinessToday(), -1))).toBe(false)
   })
 })
 
 describe('isPast', () => {
   it('returns true for yesterday', () => {
-    const d = new Date()
-    d.setDate(d.getDate() - 1)
-    expect(isPast(d.toISOString().split('T')[0])).toBe(true)
+    expect(isPast(addDaysToBusinessDate(getBusinessToday(), -1))).toBe(true)
   })
   it('returns false for tomorrow', () => {
-    const d = new Date()
-    d.setDate(d.getDate() + 1)
-    expect(isPast(d.toISOString().split('T')[0])).toBe(false)
+    expect(isPast(addDaysToBusinessDate(getBusinessToday(), 1))).toBe(false)
   })
   it('returns false for today', () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = getBusinessToday()
     expect(isPast(today)).toBe(false)
   })
 })
@@ -182,7 +177,7 @@ describe('isPast', () => {
 describe('toISODate', () => {
   it('returns YYYY-MM-DD format', () => {
     const date = new Date()
-    const expected = date.toISOString().split('T')[0]
+    const expected = toISODate(date)
     expect(toISODate(date)).toBe(expected)
   })
   it('matches ISO format pattern', () => {

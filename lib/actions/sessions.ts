@@ -2,31 +2,38 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { AUTH_ERROR, FIELDS_ERROR } from '@/lib/constants'
+import { AUTH_ERROR } from '@/lib/constants'
+import { assertCoachOwnsAthlete } from '@/lib/auth-guards'
+import { createSessionSchema, updateSessionSchema, validateFormData } from '@/lib/schemas'
 
 export async function createSession(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
 
-  const athleteId = formData.get('athlete_id') as string
-  const date = formData.get('date') as string
-  const type = formData.get('type') as string
-  const title = formData.get('title') as string
-  const description = formData.get('description') as string
-  const plannedDistance = formData.get('planned_distance') ? parseFloat(formData.get('planned_distance') as string) : null
-  const plannedDuration = formData.get('planned_duration') ? parseInt(formData.get('planned_duration') as string) : null
-  const plannedPace = formData.get('planned_pace') as string || null
-  const url = formData.get('url') as string || null
-  const urlLabel = formData.get('url_label') as string || null
-  const completed = formData.get('completed') === 'true'
-  const actualDistance = formData.get('actual_distance') ? parseFloat(formData.get('actual_distance') as string) : null
-  const actualDuration = formData.get('actual_duration') ? parseInt(formData.get('actual_duration') as string) : null
-  const actualPace = formData.get('actual_pace') as string || null
-  const avgHr = formData.get('avg_hr') ? parseFloat(formData.get('avg_hr') as string) : null
-  const maxHr = formData.get('max_hr') ? parseFloat(formData.get('max_hr') as string) : null
+  const parsed = validateFormData(createSessionSchema, formData)
+  if ('error' in parsed) return parsed
+  const {
+    athlete_id: athleteId,
+    date,
+    type,
+    title,
+    description,
+    planned_distance: plannedDistance = null,
+    planned_duration: plannedDuration = null,
+    planned_pace: plannedPace,
+    url,
+    url_label: urlLabel,
+    completed = false,
+    actual_distance: actualDistance = null,
+    actual_duration: actualDuration = null,
+    actual_pace: actualPace,
+    avg_hr: avgHr = null,
+    max_hr: maxHr = null,
+  } = parsed.data
 
-  if (!athleteId || !date || !type || !title) return { error: FIELDS_ERROR }
+  const ownsAthlete = await assertCoachOwnsAthlete(user.id, athleteId)
+  if (!ownsAthlete) return { error: AUTH_ERROR }
 
   const { data, error } = await supabase.from('training_sessions').insert({
     athlete_id: athleteId,
@@ -59,27 +66,9 @@ export async function updateSession(_: unknown, formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
 
-  const id = formData.get('id') as string
-  const athleteId = formData.get('athlete_id') as string
-
-  const updates: Record<string, unknown> = {}
-  const stringFields = ['date', 'type', 'title', 'description', 'url', 'url_label'] as const
-  for (const f of stringFields) {
-    const v = formData.get(f)
-    if (v !== null) updates[f] = v
-  }
-  // Pace fields: empty string → null
-  for (const f of ['planned_pace', 'actual_pace'] as const) {
-    const v = formData.get(f)
-    if (v !== null) updates[f] = (v as string).trim() || null
-  }
-  const numFields = ['planned_distance', 'planned_duration', 'actual_distance', 'actual_duration', 'avg_hr', 'max_hr'] as const
-  for (const f of numFields) {
-    const v = formData.get(f)
-    if (v !== null) updates[f] = v ? parseFloat(v as string) : null
-  }
-  const completed = formData.get('completed')
-  if (completed !== null) updates.completed = completed === 'true'
+  const parsed = validateFormData(updateSessionSchema, formData)
+  if ('error' in parsed) return parsed
+  const { id, athlete_id: athleteId, ...updates } = parsed.data
 
   const { error } = await supabase
     .from('training_sessions')

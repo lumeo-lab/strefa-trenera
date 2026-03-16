@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { InvoiceStatus } from '@/lib/types'
 import { invoiceStatusColor, invoiceStatusLabel } from '@/lib/utils'

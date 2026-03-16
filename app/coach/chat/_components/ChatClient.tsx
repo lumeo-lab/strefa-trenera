@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, startTransition, useRef, useEffect } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { formatDateTime } from '@/lib/utils'
-import { sendMessage } from '@/lib/actions/messages'
+import { markCoachThreadRead, sendMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 import type { MessageRow } from '@/lib/supabase/database.types'
 
@@ -47,6 +47,11 @@ export function ChatClient({ athletes, messages, coachId, coachName, initialAthl
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [threadMessages.length])
+
+  useEffect(() => {
+    if (!selectedAthleteId) return
+    void markCoachThreadRead(selectedAthleteId)
+  }, [selectedAthleteId])
 
   async function handleSend() {
     if (!input.trim() || !selectedAthleteId || sending) return

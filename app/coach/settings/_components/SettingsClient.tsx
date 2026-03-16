@@ -4,7 +4,7 @@ import { useActionState, useRef, useState } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { updateCoachName, updateCoachEmail, updateCoachPassword, updateCoachAvatar } from '@/lib/actions/profile'
+import { updateCoachAvatar, updateCoachEmail, updateCoachName, updateCoachPassword } from '@/lib/actions/profile'
 import { PackagesClient } from '@/app/coach/packages/_components/PackagesClient'
 
 type Package = { id: string; name: string; description: string | null; price: number }

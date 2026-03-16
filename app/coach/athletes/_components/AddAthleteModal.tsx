@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useActionState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/utils'
@@ -30,13 +30,17 @@ interface AddAthleteModalProps {
 export function AddAthleteModal({ open, packages, onClose }: AddAthleteModalProps) {
   const [selectedPkg, setSelectedPkg] = useState<Package | null>(packages[0] ?? null)
   const [state, formAction, pending] = useActionState(createAthlete, null)
+  const formError = state && 'error' in state ? state.error : null
+
+  useEffect(() => {
+    if (state && 'success' in state && state.success) onClose()
+  }, [onClose, state])
 
   return (
     <Modal open={open} onClose={onClose} title="Dodaj zawodnika" size="sm">
       <form action={async (fd) => {
         if (selectedPkg) fd.set('package_price', selectedPkg.price.toString())
         await formAction(fd)
-        if (!state?.error) onClose()
       }}>
         <div className="space-y-3">
           <div>
@@ -87,7 +91,7 @@ export function AddAthleteModal({ open, packages, onClose }: AddAthleteModalProp
               </select>
             )}
           </div>
-          {state?.error && <p className="text-xs" style={{ color: '#f87171' }}>{state.error}</p>}
+          {formError && <p className="text-xs" style={{ color: '#f87171' }}>{formError}</p>}
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
             <Button type="submit" disabled={pending}>{pending ? 'Dodawanie...' : 'Dodaj zawodnika'}</Button>

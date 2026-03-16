@@ -4,7 +4,13 @@ import { createClient } from '@/lib/supabase/server'
 import { getAthleteFromSession } from '@/lib/athlete-auth'
 
 export async function POST(req: NextRequest) {
-  const { subscription, userType, slug } = await req.json()
+  let body: { subscription?: { endpoint: string; [key: string]: unknown }; userType?: string; slug?: string }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+  const { subscription, userType, slug } = body
   if (!subscription || !userType) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }

@@ -1,5 +1,6 @@
 'use server'
 
+import { revokeCurrentAthleteSession } from '@/lib/athlete-auth'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
@@ -36,4 +37,9 @@ export async function logout() {
   const supabase = await createClient()
   await supabase.auth.signOut()
   redirect('/login')
+}
+
+export async function logoutAthlete(slug: string) {
+  await revokeCurrentAthleteSession()
+  redirect(`/u/${slug}`)
 }

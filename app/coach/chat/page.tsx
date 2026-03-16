@@ -8,11 +8,16 @@ export default async function CoachChatPage({ searchParams }: { searchParams: Pr
   const supabase = await createClient()
   const params = await searchParams
 
-  const [{ data: { user } }, { data: athletes }, { data: messages }, { data: coach }] = await Promise.all([
+  const [{ data: { user } }, { data: coach }] = await Promise.all([
     supabase.auth.getUser(),
-    supabase.from('athletes').select('id, name, avatar, goal, package, slug').order('name'),
-    supabase.from('messages').select('id, coach_id, athlete_id, sender_type, content, read, created_at').order('created_at', { ascending: true }).limit(500),
     supabase.from('coaches').select('name').single(),
+  ])
+
+  const coachId = user?.id ?? ''
+
+  const [{ data: athletes }, { data: messages }] = await Promise.all([
+    supabase.from('athletes').select('id, name, avatar, goal, package, slug').eq('coach_id', coachId).order('name'),
+    supabase.from('messages').select('id, coach_id, athlete_id, sender_type, content, read, created_at').eq('coach_id', coachId).order('created_at', { ascending: true }).limit(500),
   ])
 
   return (

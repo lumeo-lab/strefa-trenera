@@ -4,8 +4,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'Nowa wiadomość', {
       body: data.body || '',
-      icon: '/icon.png',
-      badge: '/icon.png',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
       data: { url: data.url || '/' },
       vibrate: [200, 100, 200],
     })

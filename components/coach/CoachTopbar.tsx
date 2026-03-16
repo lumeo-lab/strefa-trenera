@@ -24,6 +24,7 @@ export function CoachTopbar({ title, subtitle, actions }: CoachTopbarProps) {
           className="p-2 rounded-xl transition-colors cursor-pointer"
           style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
           title={theme === 'dark' ? 'Tryb jasny' : 'Tryb ciemny'}
+          aria-label={theme === 'dark' ? 'Przełącz na tryb jasny' : 'Przełącz na tryb ciemny'}
         >
           {theme === 'dark' ? '☀️' : '🌙'}
         </button>

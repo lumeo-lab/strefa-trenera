@@ -28,6 +28,8 @@ export type Database = {
           avatar: string
           slug: string
           invite_token: string
+          invite_token_expires_at: string | null
+          invite_token_used_at: string | null
           email: string | null
           phone: string | null
           goal: string
@@ -51,6 +53,8 @@ export type Database = {
           avatar?: string
           slug: string
           invite_token?: string
+          invite_token_expires_at?: string | null
+          invite_token_used_at?: string | null
           email?: string | null
           phone?: string | null
           goal?: string
@@ -228,6 +232,9 @@ export type Database = {
           athlete_id: string
           token: string
           expires_at: string
+          revoked_at: string | null
+          last_seen_at: string
+          user_agent: string | null
           created_at: string
         }
         Insert: {
@@ -235,6 +242,9 @@ export type Database = {
           athlete_id: string
           token?: string
           expires_at?: string
+          revoked_at?: string | null
+          last_seen_at?: string
+          user_agent?: string | null
         }
         Update: Partial<Database['public']['Tables']['athlete_sessions']['Insert']>
       }
@@ -255,6 +265,26 @@ export type Database = {
           subscription: Record<string, unknown>
         }
         Update: Partial<Database['public']['Tables']['push_subscriptions']['Insert']>
+      }
+      strava_oauth_states: {
+        Row: {
+          id: string
+          athlete_id: string
+          slug: string
+          nonce: string
+          expires_at: string
+          consumed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          athlete_id: string
+          slug: string
+          nonce: string
+          expires_at?: string
+          consumed_at?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['strava_oauth_states']['Insert']>
       }
       strava_connections: {
         Row: {

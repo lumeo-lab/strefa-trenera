@@ -2,16 +2,17 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { intensityColor, sessionTypeLabel, formatDate } from '@/lib/utils'
+import { getBusinessToday } from '@/lib/date'
+import { formatDate, intensityColor, sessionTypeLabel } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
-import { DbRow } from '@/lib/types'
+import type { AthleteStravaActivityRow, AthleteTrainingSessionRow } from '@/lib/athlete-data'
 
 interface Props {
   athlete: AthleteSession
-  sessions: DbRow[]
+  sessions: AthleteTrainingSessionRow[]
   stravaConnected: boolean
-  stravaActivities: DbRow[]
+  stravaActivities: AthleteStravaActivityRow[]
   stravaStatus?: string
   stravaMsg?: string
 }
@@ -42,7 +43,7 @@ function formatDuration(seconds: number): string {
 }
 
 export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaActivities, stravaStatus, stravaMsg }: Props) {
-  const currentMonth = new Date().toISOString().slice(0, 7)
+  const currentMonth = getBusinessToday().slice(0, 7)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [tab, setTab] = useState<'plan' | 'strava'>('plan')
   const [syncing, setSyncing] = useState(false)
@@ -64,7 +65,7 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
   }
 
   const monthSessions = sessions.filter(s => s.date.slice(0, 7) === selectedMonth)
-  const monthStrava = stravaActivities.filter(a => a.start_date.slice(0, 7) === selectedMonth)
+  const monthStrava = stravaActivities.filter((a) => a.start_date?.slice(0, 7) === selectedMonth)
 
   const totalKm = sessions.reduce((s, sess) => s + (sess.actual_distance || 0), 0)
   const totalMin = sessions.reduce((s, sess) => s + (sess.actual_duration || 0), 0)
@@ -104,8 +105,12 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
           <a href={stravaAuthUrl}
             className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer"
             style={{ background: '#FC4C02', color: 'white', textDecoration: 'none' }}>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Strava_Logo.svg/120px-Strava_Logo.svg.png"
-              alt="Strava" style={{ height: '20px', filter: 'brightness(0) invert(1)' }} />
+            <span
+              className="inline-flex items-center justify-center rounded-md px-2 py-1 text-[10px] font-black tracking-[0.18em]"
+              style={{ background: 'rgba(255,255,255,0.18)', color: 'white' }}
+            >
+              STRAVA
+            </span>
             <div>
               <div className="font-semibold text-sm">Połącz ze Stravą</div>
               <div className="text-xs opacity-80">Automatycznie importuj swoje biegi</div>
@@ -215,7 +220,9 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {new Date(a.start_date).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        {a.start_date
+                          ? new Date(a.start_date).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short' })
+                          : 'Brak daty'}
                       </div>
                       <div className="font-semibold text-sm mt-0.5">{a.name}</div>
                     </div>

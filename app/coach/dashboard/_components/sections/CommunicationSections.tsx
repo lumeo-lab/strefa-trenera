@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import { timeAgo } from '@/lib/utils'
 import Link from 'next/link'
-import type { DashboardMessageRow, DashboardFeedbackRow } from '../types'
+import type { DashboardFeedbackRow, DashboardMessageRow } from '../types'
 
 const SIGNAL_COLOR: Record<string, string> = { green: '#2ECC71', yellow: '#F1C40F', red: '#E74C3C' }
 

@@ -1,6 +1,7 @@
 'use client'
 
-export default function AthleteError({ error: _error, reset }: { error: Error; reset: () => void }) {
+export default function AthleteError({ error, reset }: { error: Error; reset: () => void }) {
+  void error
   return (
     <div className="flex items-center justify-center min-h-screen p-8" style={{ background: 'var(--bg-base)' }}>
       <div className="text-center max-w-md">

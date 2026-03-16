@@ -1,18 +1,64 @@
 import { z } from 'zod'
 
+const optionalTrimmedString = (max: number) =>
+  z.preprocess(
+    (value) => typeof value === 'string' ? value.trim().slice(0, max) : value,
+    z.string().max(max).optional().or(z.literal(''))
+  )
+
+const nullableInt = (min?: number, max?: number) =>
+  z.preprocess((value) => {
+    if (value === '' || value === undefined || value === null) return null
+    return value
+  }, z.coerce.number().int().refine((n) => (min === undefined || n >= min) && (max === undefined || n <= max), 'Nieprawidłowa liczba').nullable())
+
+const nullableNumber = (min?: number, max?: number) =>
+  z.preprocess((value) => {
+    if (value === '' || value === undefined || value === null) return null
+    return value
+  }, z.coerce.number().refine((n) => (min === undefined || n >= min) && (max === undefined || n <= max), 'Nieprawidłowa liczba').nullable())
+
+const nullableDateString = z.preprocess(
+  (value) => value === '' ? undefined : value,
+  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Nieprawidłowy format daty').optional()
+)
+
 // ── Athlete ─────────────────────────────────────────────────────────────────
 
 export const createAthleteSchema = z.object({
-  name: z.string().min(1, 'Imię jest wymagane'),
-  email: z.string().email('Nieprawidłowy email').optional().or(z.literal('')),
-  phone: z.string().optional().or(z.literal('')),
-  goal: z.string().optional().or(z.literal('')),
-  package: z.string().optional(),
-  package_price: z.coerce.number().min(0).default(249),
-  age: z.coerce.number().int().min(10).max(99).nullable().optional(),
-  city: z.string().optional().or(z.literal('')),
-  height: z.coerce.number().int().min(100).max(250).nullable().optional(),
-  weight: z.coerce.number().min(30).max(300).nullable().optional(),
+  name: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 200) : value, z.string().min(1, 'Imię jest wymagane').max(200)),
+  email: z.preprocess(
+    (value) => typeof value === 'string' ? value.trim().slice(0, 200) : value,
+    z.string().email('Nieprawidłowy email').optional().or(z.literal(''))
+  ),
+  phone: optionalTrimmedString(50),
+  goal: optionalTrimmedString(500),
+  package: optionalTrimmedString(100),
+  package_price: z.coerce.number().min(0, 'Cena nie może być ujemna').default(249),
+  age: nullableInt(10, 99).optional(),
+  city: optionalTrimmedString(200),
+  height: nullableInt(100, 250).optional(),
+  weight: nullableNumber(30, 300).optional(),
+})
+
+export const updateAthleteSchema = z.object({
+  id: z.string().uuid('Nieprawidłowy ID zawodnika'),
+  name: optionalTrimmedString(200),
+  email: z.preprocess(
+    (value) => typeof value === 'string' ? value.trim().slice(0, 200) : value,
+    z.string().email('Nieprawidłowy email').optional().or(z.literal(''))
+  ),
+  phone: optionalTrimmedString(50),
+  goal: optionalTrimmedString(500),
+  package: optionalTrimmedString(100),
+  city: optionalTrimmedString(200),
+  coach_notes: optionalTrimmedString(5000),
+  join_date: nullableDateString,
+  age: nullableInt(10, 99).optional(),
+  height: nullableInt(100, 250).optional(),
+  weight: nullableNumber(30, 300).optional(),
+  package_price: z.preprocess((value) => value === '' ? undefined : value, z.coerce.number().min(0, 'Cena nie może być ujemna').optional()),
+  status: z.preprocess((value) => typeof value === 'string' ? value.trim() : value, z.enum(['ok', 'warning', 'alert', 'inactive']).optional()),
 })
 
 // ── Session ─────────────────────────────────────────────────────────────────
@@ -20,12 +66,24 @@ export const createAthleteSchema = z.object({
 export const createSessionSchema = z.object({
   athlete_id: z.string().uuid('Nieprawidłowy ID zawodnika'),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Nieprawidłowy format daty'),
-  type: z.string().min(1),
-  title: z.string().min(1, 'Tytuł jest wymagany'),
-  description: z.string().optional().or(z.literal('')),
-  planned_distance: z.coerce.number().positive().nullable().optional(),
-  planned_duration: z.coerce.number().int().positive().nullable().optional(),
-  planned_pace: z.string().optional().or(z.literal('')),
+  type: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 50) : value, z.string().min(1).max(50)),
+  title: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 200) : value, z.string().min(1, 'Tytuł jest wymagany').max(200)),
+  description: optionalTrimmedString(5000),
+  planned_distance: nullableNumber(0).optional(),
+  planned_duration: nullableInt(0).optional(),
+  planned_pace: optionalTrimmedString(50),
+  url: optionalTrimmedString(1000),
+  url_label: optionalTrimmedString(120),
+  completed: z.preprocess((value) => value === 'true' || value === true, z.boolean()).optional(),
+  actual_distance: nullableNumber(0).optional(),
+  actual_duration: nullableInt(0).optional(),
+  actual_pace: optionalTrimmedString(50),
+  avg_hr: nullableInt(0, 260).optional(),
+  max_hr: nullableInt(0, 260).optional(),
+})
+
+export const updateSessionSchema = createSessionSchema.extend({
+  id: z.string().uuid('Nieprawidłowy ID sesji'),
 })
 
 // ── Invoice ─────────────────────────────────────────────────────────────────
@@ -33,49 +91,75 @@ export const createSessionSchema = z.object({
 export const createInvoiceSchema = z.object({
   athlete_id: z.string().uuid('Nieprawidłowy ID zawodnika'),
   amount: z.coerce.number().positive('Kwota musi być większa od 0'),
-  description: z.string().optional().or(z.literal('')),
-  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Nieprawidłowy format daty'),
-  package: z.string().optional().or(z.literal('')),
+  description: optionalTrimmedString(1000),
+  due_date: nullableDateString,
+  package: optionalTrimmedString(100),
+})
+
+export const updateInvoiceSchema = z.object({
+  description: optionalTrimmedString(1000),
+  amount: z.coerce.number().positive('Kwota musi być większa od 0'),
+  due_date: nullableDateString,
+  status: z.enum(['pending', 'paid', 'overdue', 'cancelled']),
 })
 
 // ── Package ─────────────────────────────────────────────────────────────────
 
 export const createPackageSchema = z.object({
-  name: z.string().min(1, 'Nazwa pakietu jest wymagana'),
-  description: z.string().optional().or(z.literal('')),
+  name: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 120) : value, z.string().min(1, 'Nazwa pakietu jest wymagana').max(120)),
+  description: optionalTrimmedString(1000),
   price: z.coerce.number().min(0, 'Cena musi być >= 0'),
-  sessions_per_week: z.coerce.number().int().min(0).optional(),
+})
+
+export const updatePackageSchema = createPackageSchema.extend({
+  id: z.string().uuid('Nieprawidłowy ID pakietu'),
 })
 
 // ── Race ────────────────────────────────────────────────────────────────────
 
 export const createRaceSchema = z.object({
-  athlete_id: z.string().uuid(),
-  name: z.string().min(1, 'Nazwa zawodów jest wymagana'),
+  athlete_id: z.string().uuid('Nieprawidłowy ID zawodnika'),
+  name: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 200) : value, z.string().min(1, 'Nazwa zawodów jest wymagana').max(200)),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  distance: z.string().optional().or(z.literal('')),
-  goal_time: z.string().optional().or(z.literal('')),
-  result: z.string().optional().or(z.literal('')),
+  distance: optionalTrimmedString(100),
+  goal_time: optionalTrimmedString(100),
+  result: optionalTrimmedString(100),
   status: z.enum(['planned', 'completed', 'dns', 'dnf']).default('planned'),
-  notes: z.string().optional().or(z.literal('')),
+  notes: optionalTrimmedString(2000),
+})
+
+export const updateRaceSchema = createRaceSchema.extend({
+  id: z.string().uuid('Nieprawidłowy ID zawodów'),
 })
 
 // ── Feedback ────────────────────────────────────────────────────────────────
 
 export const createFeedbackSchema = z.object({
-  athlete_id: z.string().uuid(),
-  coach_id: z.string().uuid(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  source: z.enum(['text', 'voice']).default('text'),
-  transcript: z.string().optional().or(z.literal('')),
-  session_id: z.string().uuid().nullable().optional(),
+  slug: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 120) : value, z.string().min(1, 'Brak slug').max(120)),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Nieprawidłowy format daty'),
+  session_id: z.preprocess((value) => value === '' ? null : value, z.string().uuid().nullable().optional()),
+})
+
+export const updateFeedbackSchema = createFeedbackSchema.extend({
+  id: z.string().uuid('Nieprawidłowy ID feedbacku'),
+})
+
+export const replyFeedbackSchema = z.object({
+  id: z.string().uuid('Nieprawidłowy ID feedbacku'),
+  athlete_id: z.string().uuid('Nieprawidłowy ID zawodnika'),
+  reply: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 2000) : value, z.string().min(1, 'Treść odpowiedzi jest wymagana').max(2000)),
 })
 
 // ── Message ─────────────────────────────────────────────────────────────────
 
 export const sendMessageSchema = z.object({
-  athlete_id: z.string().uuid(),
-  content: z.string().min(1, 'Treść wiadomości jest wymagana'),
+  athlete_id: z.string().uuid('Nieprawidłowy ID zawodnika'),
+  content: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 5000) : value, z.string().min(1, 'Treść wiadomości jest wymagana').max(5000)),
+  coach_name: optionalTrimmedString(120),
+})
+
+export const updateInvoiceStatusSchema = z.object({
+  status: z.enum(['pending', 'paid', 'overdue', 'cancelled']),
 })
 
 // ── Helper ──────────────────────────────────────────────────────────────────

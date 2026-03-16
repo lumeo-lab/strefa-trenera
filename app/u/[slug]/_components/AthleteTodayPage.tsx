@@ -1,19 +1,19 @@
 'use client'
 
-import { useState, startTransition } from 'react'
+import { startTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { intensityColor, sessionTypeLabel, getWeekDays, toISODate } from '@/lib/utils'
+import { getWeekDays, intensityColor, sessionTypeLabel, toISODate } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
 import { PWAInstallBanner } from '@/components/ui/PWAInstallBanner'
-import { DbRow } from '@/lib/types'
-import { FeedbackModal, FeedbackData, dbRowToFeedback } from './FeedbackModal'
+import type { AthleteFeedbackByDay, AthleteTrainingSessionRow } from '@/lib/athlete-data'
+import { dbRowToFeedback, FeedbackData, FeedbackModal } from './FeedbackModal'
 import { FEELING_LABELS } from '@/lib/constants'
 
 interface Props {
   athlete: AthleteSession
-  sessions: DbRow[]
-  feedbacks: Record<string, { text: DbRow | null; voice: DbRow | null }>
+  sessions: AthleteTrainingSessionRow[]
+  feedbacks: AthleteFeedbackByDay
   today: string
 }
 
@@ -311,8 +311,6 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
         onClose={() => setFeedbackOpen(false)}
         feedbackType={feedbackType}
         sessionId={daySession?.id ?? null}
-        athleteId={athlete.id}
-        coachId={athlete.coach_id}
         slug={athlete.slug}
         date={selectedDate}
         existingTextFeedback={textFeedback}

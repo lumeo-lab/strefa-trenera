@@ -1,5 +1,6 @@
 'use client'
 
+import { logoutAthlete } from '@/lib/actions/auth'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTheme } from '@/lib/theme'
@@ -43,6 +44,17 @@ export function AthleteBottomNav({ slug }: Props) {
           <span className="text-xl">{theme === 'dark' ? '☀️' : '🌙'}</span>
           <span style={{ fontSize: '10px' }}>{theme === 'dark' ? 'Jasny' : 'Ciemny'}</span>
         </button>
+        <form action={logoutAthlete.bind(null, slug)}>
+          <button
+            type="submit"
+            className="flex flex-col items-center gap-1 px-4 py-1 rounded-xl transition-all"
+            style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+            title="Wyloguj"
+          >
+            <span className="text-xl">🚪</span>
+            <span style={{ fontSize: '10px' }}>Wyloguj</span>
+          </button>
+        </form>
       </div>
     </nav>
   )

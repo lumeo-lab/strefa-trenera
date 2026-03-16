@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { addDaysToBusinessDate, getBusinessToday } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
 import { AthletesClient } from './_components/AthletesClient'
 
@@ -9,14 +10,13 @@ export default async function AthletesPage() {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const today = new Date().toISOString().split('T')[0]
-  const weekAgo = new Date()
-  weekAgo.setDate(weekAgo.getDate() - 7)
-  const weekAgoStr = weekAgo.toISOString().split('T')[0]
+  const today = getBusinessToday()
+  const weekAgoStr = addDaysToBusinessDate(today, -7)
+  const monthAgoStr = addDaysToBusinessDate(today, -30)
 
-  const monthAgo = new Date()
-  monthAgo.setDate(monthAgo.getDate() - 30)
-  const monthAgoStr = monthAgo.toISOString().split('T')[0]
+  if (!user) return <AthletesClient athletes={[]} lastSessionMap={{}} weeklyLoadMap={{}} weeklySessionCountMap={{}} packages={[]} signalMap={{}} lastFeedbackDateMap={{}} nextSessionMap={{}} unreadMessagesMap={{}} unreadFeedbackMap={{}} complianceMap={{}} unpaidInvoiceSet={{}} />
+
+  const coachId = user.id
 
   const [
     { data: athletes },
@@ -32,47 +32,55 @@ export default async function AthletesPage() {
     supabase
       .from('athletes')
       .select('id, name, avatar, goal, package, package_price, status, email, phone, slug, join_date, created_at, age, city')
+      .eq('coach_id', coachId)
       .order('name'),
     supabase
       .from('training_sessions')
       .select('athlete_id, date')
+      .eq('coach_id', coachId)
       .eq('completed', true)
       .order('date', { ascending: false })
       .limit(200),
     supabase
       .from('training_sessions')
       .select('athlete_id, planned_distance, actual_distance')
+      .eq('coach_id', coachId)
       .gte('date', weekAgoStr)
       .eq('completed', true),
     supabase
       .from('feedbacks')
       .select('athlete_id, signal, created_at, read')
+      .eq('coach_id', coachId)
       .order('created_at', { ascending: false })
       .limit(200),
     supabase
       .from('training_sessions')
       .select('athlete_id, date, type, title')
+      .eq('coach_id', coachId)
       .gte('date', today)
       .eq('completed', false)
       .order('date', { ascending: true }),
     supabase
       .from('messages')
       .select('athlete_id')
+      .eq('coach_id', coachId)
       .eq('sender_type', 'athlete')
       .eq('read', false),
     supabase
       .from('training_sessions')
       .select('athlete_id, completed')
+      .eq('coach_id', coachId)
       .gte('date', monthAgoStr)
       .lte('date', today),
     supabase
       .from('invoices')
       .select('athlete_id')
+      .eq('coach_id', coachId)
       .in('status', ['pending', 'overdue']),
     supabase
       .from('packages')
       .select('id, name, price')
-      .eq('coach_id', user!.id)
+      .eq('coach_id', coachId)
       .order('name'),
   ])
 

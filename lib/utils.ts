@@ -1,4 +1,5 @@
-import { SessionType, FeedbackSignal, AthleteStatus, InvoiceStatus } from './types'
+import { getBusinessToday, toBusinessDate } from './date'
+import { AthleteStatus, FeedbackSignal, InvoiceStatus, SessionType } from './types'
 
 export function formatDate(isoDate: string, opts?: Intl.DateTimeFormatOptions): string {
   const date = new Date(isoDate)
@@ -23,7 +24,7 @@ export function getWeekDays(weekOffset = 0): Date[] {
 }
 
 export function toISODate(date: Date): string {
-  return date.toISOString().split('T')[0]
+  return toBusinessDate(date)
 }
 
 export function signalColor(signal: FeedbackSignal): string {
@@ -109,11 +110,11 @@ export function dayName(date: Date, short = false): string {
 }
 
 export function isToday(isoDate: string): boolean {
-  return isoDate === new Date().toISOString().split('T')[0]
+  return isoDate === getBusinessToday()
 }
 
 export function isPast(isoDate: string): boolean {
-  return isoDate < new Date().toISOString().split('T')[0]
+  return isoDate < getBusinessToday()
 }
 
 // ── Pomocniki dat ────────────────────────────────────────────────────────────
@@ -155,6 +156,38 @@ export function plural(n: number, one: string, few: string, many: string): strin
 
 export function sesjaLabel(n: number): string {
   return `${n} ${plural(n, 'sesja', 'sesje', 'sesji')}`
+}
+
+// ── Feedback transcript parsing ─────────────────────────────────────────────
+
+export interface ParsedFeedback {
+  feeling: string
+  trainingType: string
+  distance: string
+  duration: string
+  intensity: string
+  notes: string
+}
+
+export function parseFeedbackTranscript(transcript: string): ParsedFeedback {
+  const result: ParsedFeedback = { feeling: '', trainingType: '', distance: '', duration: '', intensity: '', notes: '' }
+  for (const part of (transcript ?? '').split(' | ')) {
+    if (part.startsWith('Samopoczucie: ')) result.feeling = part.slice(14)
+    else if (part.startsWith('Typ: ')) result.trainingType = part.slice(5)
+    else if (part.startsWith('Dystans: ')) result.distance = part.slice(9)
+    else if (part.startsWith('Czas: ')) result.duration = part.slice(6)
+    else if (part.startsWith('Intensywność: ')) result.intensity = part.slice(14)
+    else if (part.startsWith('Notatka: ')) result.notes = part.slice(9)
+  }
+  return result
+}
+
+export function hasParsedContent(p: ParsedFeedback): boolean {
+  return !!(p.feeling || p.trainingType || p.distance || p.duration || p.intensity || p.notes)
+}
+
+export function getInitials(name: string): string {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
 export function tenureLabel(joinDateStr: string): string {

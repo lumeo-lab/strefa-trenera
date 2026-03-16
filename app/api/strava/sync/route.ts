@@ -3,7 +3,13 @@ import { adminClient } from '@/lib/supabase/admin'
 import { getAthleteFromSession } from '@/lib/athlete-auth'
 
 export async function POST(req: NextRequest) {
-  const { slug } = await req.json()
+  let body: { slug?: string }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Nieprawidłowe dane' }, { status: 400 })
+  }
+  const { slug } = body
   if (!slug) return NextResponse.json({ error: 'Brak slug' }, { status: 400 })
 
   const athlete = await getAthleteFromSession(slug)
@@ -26,14 +32,17 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        client_id: process.env.STRAVA_CLIENT_ID,
-        client_secret: process.env.STRAVA_CLIENT_SECRET,
+        client_id: parseInt(process.env.STRAVA_CLIENT_ID!.trim()),
+        client_secret: process.env.STRAVA_CLIENT_SECRET!.trim(),
         refresh_token: conn.refresh_token,
         grant_type: 'refresh_token',
       }),
     })
     if (!res.ok) return NextResponse.json({ error: 'Błąd odświeżania tokenu' }, { status: 500 })
     const tokens = await res.json()
+    if (!tokens.access_token || !tokens.refresh_token || !tokens.expires_at) {
+      return NextResponse.json({ error: 'Nieprawidłowa odpowiedź tokenu' }, { status: 500 })
+    }
     accessToken = tokens.access_token
     await adminClient.from('strava_connections').update({
       access_token: tokens.access_token,

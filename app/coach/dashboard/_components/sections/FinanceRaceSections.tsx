@@ -2,9 +2,9 @@
 
 import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
-import { formatCurrency, daysUntil } from '@/lib/utils'
+import { daysUntil, formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
-import type { DashboardRaceRow, DashboardInvoiceRow } from '../types'
+import type { DashboardInvoiceRow, DashboardRaceRow } from '../types'
 
 const INVOICE_STATUS_INFO: Record<string, { label: string; color: string }> = {
   pending:   { label: 'Oczekuje', color: '#F1C40F' },

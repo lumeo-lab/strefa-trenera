@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { addDaysToBusinessDate, getBusinessToday, getBusinessWeekday } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Dashboard | Strefa Trenera' }
@@ -6,11 +7,11 @@ import { DashboardClient } from './_components/DashboardClient'
 import type {
   DashboardAthleteRow,
   DashboardFeedbackRow,
+  DashboardInvoiceRow,
   DashboardMessageRow,
+  DashboardRaceRow,
   DashboardSessionRow,
   DashboardWeekSessionRow,
-  DashboardRaceRow,
-  DashboardInvoiceRow,
 } from './_components/types'
 
 export default async function DashboardPage() {
@@ -18,24 +19,18 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
 
   const today = new Date()
-  const todayStr = today.toISOString().slice(0, 10)
+  const todayStr = getBusinessToday()
   const todayLabel = today.toLocaleDateString('pl-PL', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 
   // Week bounds Mon–Sun
-  const dow = today.getDay()
-  const monday = new Date(today)
-  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1))
-  const sunday = new Date(monday)
-  sunday.setDate(monday.getDate() + 6)
-  const weekStart = monday.toISOString().slice(0, 10)
-  const weekEnd = sunday.toISOString().slice(0, 10)
+  const dow = getBusinessWeekday(today)
+  const weekStart = addDaysToBusinessDate(todayStr, -(dow === 0 ? 6 : dow - 1))
+  const weekEnd = addDaysToBusinessDate(weekStart, 6)
 
   // 14 days ahead for races
-  const twoWeeks = new Date(today)
-  twoWeeks.setDate(today.getDate() + 14)
-  const twoWeeksStr = twoWeeks.toISOString().slice(0, 10)
+  const twoWeeksStr = addDaysToBusinessDate(todayStr, 14)
 
   const [
     { data: coachRow },

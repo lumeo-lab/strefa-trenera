@@ -1,6 +1,7 @@
 'use client'
 
-export default function CoachError({ error: _error, reset }: { error: Error; reset: () => void }) {
+export default function CoachError({ error, reset }: { error: Error; reset: () => void }) {
+  void error
   return (
     <div className="flex items-center justify-center min-h-[60vh] p-8">
       <div className="text-center max-w-md">

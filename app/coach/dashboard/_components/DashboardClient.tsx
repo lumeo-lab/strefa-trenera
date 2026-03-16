@@ -8,24 +8,24 @@ import { formatCurrency, plural } from '@/lib/utils'
 import Link from 'next/link'
 
 import {
-  useDashboardPrefs,
-  DEFAULT_PREFS, KPI_META, SECTION_META, SECTION_COL, SETTINGS_GROUPS,
-  type KpiId, type SectionId,
+  DEFAULT_PREFS,
+  KPI_META, type KpiId, SECTION_COL, SECTION_META, type SectionId,
+  SETTINGS_GROUPS, useDashboardPrefs,
 } from './useDashboardPrefs'
 
-import { WeekSummarySection, TodayPlanSection } from './sections/TodaySections'
-import { MessagesSection, FeedbackListSection } from './sections/CommunicationSections'
+import { TodayPlanSection, WeekSummarySection } from './sections/TodaySections'
+import { FeedbackListSection, MessagesSection } from './sections/CommunicationSections'
 import { AlertsSection, NoSessionsSection, RecentAthletesSection } from './sections/AthleteSections'
-import { UpcomingRacesSection, RecentInvoicesSection } from './sections/FinanceRaceSections'
+import { RecentInvoicesSection, UpcomingRacesSection } from './sections/FinanceRaceSections'
 
 import type {
   DashboardAthleteRow,
   DashboardFeedbackRow,
+  DashboardInvoiceRow,
   DashboardMessageRow,
+  DashboardRaceRow,
   DashboardSessionRow,
   DashboardWeekSessionRow,
-  DashboardRaceRow,
-  DashboardInvoiceRow,
 } from './types'
 
 // ── SettingsRow ───────────────────────────────────────────────────────────────

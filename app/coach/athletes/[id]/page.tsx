@@ -20,6 +20,7 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
     .from('athletes')
     .select('*')
     .eq('id', id)
+    .eq('coach_id', user!.id)
     .single()
 
   if (!athlete) notFound()

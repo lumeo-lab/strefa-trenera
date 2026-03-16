@@ -1,5 +1,12 @@
 'use server'
 
+import {
+  addSecondsToNow,
+  ATHLETE_INVITE_TTL_SECONDS,
+  buildAthleteInvitePath,
+  generateSecureToken,
+} from '@/lib/athlete-auth'
+import { createAthleteSchema, updateAthleteSchema, validateFormData } from '@/lib/schemas'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { AUTH_ERROR } from '@/lib/constants'
@@ -33,18 +40,20 @@ export async function createAthlete(_: unknown, formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
 
-  const name = formData.get('name') as string
-  const email = formData.get('email') as string
-  const phone = formData.get('phone') as string
-  const goal = formData.get('goal') as string
-  const pkg = formData.get('package') as string
-  const packagePrice = parseFloat(formData.get('package_price') as string) || 249
-  const age = parseInt(formData.get('age') as string) || null
-  const city = formData.get('city') as string
-  const height = parseInt(formData.get('height') as string) || null
-  const weight = parseFloat(formData.get('weight') as string) || null
-
-  if (!name) return { error: 'Imię i nazwisko jest wymagane' }
+  const parsed = validateFormData(createAthleteSchema, formData)
+  if ('error' in parsed) return parsed
+  const {
+    name,
+    email,
+    phone,
+    goal,
+    package: pkg,
+    package_price: packagePrice,
+    age = null,
+    city,
+    height = null,
+    weight = null,
+  } = parsed.data
 
   // Generate unique slug
   let slug = generateSlug(name)
@@ -94,24 +103,12 @@ export async function updateAthlete(_: unknown, formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
 
-  const id = formData.get('id') as string
-  const updates: Record<string, unknown> = {}
+  const parsed = validateFormData(updateAthleteSchema, formData)
+  if ('error' in parsed) return parsed
 
-  const fields = ['name', 'email', 'phone', 'goal', 'package', 'city', 'coach_notes', 'join_date'] as const
-  for (const field of fields) {
-    const val = formData.get(field)
-    if (val !== null) updates[field] = val as string
-  }
-  const age = formData.get('age')
-  if (age !== null) updates.age = age ? parseInt(age as string) : null
-  const height = formData.get('height')
-  if (height !== null) updates.height = height ? parseInt(height as string) : null
-  const weight = formData.get('weight')
-  if (weight !== null) updates.weight = weight ? parseFloat(weight as string) : null
-  const packagePrice = formData.get('package_price')
-  if (packagePrice !== null) updates.package_price = parseFloat(packagePrice as string)
-  const status = formData.get('status')
-  if (status !== null) updates.status = status as string
+  const { id, ...validated } = parsed.data
+  const updates: Record<string, unknown> = {}
+  Object.assign(updates, validated)
   const pbParsed = safeJsonField(formData.get('personal_bests'))
   if (pbParsed !== undefined) updates.personal_bests = pbParsed
   const injuriesParsed = safeJsonField(formData.get('injuries'))
@@ -145,4 +142,43 @@ export async function deleteAthlete(id: string) {
 
   revalidatePath('/coach/athletes')
   return { success: true }
+}
+
+export async function regenerateAthleteInviteLink(athleteId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: AUTH_ERROR }
+
+  const inviteToken = generateSecureToken(24)
+  const inviteExpiresAt = addSecondsToNow(ATHLETE_INVITE_TTL_SECONDS)
+  const nowIso = new Date().toISOString()
+
+  const { data, error } = await supabase
+    .from('athletes')
+    .update({
+      invite_token: inviteToken,
+      invite_token_expires_at: inviteExpiresAt,
+      invite_token_used_at: nowIso,
+    })
+    .eq('id', athleteId)
+    .eq('coach_id', user.id)
+    .select('slug, invite_token, invite_token_expires_at')
+    .single()
+
+  if (error || !data) return { error: error?.message ?? AUTH_ERROR }
+
+  await supabase
+    .from('athlete_sessions')
+    .update({ revoked_at: nowIso })
+    .eq('athlete_id', athleteId)
+    .is('revoked_at', null)
+
+  revalidatePath(`/coach/athletes/${athleteId}`)
+  return {
+    success: true,
+    slug: data.slug,
+    inviteToken: data.invite_token,
+    inviteExpiresAt: data.invite_token_expires_at,
+    invitePath: buildAthleteInvitePath(data.slug, data.invite_token),
+  }
 }

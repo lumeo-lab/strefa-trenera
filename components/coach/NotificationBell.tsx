@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getUnreadNotifications, markNotificationsRead } from '@/lib/actions/notifications'
-import { formatDate } from '@/lib/utils'
+import { formatDate, getInitials } from '@/lib/utils'
 
 type Notification = {
   id: string
@@ -56,6 +56,7 @@ export function NotificationBell() {
         className="relative p-2 rounded-xl transition-colors cursor-pointer"
         style={{ background: open ? 'var(--bg-hover)' : undefined, color: 'var(--text-muted)' }}
         title="Powiadomienia"
+        aria-label="Powiadomienia"
       >
         🔔
         {count > 0 && (
@@ -121,7 +122,7 @@ export function NotificationBell() {
                     className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white"
                     style={{ background: 'linear-gradient(135deg, #FF5C1B, #CC3A00)' }}
                   >
-                    {n.athlete_name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
+                    {getInitials(n.athlete_name)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 
 export function usePushSubscription(userId: string, userType: 'coach' | 'athlete', slug?: string) {
   const [permission, setPermission] = useState<NotificationPermission>(() => {

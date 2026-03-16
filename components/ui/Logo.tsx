@@ -33,7 +33,6 @@ export function Logo({
   const showSlogan = size !== 'sm'
   const fS         = Math.round(19 * s)
   const sloganFS   = Math.round(9 * s)
-  const innerGap   = Math.round(3 * s)          // gap between name and slogan
   const gap        = Math.round(11 * s)          // gap between mark and wordmark
 
   // Mark height = name + paddingBottom(4) + rule(1) + paddingTop(3) + slogan

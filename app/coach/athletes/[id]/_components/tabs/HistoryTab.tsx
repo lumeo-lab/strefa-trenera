@@ -1,11 +1,17 @@
 'use client'
 
-import { useState, Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { formatDate, intensityColor, sessionTypeLabel } from '@/lib/utils'
-import { SessionType, DbRow } from '@/lib/types'
+import { SessionType } from '@/lib/types'
 import { FeedbackDetail } from './FeedbackTab'
 import { SessionTypeDef } from '@/lib/useCustomSessionTypes'
+import type {
+  CoachFeedbackRow,
+  CoachTrainingSessionRow,
+  FeedbackByDateMap,
+  FeedbackBySessionMap,
+} from '../types'
 
 function shiftMonth(m: string, d: number): string {
   const [y, mo] = m.split('-').map(Number)
@@ -19,10 +25,10 @@ function monthLabel(m: string): string {
 }
 
 interface HistoryTabProps {
-  sessions: DbRow[]
-  feedbacks: DbRow[]
-  feedbackBySession: Record<string, DbRow>
-  feedbackByDate: Record<string, DbRow>
+  sessions: CoachTrainingSessionRow[]
+  feedbacks: CoachFeedbackRow[]
+  feedbackBySession: FeedbackBySessionMap
+  feedbackByDate: FeedbackByDateMap
   today: string
   currentMonth: string
   allSessionTypes: SessionTypeDef[]
@@ -121,7 +127,7 @@ export function HistoryTab({ sessions, feedbacks, feedbackBySession, feedbackByD
             {(() => {
               const pastMonthSessions = monthSessions.filter(s => s.date < today || s.completed)
               const upcomingMonthSessions = monthSessions.filter(s => s.date >= today && !s.completed).reverse()
-              const renderRow = (session: DbRow) => {
+              const renderRow = (session: CoachTrainingSessionRow) => {
                 const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
                 const isExpanded = expandedRows.has(session.id)
                 return (

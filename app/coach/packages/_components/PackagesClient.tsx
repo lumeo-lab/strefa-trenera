@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Modal } from '@/components/ui/Modal'
-import { createPackage, updatePackage, deletePackage } from '@/lib/actions/packages'
+import { createPackage, deletePackage, updatePackage } from '@/lib/actions/packages'
 import { formatCurrency } from '@/lib/utils'
 
 type Package = {
@@ -50,7 +50,7 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
       ? await updatePackage(null, fd)
       : await createPackage(null, fd)
     setPending(false)
-    if (result?.error) {
+    if (result && 'error' in result) {
       setError(result.error)
     } else {
       closeModal()

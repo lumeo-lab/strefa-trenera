@@ -1,21 +1,19 @@
 'use client'
 
-import { useState, startTransition } from 'react'
+import { startTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
-import { formatDate, formatCurrency } from '@/lib/utils'
-import { DbRow } from '@/lib/types'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { INPUT_STYLE } from '@/lib/styles'
+import type { CoachAthleteRow, CoachPackageRow } from '../types'
 
 const inputStyle = INPUT_STYLE
 const DEFAULT_PB_DISTANCES = ['5 km', '10 km', 'Półmaraton', 'Maraton']
 
-type Package = { id: string; name: string; description: string | null; price: number }
-
 interface DataTabProps {
-  athlete: DbRow
-  packages: Package[]
+  athlete: CoachAthleteRow
+  packages: CoachPackageRow[]
 }
 
 export function DataTab({ athlete, packages }: DataTabProps) {

@@ -1,17 +1,18 @@
 'use client'
 
-import React, { useState, startTransition } from 'react'
+import React, { startTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  formatDate, intensityColor,
-  getWeekDays, toISODate, dayName, isToday,
+  dayName, formatDate,
+  getWeekDays, intensityColor, isToday, toISODate,
 } from '@/lib/utils'
-import { SessionType, DbRow } from '@/lib/types'
+import { SessionType } from '@/lib/types'
 import { markSessionCompleted } from '@/lib/actions/sessions'
 import { useCustomSessionTypes } from '@/lib/useCustomSessionTypes'
 import { FeedbackDetail } from './FeedbackTab'
 import { Modal } from '@/components/ui/Modal'
 import { SessionModal } from '../modals/SessionModal'
+import type { CoachFeedbackRow, CoachTrainingSessionRow, FeedbackByDateMap } from '../types'
 
 function shiftMonth(m: string, d: number): string {
   const [y, mo] = m.split('-').map(Number)
@@ -39,8 +40,8 @@ function getMonthCalendar(monthStr: string): (string | null)[][] {
 
 interface PlanTabProps {
   athleteId: string
-  sessions: DbRow[]
-  feedbackByDate: Record<string, DbRow>
+  sessions: CoachTrainingSessionRow[]
+  feedbackByDate: FeedbackByDateMap
   today: string
   currentMonth: string
 }
@@ -56,11 +57,11 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
 
   // Session modal
   const [sessionModalOpen, setSessionModalOpen] = useState(false)
-  const [editingSession, setEditingSession] = useState<DbRow | null>(null)
+  const [editingSession, setEditingSession] = useState<CoachTrainingSessionRow | null>(null)
   const [newSessionDate, setNewSessionDate] = useState('')
 
   // Feedback detail modal
-  const [feedbackModalData, setFeedbackModalData] = useState<DbRow | null>(null)
+  const [feedbackModalData, setFeedbackModalData] = useState<CoachFeedbackRow | null>(null)
 
   function typeClass(type: string): string {
     if (customSessionTypes.find(t => t.key === type)) return ''
@@ -70,7 +71,7 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
     const c = customSessionTypes.find(t => t.key === type)
     return c?.color ? { background: c.color + '33', color: c.color } : {}
   }
-  function completionStyle(session: DbRow): React.CSSProperties {
+  function completionStyle(session: CoachTrainingSessionRow): React.CSSProperties {
     if (session.completed) return { outline: '2px solid rgba(46,204,113,0.6)', outlineOffset: '-2px' }
     return {}
   }
@@ -81,7 +82,7 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
     setSessionModalOpen(true)
   }
 
-  function openEditSession(session: DbRow) {
+  function openEditSession(session: CoachTrainingSessionRow) {
     setEditingSession(session)
     setNewSessionDate('')
     setSessionModalOpen(true)

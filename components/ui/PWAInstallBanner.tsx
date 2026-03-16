@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 type InstallMode =
   | 'ios-safari'      // iPhone/iPad w Safari — instrukcja "tapnij □↑"
@@ -8,10 +8,14 @@ type InstallMode =
   | 'prompt'          // Android Chrome / Desktop Chrome/Edge — natywny przycisk
   | null
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
+
 export function PWAInstallBanner() {
   const [mode, setMode] = useState<InstallMode>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
 
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches) return
@@ -26,8 +30,9 @@ export function PWAInstallBanner() {
       setTimeout(() => setMode(isIOSNonSafari ? 'ios-other' : 'ios-safari'), 1500)
     } else {
       const handler = (e: Event) => {
+        const installEvent = e as BeforeInstallPromptEvent
         e.preventDefault()
-        setDeferredPrompt(e)
+        setDeferredPrompt(installEvent)
         setTimeout(() => setMode('prompt'), 1500)
       }
       window.addEventListener('beforeinstallprompt', handler)

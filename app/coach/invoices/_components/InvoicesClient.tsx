@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useEffect, startTransition, useRef } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { InvoiceStatusDropdown } from '@/components/ui/InvoiceStatusDropdown'
-import { formatDate, formatCurrency, invoiceStatusLabel } from '@/lib/utils'
-import { createInvoice, updateInvoice, deleteInvoice, updateInvoiceStatus } from '@/lib/actions/invoices'
+import { formatCurrency, formatDate, invoiceStatusLabel } from '@/lib/utils'
+import { createInvoice, deleteInvoice, getInvoiceAttachmentUrl, updateInvoice, updateInvoiceStatus } from '@/lib/actions/invoices'
 import { InvoiceStatus } from '@/lib/types'
 import type { InvoiceRow } from '@/lib/supabase/database.types'
 import { INPUT_STYLE } from '@/lib/styles'
@@ -49,6 +49,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
   const [localInvoices, setLocalInvoices] = useState(invoices)
   useEffect(() => setLocalInvoices(invoices), [invoices])
   const [statusChangingId, setStatusChangingId] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   async function handleStatusChange(invId: string, athleteId: string | undefined, next: InvoiceStatus) {
     const prev = localInvoices.find(i => i.id === invId)?.status as InvoiceStatus
@@ -63,6 +64,19 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
       }
     } finally {
       setStatusChangingId(null)
+    }
+  }
+
+  async function handleDownloadAttachment(invId: string) {
+    if (downloadingId) return
+    setDownloadingId(invId)
+    try {
+      const result = await getInvoiceAttachmentUrl(invId)
+      if (result?.success && result.url) {
+        window.open(result.url, '_blank', 'noopener,noreferrer')
+      }
+    } finally {
+      setDownloadingId(null)
     }
   }
 
@@ -89,6 +103,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
   // ── Create modal ─────────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   const [createForm, setCreateForm] = useState({
     athleteId: athletes[0]?.id ?? '',
     description: '',
@@ -100,6 +115,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
   async function handleCreate() {
     if (!createForm.athleteId || !createForm.amount || submitting) return
     setSubmitting(true)
+    setCreateError(null)
     const fd = new FormData()
     fd.set('athlete_id', createForm.athleteId)
     fd.set('description', createForm.description)
@@ -109,9 +125,15 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
     if (selectedAthlete) fd.set('package', selectedAthlete.package)
     const file = fileRef.current?.files?.[0]
     if (file) fd.set('attachment', file)
-    await createInvoice(null, fd)
+    const result = await createInvoice(null, fd)
+    if (result && 'error' in result) {
+      setCreateError(result.error ?? 'Nie udało się utworzyć faktury')
+      setSubmitting(false)
+      return
+    }
     setCreateOpen(false)
     setCreateForm({ athleteId: athletes[0]?.id ?? '', description: '', amount: '', dueDate: '' })
+    setCreateError(null)
     if (fileRef.current) fileRef.current.value = ''
     setSubmitting(false)
     startTransition(() => router.refresh())
@@ -276,7 +298,16 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
                   </td>
                   <td className="px-5 py-4 text-xs">
                     {inv.attachment_url
-                      ? <a href={inv.attachment_url} target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline">Pobierz</a>
+                      ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadAttachment(inv.id)}
+                          className="text-orange-400 hover:underline cursor-pointer disabled:opacity-60"
+                          disabled={downloadingId === inv.id}
+                        >
+                          {downloadingId === inv.id ? 'Pobieranie…' : 'Pobierz'}
+                        </button>
+                      )
                       : <span style={{ color: 'var(--text-muted)' }}>—</span>
                     }
                   </td>
@@ -297,7 +328,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
       </div>
 
       {/* Create Modal */}
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Nowa faktura">
+      <Modal open={createOpen} onClose={() => { setCreateOpen(false); setCreateError(null) }} title="Nowa faktura">
         <div className="space-y-4">
           <div>
             <label className="text-xs mb-1.5 block" style={labelStyle}>Zawodnik</label>
@@ -339,8 +370,11 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
               style={{ color: 'var(--text-muted)' }}
             />
           </div>
+          {createError && (
+            <div className="text-xs text-red-400">{createError}</div>
+          )}
           <div className="flex gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setCreateOpen(false)}>Anuluj</Button>
+            <Button variant="secondary" onClick={() => { setCreateOpen(false); setCreateError(null) }}>Anuluj</Button>
             <Button onClick={handleCreate} disabled={!createForm.amount || submitting}>
               {submitting ? 'Tworzenie...' : 'Utwórz fakturę'}
             </Button>

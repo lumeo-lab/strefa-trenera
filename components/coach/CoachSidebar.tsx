@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logout } from '@/lib/actions/auth'
 import { Logo, LogoMark } from '@/components/ui/Logo'
+import { GRADIENT_MAP } from '@/lib/constants'
+import { getInitials } from '@/lib/utils'
 
 const navSections = [
   {
@@ -37,21 +39,6 @@ interface Props {
   coachAvatar: string
 }
 
-function initials(name: string) {
-  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-}
-
-const GRADIENT_MAP: Record<string, string> = {
-  orange: 'from-orange-500 to-orange-600',
-  blue: 'from-blue-500 to-blue-600',
-  green: 'from-green-500 to-green-600',
-  purple: 'from-purple-500 to-purple-600',
-  pink: 'from-pink-500 to-pink-600',
-  red: 'from-red-500 to-red-600',
-  teal: 'from-teal-500 to-teal-600',
-  yellow: 'from-yellow-500 to-yellow-600',
-}
-
 function CoachAvatarEl({ avatar, name, size }: { avatar: string; name: string; size: 'sm' | 'lg' }) {
   const wh = size === 'sm' ? 'w-9 h-9' : 'w-16 h-16'
   const font = size === 'sm' ? 'text-sm' : 'text-xl'
@@ -73,7 +60,7 @@ function CoachAvatarEl({ avatar, name, size }: { avatar: string; name: string; s
   const gradient = GRADIENT_MAP[color] ?? GRADIENT_MAP.orange
   return (
     <div className={`${wh} rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center font-bold ${font} text-white shrink-0`}>
-      {initials(name)}
+      {getInitials(name)}
     </div>
   )
 }

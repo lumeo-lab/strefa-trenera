@@ -1,22 +1,23 @@
 'use client'
 
-import { useState, useRef, useEffect, startTransition } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { formatDate, formatCurrency } from '@/lib/utils'
-import { InvoiceStatus, DbRow } from '@/lib/types'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { InvoiceStatus } from '@/lib/types'
 import { createInvoice, updateInvoiceStatus } from '@/lib/actions/invoices'
 import { InvoiceStatusDropdown } from '@/components/ui/InvoiceStatusDropdown'
 import { INPUT_STYLE } from '@/lib/styles'
+import type { CoachInvoiceRow } from '../types'
 
 const inputStyle = INPUT_STYLE
 
 interface FinanceTabProps {
   athleteId: string
   athletePackage: string | null
-  invoices: DbRow[]
+  invoices: CoachInvoiceRow[]
 }
 
 export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoices }: FinanceTabProps) {
@@ -26,12 +27,14 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
   const [invoiceDraft, setInvoiceDraft] = useState({ description: '', amount: '', dueDate: '' })
   const [invoiceSaving, setInvoiceSaving] = useState(false)
+  const [invoiceError, setInvoiceError] = useState<string | null>(null)
   const [statusChangingId, setStatusChangingId] = useState<string | null>(null)
   const invoiceFileRef = useRef<HTMLInputElement>(null)
 
   function closeInvoiceModal() {
     setInvoiceModalOpen(false)
     setInvoiceDraft({ description: '', amount: '', dueDate: '' })
+    setInvoiceError(null)
     if (invoiceFileRef.current) invoiceFileRef.current.value = ''
   }
 
@@ -54,6 +57,7 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
   async function saveInvoice() {
     if (!invoiceDraft.amount || invoiceSaving) return
     setInvoiceSaving(true)
+    setInvoiceError(null)
     try {
       const fd = new FormData()
       fd.set('athlete_id', athleteId)
@@ -63,7 +67,11 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
       if (athletePackage) fd.set('package', athletePackage)
       const file = invoiceFileRef.current?.files?.[0]
       if (file) fd.set('attachment', file)
-      await createInvoice(null, fd)
+      const result = await createInvoice(null, fd)
+      if (result && 'error' in result) {
+        setInvoiceError(result.error ?? 'Nie udało się utworzyć faktury')
+        return
+      }
       closeInvoiceModal()
       startTransition(() => router.refresh())
     } finally {
@@ -184,6 +192,9 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
             Pakiet: <span style={{ color: 'var(--text-primary)' }}>{athletePackage || '—'}</span>
             {!invoiceDraft.dueDate && <span className="ml-3">Brak terminu → +14 dni od dziś</span>}
           </div>
+          {invoiceError && (
+            <div className="text-xs px-1 text-red-400">{invoiceError}</div>
+          )}
         </div>
       </Modal>
     </>

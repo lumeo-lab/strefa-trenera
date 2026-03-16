@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { regenerateAthleteInviteLink } from '@/lib/actions/athletes'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Tabs } from '@/components/ui/Tabs'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
-import { formatDate, formatCurrency } from '@/lib/utils'
-import { DbRow } from '@/lib/types'
+import { getBusinessToday } from '@/lib/date'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import { NotesTab } from './tabs/NotesTab'
 import { FeedbackTab } from './tabs/FeedbackTab'
@@ -17,16 +18,24 @@ import { DataTab } from './tabs/DataTab'
 import { HistoryTab } from './tabs/HistoryTab'
 import { PlanTab } from './tabs/PlanTab'
 import { useCustomSessionTypes } from '@/lib/useCustomSessionTypes'
-
-type Package = { id: string; name: string; description: string | null; price: number }
+import type {
+  CoachAthleteRow,
+  CoachFeedbackRow,
+  CoachInvoiceRow,
+  CoachPackageRow,
+  CoachRaceRow,
+  CoachTrainingSessionRow,
+  FeedbackByDateMap,
+  FeedbackBySessionMap,
+} from './types'
 
 interface Props {
-  athlete: DbRow
-  sessions: DbRow[]
-  feedbacks: DbRow[]
-  invoices: DbRow[]
-  packages: Package[]
-  races: DbRow[]
+  athlete: CoachAthleteRow
+  sessions: CoachTrainingSessionRow[]
+  feedbacks: CoachFeedbackRow[]
+  invoices: CoachInvoiceRow[]
+  packages: CoachPackageRow[]
+  races: CoachRaceRow[]
   unreadMessagesCount: number
 }
 
@@ -34,11 +43,15 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [activeTab, setActiveTab] = useState('plan')
 
   // Feedback lookup
-  const feedbackBySession = Object.fromEntries(athleteFeedbacks.filter(f => f.session_id).map(f => [f.session_id, f]))
-  const feedbackByDate = Object.fromEntries(athleteFeedbacks.map(f => [f.date, f]))
+  const feedbackBySession: FeedbackBySessionMap = Object.fromEntries(
+    athleteFeedbacks.filter(f => f.session_id).map(f => [f.session_id as string, f])
+  )
+  const feedbackByDate: FeedbackByDateMap = Object.fromEntries(
+    athleteFeedbacks.map(f => [f.date, f])
+  )
 
   // Date helpers
-  const today = new Date().toISOString().split('T')[0]
+  const today = getBusinessToday()
   const currentMonth = today.slice(0, 7)
 
   // Session types
@@ -46,15 +59,33 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
   // Invite link
   const [linkCopied, setLinkCopied] = useState(false)
+  const [regeneratingInvite, setRegeneratingInvite] = useState(false)
+  const [inviteToken, setInviteToken] = useState<string>(athlete.invite_token)
+  const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(athlete.invite_token_expires_at ?? null)
   const inviteUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/u/${athlete.slug}?t=${athlete.invite_token}`
-    : `/u/${athlete.slug}?t=${athlete.invite_token}`
+    ? `${window.location.origin}/u/${athlete.slug}?t=${inviteToken}`
+    : `/u/${athlete.slug}?t=${inviteToken}`
 
   function copyInviteLink() {
     navigator.clipboard.writeText(inviteUrl).then(() => {
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
     }).catch(() => {})
+  }
+
+  async function handleRegenerateInvite() {
+    if (regeneratingInvite) return
+    setRegeneratingInvite(true)
+    try {
+      const result = await regenerateAthleteInviteLink(athlete.id)
+      if (result?.success) {
+        setInviteToken(result.inviteToken)
+        setInviteExpiresAt(result.inviteExpiresAt)
+        setLinkCopied(false)
+      }
+    } finally {
+      setRegeneratingInvite(false)
+    }
   }
 
   const unreadFeedbackCount = athleteFeedbacks.filter(f => !f.read).length
@@ -119,9 +150,14 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           {/* Invite link */}
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
             <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>🔗 Link zaproszenia dla zawodnika</div>
+            {inviteExpiresAt && (
+              <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+                Ważny do {formatDate(inviteExpiresAt, { day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <code className="flex-1 px-3 py-2 rounded-xl text-xs font-mono truncate" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                /u/{athlete.slug}?t={athlete.invite_token.slice(0, 8)}…
+                /u/{athlete.slug}?t={inviteToken.slice(0, 8)}…
               </code>
               <button
                 onClick={copyInviteLink}
@@ -129,6 +165,14 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 style={{ background: linkCopied ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.1)', color: linkCopied ? '#2ECC71' : '#FF5C1B' }}
               >
                 {linkCopied ? '✓ Skopiowano' : '📋 Kopiuj'}
+              </button>
+              <button
+                onClick={handleRegenerateInvite}
+                disabled={regeneratingInvite}
+                className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0 disabled:opacity-60"
+                style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text-primary)' }}
+              >
+                {regeneratingInvite ? 'Generuję…' : 'Nowy link'}
               </button>
               <a
                 href={`https://wa.me/?text=${encodeURIComponent(`Cześć! Oto Twój panel treningowy: ${inviteUrl}`)}`}

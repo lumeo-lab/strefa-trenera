@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getAthleteFromSession } from '@/lib/athlete-auth'
-import { adminClient } from '@/lib/supabase/admin'
-import { DbRow } from '@/lib/types'
+import { type AthleteFeedbackByDay, getAthleteFeedbackWindow, getAthleteWindowSessions } from '@/lib/athlete-data'
+import { addDaysToBusinessDate, getBusinessToday } from '@/lib/date'
 import { AthleteTodayPage } from './_components/AthleteTodayPage'
 
 interface Props {
@@ -46,36 +46,18 @@ export default async function SlugPage({ params, searchParams }: Props) {
   }
 
   // Fetch today's session
-  const today = new Date().toISOString().split('T')[0]
-  const { data: sessions } = await adminClient
-    .from('training_sessions')
-    .select('*')
-    .eq('athlete_id', athlete.id)
-    .gte('date', (() => {
-      const d = new Date()
-      d.setDate(d.getDate() - 7)
-      return d.toISOString().split('T')[0]
-    })())
-    .lte('date', (() => {
-      const d = new Date()
-      d.setDate(d.getDate() + 7)
-      return d.toISOString().split('T')[0]
-    })())
-    .order('date')
+  const today = getBusinessToday()
+  const sessionsFrom = addDaysToBusinessDate(today, -7)
+  const sessionsTo = addDaysToBusinessDate(today, 7)
+  const sessions = await getAthleteWindowSessions(athlete.id, sessionsFrom, sessionsTo)
 
-  const rangeStart = new Date()
-  rangeStart.setDate(rangeStart.getDate() - 7)
-  const rangeEnd = new Date()
-  rangeEnd.setDate(rangeEnd.getDate() + 7)
+  const feedbacksArr = await getAthleteFeedbackWindow(
+    athlete.id,
+    addDaysToBusinessDate(today, -7),
+    addDaysToBusinessDate(today, 7)
+  )
 
-  const { data: feedbacksArr } = await adminClient
-    .from('feedbacks')
-    .select('*')
-    .eq('athlete_id', athlete.id)
-    .gte('date', rangeStart.toISOString().split('T')[0])
-    .lte('date', rangeEnd.toISOString().split('T')[0])
-
-  const feedbacksByDate: Record<string, { text: DbRow | null; voice: DbRow | null }> = {}
+  const feedbacksByDate: AthleteFeedbackByDay = {}
   for (const fb of feedbacksArr ?? []) {
     if (!feedbacksByDate[fb.date]) feedbacksByDate[fb.date] = { text: null, voice: null }
     if (fb.source === 'voice') feedbacksByDate[fb.date].voice = fb
@@ -85,7 +67,7 @@ export default async function SlugPage({ params, searchParams }: Props) {
   return (
     <AthleteTodayPage
       athlete={athlete}
-      sessions={sessions ?? []}
+      sessions={sessions}
       feedbacks={feedbacksByDate}
       today={today}
     />

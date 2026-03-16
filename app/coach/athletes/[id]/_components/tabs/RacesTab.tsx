@@ -1,14 +1,14 @@
 'use client'
 
-import React, { useState, startTransition } from 'react'
+import React, { startTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { formatDate } from '@/lib/utils'
-import { DbRow } from '@/lib/types'
-import { createRace, updateRace, deleteRace } from '@/lib/actions/races'
+import { createRace, deleteRace, updateRace } from '@/lib/actions/races'
 import { INPUT_STYLE } from '@/lib/styles'
+import type { CoachRaceRow } from '../types'
 
 const inputStyle = INPUT_STYLE
 
@@ -36,7 +36,7 @@ interface RaceDraft { name: string; date: string; distance: string; goalTime: st
 
 interface RacesTabProps {
   athleteId: string
-  races: DbRow[]
+  races: CoachRaceRow[]
   today: string
 }
 
@@ -57,7 +57,7 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
     setRaceModalOpen(true)
   }
 
-  function openEditRace(race: DbRow) {
+  function openEditRace(race: CoachRaceRow) {
     setRaceDraft({ name: race.name, date: race.date, distance: race.distance ?? '', goalTime: race.goal_time ?? '', result: race.result ?? '', status: race.status ?? 'planned', notes: race.notes ?? '' })
     setEditingRaceId(race.id)
     setRaceModalOpen(true)
@@ -104,9 +104,9 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
     .slice().sort((a, b) => b.date.localeCompare(a.date))
 
   const RaceTable = ({ races: tableRaces, columns, renderRow }: {
-    races: DbRow[]
+    races: CoachRaceRow[]
     columns: string[]
-    renderRow: (race: DbRow, i: number) => React.ReactNode
+    renderRow: (race: CoachRaceRow, i: number) => React.ReactNode
   }) => (
     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
       <table className="w-full text-sm">

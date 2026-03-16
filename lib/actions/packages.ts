@@ -3,23 +3,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { AUTH_ERROR } from '@/lib/constants'
+import { createPackageSchema, updatePackageSchema, validateFormData } from '@/lib/schemas'
 
 export async function createPackage(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
 
-  const name = formData.get('name') as string
-  const description = formData.get('description') as string | null
-  const price = parseFloat(formData.get('price') as string)
-
-  if (!name?.trim()) return { error: 'Nazwa jest wymagana' }
-  if (isNaN(price) || price < 0) return { error: 'Podaj prawidłową kwotę' }
+  const parsed = validateFormData(createPackageSchema, formData)
+  if ('error' in parsed) return parsed
+  const { name, description, price } = parsed.data
 
   const { error } = await supabase.from('packages').insert({
     coach_id: user.id,
-    name: name.trim(),
-    description: description?.trim() || null,
+    name,
+    description: description || null,
     price,
   })
 
@@ -34,17 +32,13 @@ export async function updatePackage(_: unknown, formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
 
-  const id = formData.get('id') as string
-  const name = formData.get('name') as string
-  const description = formData.get('description') as string | null
-  const price = parseFloat(formData.get('price') as string)
-
-  if (!name?.trim()) return { error: 'Nazwa jest wymagana' }
-  if (isNaN(price) || price < 0) return { error: 'Podaj prawidłową kwotę' }
+  const parsed = validateFormData(updatePackageSchema, formData)
+  if ('error' in parsed) return parsed
+  const { id, name, description, price } = parsed.data
 
   const { error } = await supabase
     .from('packages')
-    .update({ name: name.trim(), description: description?.trim() || null, price })
+    .update({ name, description: description || null, price })
     .eq('id', id)
     .eq('coach_id', user.id)
 

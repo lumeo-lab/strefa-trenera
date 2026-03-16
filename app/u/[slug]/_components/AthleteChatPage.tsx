@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, startTransition } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
@@ -9,11 +9,11 @@ import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
 import { sendAthleteMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
-import { DbRow } from '@/lib/types'
+import type { AthleteMessageRow } from '@/lib/athlete-data'
 
 interface Props {
   athlete: AthleteSession
-  messages: DbRow[]
+  messages: AthleteMessageRow[]
   coachName: string
 }
 

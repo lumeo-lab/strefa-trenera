@@ -1,16 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { intensityColor, sessionTypeLabel, formatDate, getWeekDays, toISODate, dayName } from '@/lib/utils'
+import { dayName, formatDate, getWeekDays, intensityColor, sessionTypeLabel, toISODate } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
-import { DbRow } from '@/lib/types'
+import type { AthletePlanFeedbackMap, AthleteTrainingSessionRow } from '@/lib/athlete-data'
 import { SESSION_TYPES } from '@/lib/constants'
 
 interface Props {
   athlete: AthleteSession
-  sessions: DbRow[]
-  feedbacks: Record<string, DbRow>
+  sessions: AthleteTrainingSessionRow[]
+  feedbacks: AthletePlanFeedbackMap
   today: string
 }
 

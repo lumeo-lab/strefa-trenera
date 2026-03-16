@@ -3,8 +3,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { adminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import { AUTH_ERROR, FIELDS_ERROR } from '@/lib/constants'
+import { AUTH_ERROR } from '@/lib/constants'
 import { getAthleteFromSession } from '@/lib/athlete-auth'
+import { assertCoachOwnsAthlete } from '@/lib/auth-guards'
+import { createFeedbackSchema, replyFeedbackSchema, updateFeedbackSchema, validateFormData } from '@/lib/schemas'
+
+const VALID_FEELINGS = ['😫', '😕', '😐', '😊', '🤩', '']
+const MAX_NOTES_LENGTH = 2000
+const MAX_TRANSCRIPT_LENGTH = 5000
 
 function buildFeedbackFields(formData: FormData) {
   const feeling = formData.get('feeling') as string || ''
@@ -12,8 +18,11 @@ function buildFeedbackFields(formData: FormData) {
   const distanceKm = formData.get('distance_km') as string || ''
   const durationMin = formData.get('duration_min') as string || ''
   const intensity = formData.get('intensity') as string || ''
-  const notes = formData.get('notes') as string || ''
-  const voiceTranscript = formData.get('voice_transcript') as string || ''
+  const notes = (formData.get('notes') as string || '').slice(0, MAX_NOTES_LENGTH)
+  const voiceTranscript = (formData.get('voice_transcript') as string || '').slice(0, MAX_TRANSCRIPT_LENGTH)
+
+  // Validate feeling emoji
+  const validFeeling = VALID_FEELINGS.includes(feeling) ? feeling : ''
 
   const hasText = !!(feeling || trainingType || distanceKm || durationMin || intensity || notes.trim())
   const hasVoice = !!voiceTranscript.trim()
@@ -22,13 +31,13 @@ function buildFeedbackFields(formData: FormData) {
   const feelingSignal: Record<string, string> = {
     '😫': 'red', '😕': 'red', '😐': 'yellow', '😊': 'green', '🤩': 'green',
   }
-  const signal = feelingSignal[feeling] ?? 'green'
+  const signal = feelingSignal[validFeeling] ?? 'green'
 
   // transcript = structured text summary; ai_analysis = voice transcript
   let transcript = ''
   if (hasText) {
     const parts = []
-    if (feeling) parts.push(`Samopoczucie: ${feeling}`)
+    if (validFeeling) parts.push(`Samopoczucie: ${validFeeling}`)
     if (trainingType) parts.push(`Typ: ${trainingType}`)
     if (distanceKm) parts.push(`Dystans: ${distanceKm} km`)
     if (durationMin) parts.push(`Czas: ${durationMin} min`)
@@ -37,26 +46,41 @@ function buildFeedbackFields(formData: FormData) {
     transcript = parts.join(' | ')
   }
 
-  const aiSummary = feeling
-    ? `${feeling} — ${intensity || trainingType || 'trening'}`
+  const aiSummary = validFeeling
+    ? `${validFeeling} — ${intensity || trainingType || 'trening'}`
     : (trainingType || (hasVoice ? 'Feedback głosowy' : 'Feedback'))
 
-  const watchLink = (formData.get('watch_link') as string || '').trim() || null
+  const rawWatchLink = (formData.get('watch_link') as string || '').trim() || null
+  let watchLink: string | null = null
+  if (rawWatchLink) {
+    try {
+      const u = new URL(rawWatchLink)
+      if (u.protocol === 'http:' || u.protocol === 'https:') watchLink = rawWatchLink
+    } catch {
+      // invalid URL — ignore
+    }
+  }
 
   return { source, signal, transcript, ai_analysis: voiceTranscript, ai_summary: aiSummary, watch_link: watchLink }
 }
 
 export async function createFeedback(formData: FormData) {
-  const slug = formData.get('slug') as string
-  if (!slug) return { error: 'Brak wymaganych danych' }
+  const parsed = validateFormData(createFeedbackSchema, formData)
+  if ('error' in parsed) return parsed
+  const { slug, session_id: sessionId, date } = parsed.data
 
   const athlete = await getAthleteFromSession(slug)
   if (!athlete) return { error: AUTH_ERROR }
+  if (sessionId) {
+    const { data: session } = await adminClient
+      .from('training_sessions')
+      .select('id')
+      .eq('id', sessionId)
+      .eq('athlete_id', athlete.id)
+      .single()
 
-  const sessionId = formData.get('session_id') as string || null
-  const date = formData.get('date') as string
-
-  if (!date) return { error: 'Brak wymaganych danych' }
+    if (!session) return { error: 'Nieprawidłowa sesja treningowa' }
+  }
 
   const fields = buildFeedbackFields(formData)
 
@@ -77,9 +101,9 @@ export async function createFeedback(formData: FormData) {
 }
 
 export async function updateFeedback(formData: FormData) {
-  const slug = formData.get('slug') as string
-  const id = formData.get('id') as string
-  if (!slug || !id) return { error: 'Brak wymaganych danych' }
+  const parsed = validateFormData(updateFeedbackSchema, formData)
+  if ('error' in parsed) return parsed
+  const { slug, id } = parsed.data
 
   const athlete = await getAthleteFromSession(slug)
   if (!athlete) return { error: AUTH_ERROR }
@@ -119,11 +143,13 @@ export async function replyFeedback(_: unknown, formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
 
-  const id = formData.get('id') as string
-  const reply = formData.get('reply') as string
-  const athleteId = formData.get('athlete_id') as string
+  const parsed = validateFormData(replyFeedbackSchema, formData)
+  if ('error' in parsed) return parsed
+  const { id, reply, athlete_id: athleteId } = parsed.data
 
-  if (!id || !reply) return { error: FIELDS_ERROR }
+  // Verify coach owns the feedback's athlete
+  const ownsAthlete = await assertCoachOwnsAthlete(user.id, athleteId)
+  if (!ownsAthlete) return { error: AUTH_ERROR }
 
   const { error } = await supabase
     .from('feedbacks')

@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { createFeedback, updateFeedback } from '@/lib/actions/feedback'
-import { DbRow } from '@/lib/types'
+import type { AthleteFeedbackRow } from '@/lib/athlete-data'
 import { VoiceRecorder } from './VoiceRecorder'
+import { parseFeedbackTranscript } from '@/lib/utils'
 
 const FEELINGS = [
   { emoji: '😫', label: 'Fatalnie' },
@@ -30,19 +31,18 @@ export interface FeedbackData {
 }
 
 function parseTranscript(t: string): FeedbackData {
-  const r: FeedbackData = {}
-  for (const part of t.split(' | ')) {
-    if (part.startsWith('Samopoczucie: ')) r.feeling = part.slice(14)
-    else if (part.startsWith('Typ: ')) r.trainingType = part.slice(5)
-    else if (part.startsWith('Dystans: ')) r.distanceKm = part.slice(9).replace(' km', '')
-    else if (part.startsWith('Czas: ')) r.durationMin = part.slice(6).replace(' min', '')
-    else if (part.startsWith('Intensywność: ')) r.intensity = part.slice(14)
-    else if (part.startsWith('Notatka: ')) r.notes = part.slice(9)
+  const parsed = parseFeedbackTranscript(t)
+  return {
+    feeling: parsed.feeling || undefined,
+    trainingType: parsed.trainingType || undefined,
+    distanceKm: parsed.distance ? parsed.distance.replace(' km', '') : undefined,
+    durationMin: parsed.duration ? parsed.duration.replace(' min', '') : undefined,
+    intensity: parsed.intensity || undefined,
+    notes: parsed.notes || undefined,
   }
-  return r
 }
 
-export function dbRowToFeedback(fb: DbRow): FeedbackData {
+export function dbRowToFeedback(fb: AthleteFeedbackRow): FeedbackData {
   const voice = fb.ai_analysis || (fb.source === 'voice' ? fb.transcript : '') || ''
   const textSummary = fb.source !== 'voice' ? (fb.transcript ?? '') : ''
   return { ...parseTranscript(textSummary), voiceTranscript: voice || undefined, watchLink: fb.watch_link || undefined }
@@ -53,18 +53,16 @@ interface FeedbackModalProps {
   onClose: () => void
   feedbackType: 'text' | 'voice'
   sessionId: string | null
-  athleteId: string
-  coachId: string
   slug: string
   date: string
-  existingTextFeedback: DbRow | null
-  existingVoiceFeedback: DbRow | null
+  existingTextFeedback: AthleteFeedbackRow | null
+  existingVoiceFeedback: AthleteFeedbackRow | null
   initialData: FeedbackData | null
   onSubmitted: (feedbackData: FeedbackData, type: 'text' | 'voice') => void
 }
 
 export function FeedbackModal({
-  open, onClose, feedbackType, sessionId, athleteId, coachId, slug, date,
+  open, onClose, feedbackType, sessionId, slug, date,
   existingTextFeedback, existingVoiceFeedback, initialData, onSubmitted,
 }: FeedbackModalProps) {
   const [submitting, setSubmitting] = useState(false)
@@ -86,8 +84,6 @@ export function FeedbackModal({
     setSubmitting(true)
     try {
       const fd = new FormData()
-      fd.set('athlete_id', athleteId)
-      fd.set('coach_id', coachId)
       fd.set('slug', slug)
       fd.set('date', date)
       if (sessionId) fd.set('session_id', sessionId)
@@ -121,7 +117,7 @@ export function FeedbackModal({
         result = await createFeedback(fd)
       }
 
-      if (result?.error) { alert('Błąd zapisu: ' + result.error); return }
+      if (result && 'error' in result) { alert('Błąd zapisu: ' + result.error); return }
 
       if (feedbackType === 'text') {
         onSubmitted({ feeling, trainingType, distanceKm, durationMin, intensity, notes, watchLink: watchLink || undefined }, 'text')
