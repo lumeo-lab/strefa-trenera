@@ -25,13 +25,10 @@ export default async function AnalyticsPage() {
   const allInvoices = invoices ?? []
 
   // ── KPIs ──────────────────────────────────────────────────────
-  const activeAthletes = allAthletes.filter(a => a.status !== 'inactive')
-  const mrr = activeAthletes.reduce((s, a) => s + a.package_price, 0)
   const paidInvoices = allInvoices.filter(i => i.status === 'paid')
   const totalPaid = paidInvoices.reduce((s, i) => s + i.amount, 0)
   const overdueAmount = allInvoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0)
   const pendingAmount = allInvoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0)
-  const avgPerAthlete = activeAthletes.length > 0 ? totalPaid / activeAthletes.length : 0
 
   // Current vs previous month
   const prevYM = (() => {
@@ -65,10 +62,6 @@ export default async function AnalyticsPage() {
   })
   const chartMaxPaid = Math.max(...chartData.map(d => d.paid), 1)
 
-  // Monthly averages
-  const monthsWithPaid = Array.from(revenueByMonth.values()).filter(v => v.paid > 0).length
-  const avgMonthlyRevenue = monthsWithPaid > 0 ? totalPaid / monthsWithPaid : 0
-
   // ── Monthly table (full history, newest first) ────────────────
   const tableData = allMonthKeys.slice().reverse().map(ym => {
     const [y, mo] = ym.split('-').map(Number)
@@ -90,16 +83,15 @@ export default async function AnalyticsPage() {
     .filter(a => a.invoiceCount > 0)
     .sort((a, b) => b.paid - a.paid)
 
-  // ── Package distribution with revenue ─────────────────────────
-  const packageStats = new Map<string, { count: number; mrr: number }>()
+  // ── Package distribution ────────────────────────────────────
+  const packageStats = new Map<string, { count: number; price: number }>()
   for (const a of allAthletes) {
     if (!a.package) continue
-    if (!packageStats.has(a.package)) packageStats.set(a.package, { count: 0, mrr: 0 })
+    if (!packageStats.has(a.package)) packageStats.set(a.package, { count: 0, price: a.package_price })
     const entry = packageStats.get(a.package)!
     entry.count++
-    if (a.status !== 'inactive') entry.mrr += a.package_price
   }
-  const packageDistribution = Array.from(packageStats.entries()).sort((a, b) => b[1].mrr - a[1].mrr)
+  const packageDistribution = Array.from(packageStats.entries()).sort((a, b) => b[1].count - a[1].count)
 
   const currentMonthLabel = new Date().toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })
 
@@ -110,44 +102,36 @@ export default async function AnalyticsPage() {
       <div className="p-6 max-w-5xl mx-auto space-y-6">
 
         {/* ── KPIs ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card className="p-5">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Przychód miesięczny (MRR)</div>
-            <div className="text-2xl font-bold mb-1">{formatCurrency(mrr)}</div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{activeAthletes.length} aktywnych zawodników</div>
-          </Card>
-          <Card className="p-5">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Ten miesiąc (opłacone)</div>
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Opłacone w tym miesiącu</div>
             <div className="text-2xl font-bold mb-1">{formatCurrency(currentMonthPaid)}</div>
             <div className="text-xs" style={{ color: revenueDelta >= 0 ? '#2ECC71' : '#E74C3C' }}>
               {revenueDelta === 0 ? 'Bez zmian vs poprzedni' : `${revenueDelta > 0 ? '+' : ''}${formatCurrency(revenueDelta)} vs poprzedni`}
             </div>
           </Card>
           <Card className="p-5">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Łączne przychody</div>
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Opłacone łącznie</div>
             <div className="text-2xl font-bold mb-1">{formatCurrency(totalPaid)}</div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{paidInvoices.length} opłaconych faktur</div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{paidInvoices.length} faktur</div>
           </Card>
           <Card className="p-5">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Oczekujące</div>
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Oczekujące na płatność</div>
             <div className="text-2xl font-bold mb-1" style={{ color: pendingAmount > 0 ? '#F1C40F' : 'var(--text-primary)' }}>
               {formatCurrency(pendingAmount)}
             </div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Do opłacenia</div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {allInvoices.filter(i => i.status === 'pending').length} faktur
+            </div>
           </Card>
           <Card className="p-5">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Zaległości</div>
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Przeterminowane</div>
             <div className="text-2xl font-bold mb-1" style={{ color: overdueAmount > 0 ? '#E74C3C' : '#2ECC71' }}>
               {formatCurrency(overdueAmount)}
             </div>
             <div className="text-xs" style={{ color: overdueAmount > 0 ? '#E74C3C' : '#2ECC71' }}>
-              {overdueAmount > 0 ? 'Przeterminowane faktury' : 'Brak zaległości'}
+              {overdueAmount > 0 ? `${allInvoices.filter(i => i.status === 'overdue').length} faktur` : 'Brak zaległości'}
             </div>
-          </Card>
-          <Card className="p-5">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Średni przychód / zawodnik</div>
-            <div className="text-2xl font-bold mb-1">{formatCurrency(avgPerAthlete)}</div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Łączne przychody / aktywni</div>
           </Card>
         </div>
 
@@ -155,14 +139,8 @@ export default async function AnalyticsPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="font-semibold">Przychody miesięczne</h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                Średnio {formatCurrency(avgMonthlyRevenue)} / miesiąc · Ostatnie 12 miesięcy
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="text-lg font-bold">{formatCurrency(totalPaid)}</div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>łącznie</div>
+              <h3 className="font-semibold">Opłacone faktury per miesiąc</h3>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Ostatnie 12 miesięcy</p>
             </div>
           </div>
           {chartData.length > 0 ? (
@@ -289,8 +267,8 @@ export default async function AnalyticsPage() {
                   <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     {stats.count} zawodników · {allAthletes.length > 0 ? Math.round((stats.count / allAthletes.length) * 100) : 0}%
                   </div>
-                  <div className="text-sm font-semibold mt-2" style={{ color: '#FF5C1B' }}>
-                    {formatCurrency(stats.mrr)} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/mies.</span>
+                  <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                    {formatCurrency(stats.price)} / mies. za pakiet
                   </div>
                 </div>
               ))}
