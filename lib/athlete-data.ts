@@ -11,7 +11,7 @@ export type AthleteFeedbackRow = Database['public']['Tables']['feedbacks']['Row'
 export type AthleteMessageRow = Database['public']['Tables']['messages']['Row']
 export type AthleteStravaActivityRow = Database['public']['Tables']['strava_activities']['Row']
 export type AthleteFeedbackByDay = Record<string, { text: AthleteFeedbackRow | null; voice: AthleteFeedbackRow | null }>
-export type AthletePlanFeedbackMap = Record<string, Pick<AthleteFeedbackRow, 'id' | 'date' | 'signal' | 'ai_summary' | 'coach_reply' | 'transcript' | 'source'>>
+export type AthletePlanFeedbackMap = Record<string, Pick<AthleteFeedbackRow, 'id' | 'date' | 'signal' | 'coach_reply' | 'transcript' | 'source'>>
 
 export async function getAthleteWindowSessions(athleteId: string, from: string, to: string): Promise<AthleteTrainingSessionRow[]> {
   const { data, error } = await adminClient
@@ -73,7 +73,7 @@ export async function getAthleteChatData(athleteId: string, coachId: string): Pr
 
 export async function getAthletePlanData(athleteId: string, from: string, to: string): Promise<{
   sessions: AthleteTrainingSessionRow[]
-  feedbacks: Pick<AthleteFeedbackRow, 'id' | 'date' | 'signal' | 'ai_summary' | 'coach_reply' | 'transcript' | 'source'>[]
+  feedbacks: Pick<AthleteFeedbackRow, 'id' | 'date' | 'signal' | 'coach_reply' | 'transcript' | 'source'>[]
 }> {
   const [{ data: sessions }, { data: feedbacks }] = await Promise.all([
     adminClient
@@ -85,7 +85,7 @@ export async function getAthletePlanData(athleteId: string, from: string, to: st
       .order('date'),
     adminClient
       .from('feedbacks')
-      .select('id, date, signal, ai_summary, coach_reply, transcript, source')
+      .select('id, date, signal, coach_reply, transcript, source')
       .eq('athlete_id', athleteId)
       .gte('date', from)
       .lte('date', to),

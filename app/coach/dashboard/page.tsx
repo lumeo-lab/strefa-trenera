@@ -52,7 +52,7 @@ export default async function DashboardPage() {
       .order('created_at', { ascending: false }),
     supabase.from('feedbacks').select('*', { count: 'exact', head: true }).eq('coach_id', user!.id).eq('read', false),
     supabase.from('feedbacks')
-      .select('id, athlete_id, created_at, ai_summary, signal, athletes(name, avatar)')
+      .select('id, athlete_id, created_at, transcript, signal, athletes(name, avatar)')
       .eq('coach_id', user!.id)
       .eq('read', false)
       .order('created_at', { ascending: false })

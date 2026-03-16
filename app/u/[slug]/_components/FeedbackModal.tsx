@@ -30,8 +30,8 @@ export interface FeedbackData {
   watchLink?: string
 }
 
-function parseTranscript(t: string): FeedbackData {
-  const parsed = parseFeedbackTranscript(t)
+export function dbRowToFeedback(fb: AthleteFeedbackRow): FeedbackData {
+  const parsed = parseFeedbackTranscript(fb.transcript ?? '')
   return {
     feeling: parsed.feeling || undefined,
     trainingType: parsed.trainingType || undefined,
@@ -39,13 +39,9 @@ function parseTranscript(t: string): FeedbackData {
     durationMin: parsed.duration ? parsed.duration.replace(' min', '') : undefined,
     intensity: parsed.intensity || undefined,
     notes: parsed.notes || undefined,
+    voiceTranscript: parsed.voice || undefined,
+    watchLink: fb.watch_link || undefined,
   }
-}
-
-export function dbRowToFeedback(fb: AthleteFeedbackRow): FeedbackData {
-  const voice = fb.ai_analysis || (fb.source === 'voice' ? fb.transcript : '') || ''
-  const textSummary = fb.source !== 'voice' ? (fb.transcript ?? '') : ''
-  return { ...parseTranscript(textSummary), voiceTranscript: voice || undefined, watchLink: fb.watch_link || undefined }
 }
 
 interface FeedbackModalProps {

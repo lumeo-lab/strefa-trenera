@@ -11,12 +11,12 @@ export type DashboardAthleteRow = {
   created_at: string
 }
 
-/** feedbacks select: id, athlete_id, created_at, ai_summary, signal, athletes(name, avatar) */
+/** feedbacks select: id, athlete_id, created_at, transcript, signal, athletes(name, avatar) */
 export type DashboardFeedbackRow = {
   id: string
   athlete_id: string
   created_at: string
-  ai_summary: string
+  transcript: string
   signal: string
   athletes: { name: string; avatar: string } | null
 }

@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { formatDate, hasParsedContent, parseFeedbackTranscript, signalBg, signalColor, timeAgo } from '@/lib/utils'
+import { formatDate, hasParsedContent, parseFeedbackTranscript, signalColor, timeAgo } from '@/lib/utils'
 import { FEELING_LABELS } from '@/lib/constants'
 import type { FeedbackRow } from '@/lib/supabase/database.types'
 import type { FeedbackSignal } from '@/lib/types'
@@ -12,6 +12,17 @@ import type { FeedbackSignal } from '@/lib/types'
 export type FeedbackCardData = FeedbackRow & {
   athletes?: { id: string; name: string; avatar: string } | null
   training_sessions?: { id: string; title: string } | null
+}
+
+/** Build a short label from parsed transcript data (replaces ai_summary) */
+function feedbackLabel(fb: FeedbackCardData): string {
+  const parsed = parseFeedbackTranscript(fb.transcript ?? '')
+  const parts: string[] = []
+  if (parsed.feeling) parts.push(parsed.feeling)
+  if (parsed.trainingType) parts.push(parsed.trainingType)
+  if (!parts.length && parsed.voice) return 'Komentarz głosowy'
+  if (!parts.length && parsed.notes) return 'Notatka'
+  return parts.join(' · ') || 'Feedback'
 }
 
 export function FeedbackCard({
@@ -32,9 +43,10 @@ export function FeedbackCard({
 }) {
   const athlete = fb.athletes
   const session = fb.training_sessions
-  const isVoice = fb.source === 'voice'
-  const parsed = !isVoice ? parseFeedbackTranscript(fb.transcript ?? '') : null
-  const hasContent = isVoice ? !!fb.ai_analysis : (parsed ? hasParsedContent(parsed) : false)
+  const parsed = parseFeedbackTranscript(fb.transcript ?? '')
+  const hasContent = hasParsedContent(parsed)
+  const label = feedbackLabel(fb)
+  const signalDot = fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'
 
   return (
     <Card className={`overflow-hidden border-l-4 ${signalColor(fb.signal as FeedbackSignal)} ${!fb.read ? 'ring-1 ring-white/5' : ''}`}>
@@ -47,18 +59,14 @@ export function FeedbackCard({
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               {showAthleteName && athlete && <span className="font-semibold text-sm">{athlete.name}</span>}
               {!fb.read && <Badge variant="orange">Nowy</Badge>}
-              {fb.ai_summary && (
-                <span className={`text-xs px-2 py-0.5 rounded-full ${signalBg(fb.signal as FeedbackSignal)}`}>
-                  {fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'} {fb.ai_summary}
-                </span>
-              )}
+              <span className="text-sm">{signalDot} {label}</span>
               {fb.coach_reply && (
                 <span className="text-xs" style={{ color: '#2ECC71' }}>✓ Odpowiedziano</span>
               )}
             </div>
             {/* Meta row */}
             <div className="flex items-center gap-1.5 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
-              <span>{isVoice ? '🎤 Głosowy' : fb.source === 'auto' ? '⌚ Zegarek' : '✏️ Tekstowy'}</span>
+              <span>{parsed.voice ? '🎤 Głosowy' : fb.source === 'auto' ? '⌚ Zegarek' : '✏️ Tekstowy'}</span>
               {session && <><span>·</span><span>{session.title}</span></>}
               <span>·</span>
               <span>{formatDate(fb.date, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
@@ -75,8 +83,8 @@ export function FeedbackCard({
         {/* Expanded */}
         {isExpanded && (
           <div className={`mt-4 space-y-4 ${showAthleteName ? 'pl-11' : ''}`}>
-            {/* Text feedback — parsed fields */}
-            {!isVoice && hasContent && parsed && (
+            {/* Parsed fields */}
+            {hasContent && (
               <div className="rounded-xl p-3 space-y-2" style={{ background: 'var(--bg-subtle)' }}>
                 {parsed.feeling && (
                   <FieldRow label="Samopoczucie">
@@ -97,10 +105,10 @@ export function FeedbackCard({
             )}
 
             {/* Voice transcript */}
-            {isVoice && fb.ai_analysis && (
+            {parsed.voice && (
               <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)' }}>
-                <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>🎤 Nagranie głosowe</div>
-                <p className="text-sm italic">&ldquo;{fb.ai_analysis}&rdquo;</p>
+                <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>🎤 Komentarz głosowy</div>
+                <p className="text-sm italic">&ldquo;{parsed.voice}&rdquo;</p>
               </div>
             )}
 
@@ -177,22 +185,20 @@ export function FeedbackCard({
 
 /**
  * Lightweight inline feedback detail (used in HistoryTab / PlanTab).
- * No expand/reply — just the content summary.
  */
 export function FeedbackDetail({ fb }: { fb: FeedbackCardData }) {
-  const isVoice = fb.source === 'voice'
-  const parsed = !isVoice ? parseFeedbackTranscript(fb.transcript ?? '') : null
-  const hasText = parsed ? hasParsedContent(parsed) : false
-  const voice = fb.ai_analysis || (fb.source === 'voice' ? fb.transcript : '') || ''
+  const parsed = parseFeedbackTranscript(fb.transcript ?? '')
+  const hasText = hasParsedContent(parsed)
+  const label = feedbackLabel(fb)
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <span>{fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'}</span>
-        <span className="text-sm font-semibold">{fb.ai_summary}</span>
+        <span className="text-sm font-semibold">{label}</span>
         {fb.coach_reply && <span className="text-xs ml-1" style={{ color: '#2ECC71' }}>✓ Odpowiedziano</span>}
       </div>
-      {hasText && parsed && (
+      {hasText && (
         <div className="space-y-1.5 text-sm">
           {parsed.feeling && (
             <div className="flex items-center gap-2">
@@ -211,10 +217,10 @@ export function FeedbackDetail({ fb }: { fb: FeedbackCardData }) {
           {parsed.notes && <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>&quot;{parsed.notes}&quot;</p>}
         </div>
       )}
-      {voice && (
+      {parsed.voice && (
         <p className="text-sm italic"
           style={{ color: 'var(--text-muted)', borderTop: hasText ? '1px solid var(--border)' : 'none', paddingTop: hasText ? '10px' : '0', marginTop: hasText ? '4px' : '0' }}>
-          🎤 {voice}
+          🎤 {parsed.voice}
         </p>
       )}
       {fb.coach_reply && (

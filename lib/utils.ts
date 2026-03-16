@@ -167,10 +167,11 @@ export interface ParsedFeedback {
   duration: string
   intensity: string
   notes: string
+  voice: string
 }
 
 export function parseFeedbackTranscript(transcript: string): ParsedFeedback {
-  const result: ParsedFeedback = { feeling: '', trainingType: '', distance: '', duration: '', intensity: '', notes: '' }
+  const result: ParsedFeedback = { feeling: '', trainingType: '', distance: '', duration: '', intensity: '', notes: '', voice: '' }
   for (const part of (transcript ?? '').split(' | ')) {
     if (part.startsWith('Samopoczucie: ')) result.feeling = part.slice(14)
     else if (part.startsWith('Typ: ')) result.trainingType = part.slice(5)
@@ -178,6 +179,7 @@ export function parseFeedbackTranscript(transcript: string): ParsedFeedback {
     else if (part.startsWith('Czas: ')) result.duration = part.slice(6)
     else if (part.startsWith('Intensywność: ')) result.intensity = part.slice(14)
     else if (part.startsWith('Notatka: ')) result.notes = part.slice(9)
+    else if (part.startsWith('Głos: ')) result.voice = part.slice(6)
   }
   return result
 }

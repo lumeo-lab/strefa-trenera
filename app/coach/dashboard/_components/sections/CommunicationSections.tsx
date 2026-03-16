@@ -2,7 +2,7 @@
 
 import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
-import { timeAgo } from '@/lib/utils'
+import { parseFeedbackTranscript, timeAgo } from '@/lib/utils'
 import Link from 'next/link'
 import type { DashboardFeedbackRow, DashboardMessageRow } from '../types'
 
@@ -79,9 +79,11 @@ export function FeedbackListSection({ feedbacks }: {
                   </div>
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{timeAgo(f.created_at)}</span>
                 </div>
-                {f.ai_summary && (
-                  <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{f.ai_summary}</p>
-                )}
+                {(() => {
+                  const p = parseFeedbackTranscript(f.transcript ?? '')
+                  const label = [p.feeling, p.trainingType].filter(Boolean).join(' · ') || (p.voice ? 'Komentarz głosowy' : 'Feedback')
+                  return <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                })()}
               </Link>
             )
           })}

@@ -3,7 +3,6 @@
 import { startTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FeedbackCard } from '@/components/coach/FeedbackCard'
-import { Card } from '@/components/ui/Card'
 import { markFeedbackRead, replyFeedback } from '@/lib/actions/feedback'
 import type { CoachFeedbackRow } from '../types'
 
@@ -44,11 +43,9 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
   return (
     <div className="space-y-3">
       {feedbacks.length === 0 ? (
-        <Card className="p-12 text-center">
-          <div className="text-4xl mb-3">💬</div>
-          <div className="text-sm font-medium mb-1">Brak feedbacków od zawodnika</div>
-          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Feedbacki będą się tu pojawiać gdy zawodnik wypełni formularz po treningu</div>
-        </Card>
+        <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
+          Brak feedbacków od zawodnika
+        </div>
       ) : (
         feedbacks.map(fb => (
           <FeedbackCard

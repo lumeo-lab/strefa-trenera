@@ -33,22 +33,16 @@ function buildFeedbackFields(formData: FormData) {
   }
   const signal = feelingSignal[validFeeling] ?? 'green'
 
-  // transcript = structured text summary; ai_analysis = voice transcript
-  let transcript = ''
-  if (hasText) {
-    const parts = []
-    if (validFeeling) parts.push(`Samopoczucie: ${validFeeling}`)
-    if (trainingType) parts.push(`Typ: ${trainingType}`)
-    if (distanceKm) parts.push(`Dystans: ${distanceKm} km`)
-    if (durationMin) parts.push(`Czas: ${durationMin} min`)
-    if (intensity) parts.push(`Intensywność: ${intensity}`)
-    if (notes) parts.push(`Notatka: ${notes}`)
-    transcript = parts.join(' | ')
-  }
-
-  const aiSummary = validFeeling
-    ? `${validFeeling} — ${trainingType || 'trening'}`
-    : (trainingType || (hasVoice ? 'Feedback głosowy' : 'Feedback'))
+  // Build transcript: structured text parts + optional voice note at the end
+  const parts: string[] = []
+  if (validFeeling) parts.push(`Samopoczucie: ${validFeeling}`)
+  if (trainingType) parts.push(`Typ: ${trainingType}`)
+  if (distanceKm) parts.push(`Dystans: ${distanceKm} km`)
+  if (durationMin) parts.push(`Czas: ${durationMin} min`)
+  if (intensity) parts.push(`Intensywność: ${intensity}`)
+  if (notes) parts.push(`Notatka: ${notes}`)
+  if (voiceTranscript) parts.push(`Głos: ${voiceTranscript}`)
+  const transcript = parts.join(' | ')
 
   const rawWatchLink = (formData.get('watch_link') as string || '').trim() || null
   let watchLink: string | null = null
@@ -61,7 +55,7 @@ function buildFeedbackFields(formData: FormData) {
     }
   }
 
-  return { source, signal, transcript, ai_analysis: voiceTranscript, ai_summary: aiSummary, watch_link: watchLink }
+  return { source, signal, transcript, ai_analysis: '', ai_summary: '', watch_link: watchLink }
 }
 
 export async function createFeedback(formData: FormData) {

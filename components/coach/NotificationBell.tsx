@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getUnreadNotifications, markNotificationsRead } from '@/lib/actions/notifications'
-import { formatDate, getInitials } from '@/lib/utils'
+import { formatDate, getInitials, parseFeedbackTranscript } from '@/lib/utils'
 
 type Notification = {
   id: string
   athlete_name: string
   source: string
-  ai_summary: string
+  transcript: string
   created_at: string
 }
 
@@ -131,11 +131,11 @@ export function NotificationBell() {
                       </span>
                       <span className="text-xs shrink-0">{n.source === 'voice' ? '🎤' : '📝'}</span>
                     </div>
-                    {n.ai_summary && (
-                      <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-                        {n.ai_summary}
-                      </p>
-                    )}
+                    {n.transcript && (() => {
+                      const p = parseFeedbackTranscript(n.transcript)
+                      const label = [p.feeling, p.trainingType].filter(Boolean).join(' · ') || (p.voice ? 'Komentarz głosowy' : 'Feedback')
+                      return <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                    })()}
                     <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
                       {formatDate(n.created_at.slice(0, 10))}
                     </p>
