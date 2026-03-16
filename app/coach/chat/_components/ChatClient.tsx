@@ -1,12 +1,12 @@
 'use client'
 
-import { startTransition, useEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { formatDateTime, timeAgo } from '@/lib/utils'
-import { markCoachThreadRead, sendMessage } from '@/lib/actions/messages'
+import { loadThreadMessages, markCoachThreadRead, sendMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 import type { MessageRow } from '@/lib/supabase/database.types'
 
@@ -19,23 +19,25 @@ type ChatAthlete = {
   slug: string
 }
 
-type ThreadInfo = {
+type ThreadSummary = {
   athlete: ChatAthlete
-  lastMessage: MessageRow | null
+  lastMessage: { id: string; sender_type: string; content: string; created_at: string } | null
   unreadCount: number
 }
 
-export function ChatClient({ athletes, messages, coachId, coachName, initialAthleteId }: {
-  athletes: ChatAthlete[]
-  messages: MessageRow[]
+export function ChatClient({ threadSummaries, coachId, coachName, initialAthleteId }: {
+  threadSummaries: ThreadSummary[]
   coachId: string
   coachName: string
   initialAthleteId?: string
 }) {
   const router = useRouter()
-  const [selectedAthleteId, setSelectedAthleteId] = useState(initialAthleteId ?? athletes[0]?.id ?? '')
+  const [selectedAthleteId, setSelectedAthleteId] = useState(initialAthleteId ?? threadSummaries[0]?.athlete.id ?? '')
+  const [threadMessages, setThreadMessages] = useState<MessageRow[]>([])
+  const [loadingThread, setLoadingThread] = useState(false)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState(false)
   const [search, setSearch] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -46,66 +48,63 @@ export function ChatClient({ athletes, messages, coachId, coachName, initialAthl
     if (initialAthleteId) setSelectedAthleteId(initialAthleteId)
   }, [initialAthleteId])
 
-  // Poll for new messages every 5s
+  // Load thread messages when selected athlete changes
+  const loadMessages = useCallback(async (athleteId: string) => {
+    if (!athleteId) return
+    setLoadingThread(true)
+    try {
+      const msgs = await loadThreadMessages(athleteId)
+      setThreadMessages(msgs)
+    } finally {
+      setLoadingThread(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!selectedAthleteId) return
+    void loadMessages(selectedAthleteId)
+    void markCoachThreadRead(selectedAthleteId)
+  }, [selectedAthleteId, loadMessages])
+
+  // Poll: refresh sidebar summaries + current thread every 5s
   useEffect(() => {
     const interval = setInterval(() => {
       startTransition(() => router.refresh())
+      if (selectedAthleteId) void loadMessages(selectedAthleteId)
     }, 5000)
     return () => clearInterval(interval)
-  }, [router])
+  }, [router, selectedAthleteId, loadMessages])
 
-  // Build thread list: sorted by unread first, then by last message time
-  const threads: ThreadInfo[] = useMemo(() => {
-    const byAthlete = new Map<string, MessageRow[]>()
-    for (const m of messages) {
-      if (!byAthlete.has(m.athlete_id)) byAthlete.set(m.athlete_id, [])
-      byAthlete.get(m.athlete_id)!.push(m)
-    }
-
-    return athletes
-      .map(athlete => {
-        const msgs = byAthlete.get(athlete.id) ?? []
-        const lastMessage = msgs.at(-1) ?? null
-        const unreadCount = msgs.filter(m => m.sender_type === 'athlete' && !m.read).length
-        return { athlete, lastMessage, unreadCount }
-      })
-      .sort((a, b) => {
-        // Unread first
-        if (a.unreadCount > 0 && b.unreadCount === 0) return -1
-        if (a.unreadCount === 0 && b.unreadCount > 0) return 1
-        // Then by last message time (newest first)
-        const aTime = a.lastMessage?.created_at ?? ''
-        const bTime = b.lastMessage?.created_at ?? ''
-        if (aTime > bTime) return -1
-        if (aTime < bTime) return 1
-        return a.athlete.name.localeCompare(b.athlete.name, 'pl')
-      })
-  }, [athletes, messages])
-
-  // Filter threads by search
-  const filteredThreads = useMemo(() => {
-    if (!search.trim()) return threads
-    const q = search.toLowerCase()
-    return threads.filter(t => t.athlete.name.toLowerCase().includes(q))
-  }, [threads, search])
-
-  const totalUnread = useMemo(() => threads.reduce((s, t) => s + t.unreadCount, 0), [threads])
-
-  const threadMessages = messages.filter(m => m.athlete_id === selectedAthleteId)
-  const selectedAthlete = athletes.find(a => a.id === selectedAthleteId)
-
+  // Scroll to bottom when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [threadMessages.length])
 
-  useEffect(() => {
-    if (!selectedAthleteId) return
-    void markCoachThreadRead(selectedAthleteId)
-  }, [selectedAthleteId])
+  // Sort & filter threads
+  const sortedThreads = useMemo(() => {
+    return [...threadSummaries].sort((a, b) => {
+      if (a.unreadCount > 0 && b.unreadCount === 0) return -1
+      if (a.unreadCount === 0 && b.unreadCount > 0) return 1
+      const aTime = a.lastMessage?.created_at ?? ''
+      const bTime = b.lastMessage?.created_at ?? ''
+      if (aTime > bTime) return -1
+      if (aTime < bTime) return 1
+      return a.athlete.name.localeCompare(b.athlete.name, 'pl')
+    })
+  }, [threadSummaries])
+
+  const filteredThreads = useMemo(() => {
+    if (!search.trim()) return sortedThreads
+    const q = search.toLowerCase()
+    return sortedThreads.filter(t => t.athlete.name.toLowerCase().includes(q))
+  }, [sortedThreads, search])
+
+  const totalUnread = useMemo(() => threadSummaries.reduce((s, t) => s + t.unreadCount, 0), [threadSummaries])
+  const selectedAthlete = threadSummaries.find(t => t.athlete.id === selectedAthleteId)?.athlete
 
   function selectAthlete(id: string) {
     setSelectedAthleteId(id)
-    // Focus input when switching threads
+    setSendError(false)
     setTimeout(() => inputRef.current?.focus(), 100)
   }
 
@@ -113,16 +112,25 @@ export function ChatClient({ athletes, messages, coachId, coachName, initialAthl
     if (!input.trim() || !selectedAthleteId || sending) return
     const content = input.trim()
     setSending(true)
+    setSendError(false)
     setInput('')
     try {
       const fd = new FormData()
       fd.set('athlete_id', selectedAthleteId)
       fd.set('content', content)
       fd.set('coach_name', coachName)
-      await sendMessage(null, fd)
-      startTransition(() => router.refresh())
+      const result = await sendMessage(null, fd)
+      if (result && 'error' in result) {
+        setInput(content)
+        setSendError(true)
+      } else {
+        // Reload thread and sidebar
+        await loadMessages(selectedAthleteId)
+        startTransition(() => router.refresh())
+      }
     } catch {
       setInput(content)
+      setSendError(true)
     } finally {
       setSending(false)
     }
@@ -130,7 +138,7 @@ export function ChatClient({ athletes, messages, coachId, coachName, initialAthl
 
   const coachInitials = coachName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || '?'
 
-  if (athletes.length === 0) {
+  if (threadSummaries.length === 0) {
     return (
       <div>
         <CoachTopbar title="Czat" subtitle="Rozmowy z zawodnikami" />
@@ -143,7 +151,7 @@ export function ChatClient({ athletes, messages, coachId, coachName, initialAthl
 
   return (
     <div>
-      <CoachTopbar title="Czat" subtitle={totalUnread > 0 ? `${totalUnread} nieprzeczytanych` : `${athletes.length} zawodników`} />
+      <CoachTopbar title="Czat" subtitle={totalUnread > 0 ? `${totalUnread} nieprzeczytanych` : `${threadSummaries.length} zawodników`} />
 
       <div className="flex" style={{ height: 'calc(100vh - 64px)' }}>
 
@@ -241,7 +249,12 @@ export function ChatClient({ athletes, messages, coachId, coachName, initialAthl
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-h-0">
-            {threadMessages.length === 0 && (
+            {loadingThread && threadMessages.length === 0 && (
+              <div className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
+                Wczytywanie...
+              </div>
+            )}
+            {!loadingThread && threadMessages.length === 0 && (
               <div className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
                 Brak wiadomości. Napisz pierwszą!
               </div>
@@ -270,11 +283,16 @@ export function ChatClient({ athletes, messages, coachId, coachName, initialAthl
 
           {/* Input */}
           <div className="px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
+            {sendError && (
+              <div className="text-xs mb-2 px-1" style={{ color: '#E74C3C' }}>
+                Nie udało się wysłać wiadomości. Spróbuj ponownie.
+              </div>
+            )}
             <div className="flex items-center gap-3">
               <input
                 ref={inputRef}
                 value={input}
-                onChange={e => setInput(e.target.value)}
+                onChange={e => { setInput(e.target.value); setSendError(false) }}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                 placeholder={`Napisz do ${selectedAthlete?.name ?? 'zawodnika'}…`}
                 className="flex-1 px-4 py-3 rounded-2xl text-sm"

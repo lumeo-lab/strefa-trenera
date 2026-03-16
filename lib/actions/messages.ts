@@ -59,14 +59,32 @@ export async function sendMessage(_: unknown, formData: FormData) {
   })
   if (error) return { error: error.message }
 
+  // Get athlete slug for push URL
+  const { data: athleteRow } = await supabase.from('athletes').select('slug').eq('id', athleteId).single()
   firePush(athleteId, {
     title: `Wiadomość od ${coachName || 'trenera'}`,
     body: content.slice(0, 100),
-    url: '/u',
+    url: athleteRow ? `/u/${athleteRow.slug}/chat` : '/u',
   })
 
   revalidatePath('/coach/chat')
   return { success: true }
+}
+
+export async function loadThreadMessages(athleteId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data } = await supabase
+    .from('messages')
+    .select('id, coach_id, athlete_id, sender_type, content, read, created_at')
+    .eq('coach_id', user.id)
+    .eq('athlete_id', athleteId)
+    .order('created_at', { ascending: true })
+    .limit(200)
+
+  return data ?? []
 }
 
 export async function markCoachThreadRead(athleteId: string) {
