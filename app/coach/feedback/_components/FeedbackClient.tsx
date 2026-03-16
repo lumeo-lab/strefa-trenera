@@ -231,7 +231,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
   const today = getBusinessToday()
   const [filter, setFilter] = useState<Filter>('all')
   const [sortKey, setSortKey] = useState<SortKey>('date')
-  const [viewMode, setViewMode] = useState<ViewMode>('grouped')
+  const [viewMode, setViewMode] = useState<ViewMode>('chronological')
   const [athleteFilter, setAthleteFilter] = useState<string>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [replyingId, setReplyingId] = useState<string | null>(null)
