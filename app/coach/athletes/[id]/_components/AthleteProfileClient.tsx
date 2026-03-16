@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { regenerateAthleteInviteLink } from '@/lib/actions/athletes'
-import { buildAthleteInvitePath } from '@/lib/athlete-auth'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Tabs } from '@/components/ui/Tabs'
 import { Card } from '@/components/ui/Card'
@@ -64,7 +63,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [inviteToken, setInviteToken] = useState<string>(athlete.invite_token)
   const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(athlete.invite_token_expires_at ?? null)
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  const inviteUrl = `${origin}${buildAthleteInvitePath(athlete.slug, inviteToken)}`
+  const inviteUrl = `${origin}/u/${athlete.slug}?t=${inviteToken}`
 
   const isInviteExpired = !inviteExpiresAt || new Date(inviteExpiresAt) <= new Date()
   const [inviteError, setInviteError] = useState<string | null>(null)
@@ -80,7 +79,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       setInviteToken(result.inviteToken)
       setInviteExpiresAt(result.inviteExpiresAt ?? null)
       setLinkCopied(false)
-      return `${origin}${buildAthleteInvitePath(result.slug, result.inviteToken)}`
+      return `${origin}/u/${result.slug}?t=${result.inviteToken}`
     }
     setInviteError('Nie udało się wygenerować linku')
     return null
