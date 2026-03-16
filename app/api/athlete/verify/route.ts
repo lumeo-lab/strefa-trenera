@@ -11,7 +11,7 @@ import type { NextRequest } from 'next/server'
 
 // Simple in-memory rate limiter per slug (resets on deploy/restart)
 const attempts = new Map<string, { count: number; resetAt: number }>()
-const MAX_ATTEMPTS = 10
+const MAX_ATTEMPTS = 5
 const WINDOW_MS = 15 * 60 * 1000 // 15 minutes
 
 function isRateLimited(slug: string): boolean {
@@ -55,34 +55,36 @@ export async function GET(request: NextRequest) {
   }
 
   const nowIso = new Date().toISOString()
+
+  // Check for existing valid session first (avoid unnecessary DB writes)
   const existingSessionToken = request.cookies.get('athlete_session')?.value
+  if (existingSessionToken) {
+    const { data: existingSession } = await adminClient
+      .from('athlete_sessions')
+      .select('id')
+      .eq('token', existingSessionToken)
+      .eq('athlete_id', athlete.id)
+      .is('revoked_at', null)
+      .gt('expires_at', nowIso)
+      .single()
 
-  // Run invite expiry extension + existing session check in parallel
-  const [, existingSession] = await Promise.all([
-    adminClient
-      .from('athletes')
-      .update({
-        invite_token_expires_at: addSecondsToNow(ATHLETE_INVITE_TTL_SECONDS),
-        invite_token_used_at: nowIso,
-      })
-      .eq('id', athlete.id)
-      .eq('invite_token', token),
-    existingSessionToken
-      ? adminClient
-          .from('athlete_sessions')
-          .select('id')
-          .eq('token', existingSessionToken)
-          .eq('athlete_id', athlete.id)
-          .is('revoked_at', null)
-          .gt('expires_at', nowIso)
-          .single()
-          .then(r => r.data)
-      : Promise.resolve(null),
-  ])
-
-  if (existingSession) {
-    return NextResponse.redirect(new URL(`/u/${slug}`, request.url))
+    if (existingSession) {
+      // Session still valid — extend invite expiry and redirect
+      void adminClient
+        .from('athletes')
+        .update({ invite_token_expires_at: addSecondsToNow(ATHLETE_INVITE_TTL_SECONDS), invite_token_used_at: nowIso })
+        .eq('id', athlete.id)
+        .eq('invite_token', token)
+      return NextResponse.redirect(new URL(`/u/${slug}`, request.url))
+    }
   }
+
+  // No valid session — extend invite expiry
+  await adminClient
+    .from('athletes')
+    .update({ invite_token_expires_at: addSecondsToNow(ATHLETE_INVITE_TTL_SECONDS), invite_token_used_at: nowIso })
+    .eq('id', athlete.id)
+    .eq('invite_token', token)
 
   // Create new session
   const sessionToken = generateSecureToken(32)

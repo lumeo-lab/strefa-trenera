@@ -491,7 +491,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs mb-1.5 block" style={labelStyle}>Kwota (zł)</label>
-              <input type="number" value={editForm.amount}
+              <input type="number" min="0.01" step="0.01" value={editForm.amount}
                 onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))}
                 className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
             </div>
