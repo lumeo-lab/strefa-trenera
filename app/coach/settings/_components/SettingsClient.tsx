@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useRef, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -45,6 +45,11 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
   const [emailState, emailAction, emailPending] = useActionState(updateCoachEmail, null)
   const [passState, passAction, passPending] = useActionState(updateCoachPassword, null)
   const [avatarState, avatarAction, avatarPending] = useActionState(updateCoachAvatar, null)
+
+  // Reset password form on success
+  useEffect(() => {
+    if (passState?.success) passFormRef.current?.reset()
+  }, [passState])
 
   const [selectedEmoji, setSelectedEmoji] = useState<string>(currentEmoji(avatar))
   const [previewUrl, setPreviewUrl] = useState<string | null>(avatar.startsWith('http') ? avatar : null)
@@ -212,11 +217,7 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
             {/* Password */}
             <Card className="p-5">
               <h3 className="font-semibold mb-4">Zmiana hasła</h3>
-              <form ref={passFormRef} action={async (fd) => {
-                await passAction(fd)
-                // Reset form on success (passState updates after re-render)
-                passFormRef.current?.reset()
-              }} className="space-y-3">
+              <form ref={passFormRef} action={passAction} className="space-y-3">
                 <div>
                   <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Nowe hasło</label>
                   <input name="password" type="password" placeholder="Minimum 6 znaków" required minLength={6}
