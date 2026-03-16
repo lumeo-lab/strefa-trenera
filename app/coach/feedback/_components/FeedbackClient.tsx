@@ -125,7 +125,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
     })
   }, [filtered])
 
-  const unreadCount = initialFeedbacks.filter(f => !f.read).length
+  const unreadCount = useMemo(() => initialFeedbacks.filter(f => !f.read).length, [initialFeedbacks])
 
   async function handleExpand(id: string, isRead: boolean, athleteId?: string) {
     setExpandedId(prev => prev === id ? null : id)

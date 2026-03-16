@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { feedbackLabel } from '@/components/coach/FeedbackCard'
 import { dayName, formatDate, getWeekDays, intensityColor, parseFeedbackTranscript, sessionTypeLabel, toISODate } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
@@ -149,7 +150,7 @@ export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) 
                       <div className="p-2.5 rounded-xl text-xs" style={{ background: 'var(--bg-subtle)' }}>
                         <div className="flex items-center gap-1.5 mb-1">
                           <span>{fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'}</span>
-                          <span className="font-semibold">{(() => { const p = parseFeedbackTranscript(fb.transcript ?? ''); return [p.feeling, p.trainingType].filter(Boolean).join(' · ') || 'Feedback' })()}</span>
+                          <span className="font-semibold">{feedbackLabel(parseFeedbackTranscript(fb.transcript ?? ''))}</span>
                         </div>
                         {fb.transcript && <p className="opacity-70 line-clamp-2">{fb.transcript}</p>}
                       </div>

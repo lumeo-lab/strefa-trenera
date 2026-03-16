@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { formatDateTime, timeAgo } from '@/lib/utils'
+import { formatDateTime, getInitials, timeAgo } from '@/lib/utils'
 import { loadThreadMessages, markCoachThreadRead, sendMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 import type { MessageRow } from '@/lib/supabase/database.types'
@@ -60,23 +60,31 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     }
   }, [])
 
+  // Load messages + mark read concurrently on thread select
   useEffect(() => {
     if (!selectedAthleteId) return
-    void loadMessages(selectedAthleteId)
-    void markCoachThreadRead(selectedAthleteId)
-  }, [selectedAthleteId, loadMessages])
+    const thread = threadSummaries.find(t => t.athlete.id === selectedAthleteId)
+    void Promise.all([
+      loadMessages(selectedAthleteId),
+      thread && thread.unreadCount > 0 ? markCoachThreadRead(selectedAthleteId) : null,
+    ])
+  }, [selectedAthleteId, loadMessages, threadSummaries])
 
   // Poll: refresh sidebar summaries + current thread every 5s
   useEffect(() => {
-    const interval = setInterval(async () => {
+    const interval = setInterval(() => {
       startTransition(() => router.refresh())
-      if (selectedAthleteId) {
-        await loadMessages(selectedAthleteId)
-        void markCoachThreadRead(selectedAthleteId)
-      }
+      if (selectedAthleteId) void loadMessages(selectedAthleteId)
     }, 5000)
     return () => clearInterval(interval)
   }, [router, selectedAthleteId, loadMessages])
+
+  // Mark as read when new unread messages appear in current thread (from polling)
+  useEffect(() => {
+    if (!selectedAthleteId) return
+    const hasUnreadFromAthlete = threadMessages.some(m => m.sender_type === 'athlete' && !m.read)
+    if (hasUnreadFromAthlete) void markCoachThreadRead(selectedAthleteId)
+  }, [threadMessages, selectedAthleteId])
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -139,7 +147,7 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     }
   }
 
-  const coachInitials = coachName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+  const coachInitials = getInitials(coachName) || '?'
 
   if (threadSummaries.length === 0) {
     return (

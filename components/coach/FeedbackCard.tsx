@@ -14,9 +14,8 @@ export type FeedbackCardData = FeedbackRow & {
   training_sessions?: { id: string; title: string } | null
 }
 
-/** Build a short label from parsed transcript data (replaces ai_summary) */
-function feedbackLabel(fb: FeedbackCardData): string {
-  const parsed = parseFeedbackTranscript(fb.transcript ?? '')
+/** Build a short label from parsed feedback fields */
+export function feedbackLabel(parsed: ReturnType<typeof parseFeedbackTranscript>): string {
   const parts: string[] = []
   if (parsed.feeling) parts.push(parsed.feeling)
   if (parsed.trainingType) parts.push(parsed.trainingType)
@@ -45,7 +44,7 @@ export function FeedbackCard({
   const session = fb.training_sessions
   const parsed = parseFeedbackTranscript(fb.transcript ?? '')
   const hasContent = hasParsedContent(parsed)
-  const label = feedbackLabel(fb)
+  const label = feedbackLabel(parsed)
   const signalDot = fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'
 
   return (
@@ -189,7 +188,7 @@ export function FeedbackCard({
 export function FeedbackDetail({ fb }: { fb: FeedbackCardData }) {
   const parsed = parseFeedbackTranscript(fb.transcript ?? '')
   const hasText = hasParsedContent(parsed)
-  const label = feedbackLabel(fb)
+  const label = feedbackLabel(parsed)
 
   return (
     <div className="space-y-3">
