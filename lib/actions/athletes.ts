@@ -167,12 +167,7 @@ export async function regenerateAthleteInviteLink(athleteId: string) {
 
   if (error || !data) return { error: error?.message ?? AUTH_ERROR }
 
-  await supabase
-    .from('athlete_sessions')
-    .update({ revoked_at: nowIso })
-    .eq('athlete_id', athleteId)
-    .is('revoked_at', null)
-
+  // Do NOT revoke existing sessions — athlete should stay logged in
   revalidatePath(`/coach/athletes/${athleteId}`)
   return {
     success: true,
