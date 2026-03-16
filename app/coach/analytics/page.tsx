@@ -14,187 +14,176 @@ export default async function AnalyticsPage() {
   const coachId = user?.id ?? ''
 
   const today = getBusinessToday()
-  const currentYM = today.slice(0, 7) // YYYY-MM
-  const prevMonth = (() => {
-    const [y, m] = currentYM.split('-').map(Number)
-    const pm = m === 1 ? 12 : m - 1
-    const py = m === 1 ? y - 1 : y
-    return `${py}-${String(pm).padStart(2, '0')}`
-  })()
+  const currentYM = today.slice(0, 7)
 
-  const [{ data: athletes }, { data: invoices }, { data: sessions }] = await Promise.all([
+  const [{ data: athletes }, { data: invoices }] = await Promise.all([
     supabase.from('athletes').select('id, name, status, package, package_price, join_date').eq('coach_id', coachId),
-    supabase.from('invoices').select('amount, status, date').eq('coach_id', coachId).order('date'),
-    supabase.from('training_sessions').select('id, date, completed, actual_distance, athlete_id').eq('coach_id', coachId).gte('date', `${prevMonth}-01`),
+    supabase.from('invoices').select('amount, status, date, athlete_id').eq('coach_id', coachId).order('date'),
   ])
 
   const allAthletes = athletes ?? []
   const allInvoices = invoices ?? []
-  const allSessions = sessions ?? []
 
-  // ── Financial KPIs ──────────────────────────────────────────────
+  // ── KPIs ──────────────────────────────────────────────────────
   const activeAthletes = allAthletes.filter(a => a.status !== 'inactive')
   const mrr = activeAthletes.reduce((s, a) => s + a.package_price, 0)
+  const paidInvoices = allInvoices.filter(i => i.status === 'paid')
+  const totalPaid = paidInvoices.reduce((s, i) => s + i.amount, 0)
   const overdueAmount = allInvoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0)
   const pendingAmount = allInvoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0)
-  const totalPaid = allInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.amount, 0)
+  const avgPerAthlete = activeAthletes.length > 0 ? totalPaid / activeAthletes.length : 0
 
-  // Previous month revenue for trend
-  const prevMonthPaid = allInvoices.filter(i => i.status === 'paid' && i.date.startsWith(prevMonth)).reduce((s, i) => s + i.amount, 0)
-  const currentMonthPaid = allInvoices.filter(i => i.status === 'paid' && i.date.startsWith(currentYM)).reduce((s, i) => s + i.amount, 0)
+  // Current vs previous month
+  const prevYM = (() => {
+    const [y, m] = currentYM.split('-').map(Number)
+    return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
+  })()
+  const currentMonthPaid = paidInvoices.filter(i => i.date.startsWith(currentYM)).reduce((s, i) => s + i.amount, 0)
+  const prevMonthPaid = paidInvoices.filter(i => i.date.startsWith(prevYM)).reduce((s, i) => s + i.amount, 0)
   const revenueDelta = currentMonthPaid - prevMonthPaid
 
-  // ── Training KPIs ──────────────────────────────────────────────
-  const currentMonthSessions = allSessions.filter(s => s.date.startsWith(currentYM))
-  const prevMonthSessions = allSessions.filter(s => s.date.startsWith(prevMonth))
-  const sessionsPlanned = currentMonthSessions.length
-  const sessionsCompleted = currentMonthSessions.filter(s => s.completed).length
-  const completionRate = sessionsPlanned > 0 ? Math.round((sessionsCompleted / sessionsPlanned) * 100) : 0
-  const totalKm = currentMonthSessions.filter(s => s.completed && s.actual_distance).reduce((s, sess) => s + (sess.actual_distance ?? 0), 0)
-  const prevCompletionRate = prevMonthSessions.length > 0
-    ? Math.round((prevMonthSessions.filter(s => s.completed).length / prevMonthSessions.length) * 100)
-    : 0
-  const completionDelta = completionRate - prevCompletionRate
-
-  // ── Retention alerts ───────────────────────────────────────────
-  const retentionAlerts = allAthletes.filter(a => a.status === 'warning' || a.status === 'alert')
-
-  // ── Revenue chart (last 6 months, always include current month) ─
-  const revenueByMonth: Record<string, number> = {}
-  // Ensure current month is always present
-  revenueByMonth[currentYM] = 0
-  for (const inv of allInvoices.filter(i => i.status === 'paid')) {
-    const month = inv.date.slice(0, 7)
-    revenueByMonth[month] = (revenueByMonth[month] || 0) + inv.amount
+  // ── Revenue by month (full history) ───────────────────────────
+  const revenueByMonth = new Map<string, { paid: number; pending: number; overdue: number; count: number }>()
+  // Ensure current month always present
+  revenueByMonth.set(currentYM, { paid: 0, pending: 0, overdue: 0, count: 0 })
+  for (const inv of allInvoices) {
+    const ym = inv.date.slice(0, 7)
+    if (!revenueByMonth.has(ym)) revenueByMonth.set(ym, { paid: 0, pending: 0, overdue: 0, count: 0 })
+    const entry = revenueByMonth.get(ym)!
+    entry.count++
+    if (inv.status === 'paid') entry.paid += inv.amount
+    else if (inv.status === 'pending') entry.pending += inv.amount
+    else if (inv.status === 'overdue') entry.overdue += inv.amount
   }
-  const sortedMonths = Object.keys(revenueByMonth).sort().slice(-6)
-  const revenueHistory = sortedMonths.map(m => {
-    const [y, mo] = m.split('-').map(Number)
+
+  const allMonthKeys = Array.from(revenueByMonth.keys()).sort()
+  const last12Keys = allMonthKeys.slice(-12)
+  const chartData = last12Keys.map(ym => {
+    const [y, mo] = ym.split('-').map(Number)
     const label = new Date(y, mo - 1, 1).toLocaleDateString('pl-PL', { month: 'short' })
-    return { month: label, amount: revenueByMonth[m], key: m }
+    return { ym, label, ...revenueByMonth.get(ym)! }
   })
-  const maxRevenue = Math.max(...revenueHistory.map(r => r.amount), 1)
+  const chartMaxPaid = Math.max(...chartData.map(d => d.paid), 1)
 
-  // ── Package distribution ───────────────────────────────────────
-  const packageMap = new Map<string, number>()
+  // Monthly averages
+  const monthsWithPaid = Array.from(revenueByMonth.values()).filter(v => v.paid > 0).length
+  const avgMonthlyRevenue = monthsWithPaid > 0 ? totalPaid / monthsWithPaid : 0
+
+  // ── Monthly table (full history, newest first) ────────────────
+  const tableData = allMonthKeys.slice().reverse().map(ym => {
+    const [y, mo] = ym.split('-').map(Number)
+    const label = new Date(y, mo - 1, 1).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })
+    return { ym, label, ...revenueByMonth.get(ym)! }
+  })
+
+  // ── Top athletes by revenue ───────────────────────────────────
+  const athleteRevenue = new Map<string, { name: string; package: string; joinDate: string; paid: number; invoiceCount: number }>()
   for (const a of allAthletes) {
-    if (a.package) packageMap.set(a.package, (packageMap.get(a.package) ?? 0) + 1)
+    athleteRevenue.set(a.id, { name: a.name, package: a.package, joinDate: a.join_date, paid: 0, invoiceCount: 0 })
   }
-  const packageDistribution = Array.from(packageMap.entries()).sort((a, b) => b[1] - a[1])
+  for (const inv of paidInvoices) {
+    const entry = athleteRevenue.get(inv.athlete_id)
+    if (entry) { entry.paid += inv.amount; entry.invoiceCount++ }
+  }
+  const topAthletes = Array.from(athleteRevenue.entries())
+    .map(([id, data]) => ({ id, ...data }))
+    .filter(a => a.invoiceCount > 0)
+    .sort((a, b) => b.paid - a.paid)
+
+  // ── Package distribution with revenue ─────────────────────────
+  const packageStats = new Map<string, { count: number; mrr: number }>()
+  for (const a of allAthletes) {
+    if (!a.package) continue
+    if (!packageStats.has(a.package)) packageStats.set(a.package, { count: 0, mrr: 0 })
+    const entry = packageStats.get(a.package)!
+    entry.count++
+    if (a.status !== 'inactive') entry.mrr += a.package_price
+  }
+  const packageDistribution = Array.from(packageStats.entries()).sort((a, b) => b[1].mrr - a[1].mrr)
 
   const currentMonthLabel = new Date().toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })
 
-  function trendText(delta: number, unit: string): string {
-    if (delta === 0) return `Bez zmian vs poprzedni miesiąc`
-    const sign = delta > 0 ? '+' : ''
-    return `${sign}${delta}${unit} vs poprzedni miesiąc`
-  }
-
   return (
     <div>
-      <CoachTopbar title="Analityka" subtitle={currentMonthLabel} />
+      <CoachTopbar title="Analityka finansowa" subtitle={currentMonthLabel} />
 
       <div className="p-6 max-w-5xl mx-auto space-y-6">
 
-        {/* ── Financial KPIs ── */}
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>Finanse</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            <Card className="p-5">
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Przychód miesięczny (MRR)</div>
-              <div className="text-2xl font-bold mb-1">{formatCurrency(mrr)}</div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{activeAthletes.length} aktywnych zawodników</div>
-            </Card>
-            <Card className="p-5">
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Ten miesiąc (opłacone)</div>
-              <div className="text-2xl font-bold mb-1">{formatCurrency(currentMonthPaid)}</div>
-              <div className="text-xs" style={{ color: revenueDelta >= 0 ? '#2ECC71' : '#E74C3C' }}>
-                {trendText(revenueDelta, ' zł')}
-              </div>
-            </Card>
-            <Card className="p-5">
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Łączne przychody</div>
-              <div className="text-2xl font-bold mb-1">{formatCurrency(totalPaid)}</div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Wszystkie opłacone faktury</div>
-            </Card>
-            <Card className="p-5">
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Oczekujące</div>
-              <div className="text-2xl font-bold mb-1" style={{ color: pendingAmount > 0 ? '#F1C40F' : 'var(--text-primary)' }}>
-                {formatCurrency(pendingAmount)}
-              </div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Do opłacenia</div>
-            </Card>
-            <Card className="p-5">
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Zaległości</div>
-              <div className="text-2xl font-bold mb-1" style={{ color: overdueAmount > 0 ? '#E74C3C' : '#2ECC71' }}>
-                {formatCurrency(overdueAmount)}
-              </div>
-              <div className="text-xs" style={{ color: overdueAmount > 0 ? '#E74C3C' : '#2ECC71' }}>
-                {overdueAmount > 0 ? 'Przeterminowane faktury' : 'Brak zaległości'}
-              </div>
-            </Card>
-            <Card className="p-5">
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Alerty retencji</div>
-              <div className="text-2xl font-bold mb-1" style={{ color: retentionAlerts.length > 0 ? '#E74C3C' : '#2ECC71' }}>
-                {retentionAlerts.length}
-              </div>
-              <div className="text-xs" style={{ color: retentionAlerts.length > 0 ? '#E74C3C' : '#2ECC71' }}>
-                {retentionAlerts.length > 0 ? 'Wymagają uwagi' : 'Wszyscy w normie'}
-              </div>
-            </Card>
-          </div>
+        {/* ── KPIs ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <Card className="p-5">
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Przychód miesięczny (MRR)</div>
+            <div className="text-2xl font-bold mb-1">{formatCurrency(mrr)}</div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{activeAthletes.length} aktywnych zawodników</div>
+          </Card>
+          <Card className="p-5">
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Ten miesiąc (opłacone)</div>
+            <div className="text-2xl font-bold mb-1">{formatCurrency(currentMonthPaid)}</div>
+            <div className="text-xs" style={{ color: revenueDelta >= 0 ? '#2ECC71' : '#E74C3C' }}>
+              {revenueDelta === 0 ? 'Bez zmian vs poprzedni' : `${revenueDelta > 0 ? '+' : ''}${formatCurrency(revenueDelta)} vs poprzedni`}
+            </div>
+          </Card>
+          <Card className="p-5">
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Łączne przychody</div>
+            <div className="text-2xl font-bold mb-1">{formatCurrency(totalPaid)}</div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{paidInvoices.length} opłaconych faktur</div>
+          </Card>
+          <Card className="p-5">
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Oczekujące</div>
+            <div className="text-2xl font-bold mb-1" style={{ color: pendingAmount > 0 ? '#F1C40F' : 'var(--text-primary)' }}>
+              {formatCurrency(pendingAmount)}
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Do opłacenia</div>
+          </Card>
+          <Card className="p-5">
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Zaległości</div>
+            <div className="text-2xl font-bold mb-1" style={{ color: overdueAmount > 0 ? '#E74C3C' : '#2ECC71' }}>
+              {formatCurrency(overdueAmount)}
+            </div>
+            <div className="text-xs" style={{ color: overdueAmount > 0 ? '#E74C3C' : '#2ECC71' }}>
+              {overdueAmount > 0 ? 'Przeterminowane faktury' : 'Brak zaległości'}
+            </div>
+          </Card>
+          <Card className="p-5">
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Średni przychód / zawodnik</div>
+            <div className="text-2xl font-bold mb-1">{formatCurrency(avgPerAthlete)}</div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Łączne przychody / aktywni</div>
+          </Card>
         </div>
 
-        {/* ── Training KPIs ── */}
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>Treningi (bieżący miesiąc)</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Card className="p-5">
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Zaplanowane</div>
-              <div className="text-2xl font-bold mb-1">{sessionsPlanned}</div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>sesji w tym miesiącu</div>
-            </Card>
-            <Card className="p-5">
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Zrealizowane</div>
-              <div className="text-2xl font-bold mb-1">{sessionsCompleted}</div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>z {sessionsPlanned} zaplanowanych</div>
-            </Card>
-            <Card className="p-5">
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Realizacja</div>
-              <div className="text-2xl font-bold mb-1" style={{ color: completionRate >= 70 ? '#2ECC71' : completionRate >= 40 ? '#F1C40F' : '#E74C3C' }}>
-                {completionRate}%
-              </div>
-              <div className="text-xs" style={{ color: completionDelta >= 0 ? '#2ECC71' : '#E74C3C' }}>
-                {trendText(completionDelta, '%')}
-              </div>
-            </Card>
-            <Card className="p-5">
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Łącznie km</div>
-              <div className="text-2xl font-bold mb-1">{Math.round(totalKm * 10) / 10}</div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>przebiegniętych w tym miesiącu</div>
-            </Card>
-          </div>
-        </div>
-
-        {/* ── Revenue chart ── */}
+        {/* ── Revenue chart (last 12 months) ── */}
         <Card className="p-6">
-          <h3 className="font-semibold mb-6">Przychody miesięczne (opłacone faktury)</h3>
-          {revenueHistory.length > 0 ? (
-            <div className="flex items-end gap-4 h-48">
-              {revenueHistory.map((rev, i) => {
-                const height = maxRevenue > 0 ? (rev.amount / maxRevenue) * 100 : 0
-                const isLast = i === revenueHistory.length - 1
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="font-semibold">Przychody miesięczne</h3>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                Średnio {formatCurrency(avgMonthlyRevenue)} / miesiąc · Ostatnie 12 miesięcy
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-bold">{formatCurrency(totalPaid)}</div>
+              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>łącznie</div>
+            </div>
+          </div>
+          {chartData.length > 0 ? (
+            <div className="flex items-end gap-2 h-48">
+              {chartData.map((d, i) => {
+                const height = chartMaxPaid > 0 ? (d.paid / chartMaxPaid) * 100 : 0
+                const isLast = i === chartData.length - 1
+                const isCurrent = d.ym === currentYM
                 return (
-                  <div key={rev.key} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="text-xs font-semibold" style={{ color: isLast ? '#FF5C1B' : 'var(--text-muted)' }}>
-                      {formatCurrency(rev.amount)}
+                  <div key={d.ym} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+                    <div className="text-xs font-semibold truncate w-full text-center" style={{ color: isCurrent ? '#FF5C1B' : 'var(--text-muted)', fontSize: '10px' }}>
+                      {d.paid > 0 ? formatCurrency(d.paid) : '—'}
                     </div>
-                    <div className="w-full rounded-t-xl transition-all" style={{
+                    <div className="w-full rounded-t-lg transition-all" style={{
                       height: `${Math.max(height, 2)}%`,
-                      background: isLast ? 'linear-gradient(180deg, #FF5C1B, #FF7A42)' : 'var(--border-mid)',
-                      minHeight: '4px',
+                      background: isCurrent ? 'linear-gradient(180deg, #FF5C1B, #FF7A42)' : isLast ? 'var(--border-mid)' : 'var(--border)',
+                      minHeight: '3px',
                     }} />
-                    <div className="text-xs capitalize" style={{ color: 'var(--text-muted)' }}>{rev.month}</div>
+                    <div className="text-xs capitalize truncate w-full text-center" style={{ color: isCurrent ? '#FF5C1B' : 'var(--text-muted)', fontSize: '10px' }}>
+                      {d.label}
+                    </div>
                   </div>
                 )
               })}
@@ -204,47 +193,111 @@ export default async function AnalyticsPage() {
           )}
         </Card>
 
-        {/* ── Retention alerts ── */}
-        {retentionAlerts.length > 0 && (
+        {/* ── Monthly breakdown table ── */}
+        {tableData.length > 0 && (
           <Card className="p-5">
-            <h3 className="font-semibold mb-4 text-red-400">Zawodnicy wymagający uwagi</h3>
-            <div className="space-y-2">
-              {retentionAlerts.map(a => (
-                <Link key={a.id} href={`/coach/athletes/${a.id}`}
-                  className="flex items-center justify-between p-3 rounded-xl transition-opacity hover:opacity-80"
-                  style={{ background: 'var(--bg-elevated)' }}>
-                  <div>
-                    <div className="font-medium text-sm">{a.name}</div>
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{a.package}</div>
-                  </div>
-                  <span className={`text-xs px-2 py-1 rounded-full ${a.status === 'alert' ? 'bg-red-500/10 text-red-400' : 'bg-yellow-400/10 text-yellow-400'}`}>
-                    {a.status === 'alert' ? 'Alert' : 'Uwaga'}
-                  </span>
-                </Link>
-              ))}
+            <h3 className="font-semibold mb-4">Przegląd miesięczny</h3>
+            <div className="rounded-xl overflow-hidden overflow-x-auto" style={{ border: '1px solid var(--border)' }}>
+              <table className="w-full text-sm min-w-[500px]">
+                <thead>
+                  <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+                    <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Miesiąc</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium" style={{ color: '#2ECC71' }}>Opłacone</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium" style={{ color: '#F1C40F' }}>Oczekujące</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium" style={{ color: '#E74C3C' }}>Przeterminowane</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Faktur</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableData.map((row, i) => (
+                    <tr key={row.ym} style={{ borderBottom: i < tableData.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
+                      <td className="px-4 py-3 text-xs font-medium capitalize">{row.label}</td>
+                      <td className="px-4 py-3 text-xs text-right font-semibold" style={{ color: '#2ECC71' }}>
+                        {row.paid > 0 ? formatCurrency(row.paid) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-right" style={{ color: row.pending > 0 ? '#F1C40F' : 'var(--text-muted)' }}>
+                        {row.pending > 0 ? formatCurrency(row.pending) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-right" style={{ color: row.overdue > 0 ? '#E74C3C' : 'var(--text-muted)' }}>
+                        {row.overdue > 0 ? formatCurrency(row.overdue) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-right" style={{ color: 'var(--text-muted)' }}>{row.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: '2px solid var(--border)' }}>
+                    <td className="px-4 py-3 text-xs font-bold">Razem</td>
+                    <td className="px-4 py-3 text-xs text-right font-bold" style={{ color: '#2ECC71' }}>{formatCurrency(totalPaid)}</td>
+                    <td className="px-4 py-3 text-xs text-right font-bold" style={{ color: '#F1C40F' }}>{formatCurrency(pendingAmount)}</td>
+                    <td className="px-4 py-3 text-xs text-right font-bold" style={{ color: '#E74C3C' }}>{formatCurrency(overdueAmount)}</td>
+                    <td className="px-4 py-3 text-xs text-right font-bold" style={{ color: 'var(--text-muted)' }}>{allInvoices.length}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </Card>
         )}
 
-        {/* ── Package distribution ── */}
+        {/* ── Top athletes by revenue ── */}
+        {topAthletes.length > 0 && (
+          <Card className="p-5">
+            <h3 className="font-semibold mb-4">Top zawodnicy (przychód)</h3>
+            <div className="rounded-xl overflow-hidden overflow-x-auto" style={{ border: '1px solid var(--border)' }}>
+              <table className="w-full text-sm min-w-[500px]">
+                <thead>
+                  <tr style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+                    <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>#</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Zawodnik</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Pakiet</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Łączny przychód</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Faktur</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Od</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topAthletes.map((a, i) => (
+                    <tr key={a.id} style={{ borderBottom: i < topAthletes.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{i + 1}</td>
+                      <td className="px-4 py-3 text-xs font-medium">
+                        <Link href={`/coach/athletes/${a.id}`} className="hover:underline">{a.name}</Link>
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{a.package}</td>
+                      <td className="px-4 py-3 text-xs text-right font-semibold" style={{ color: '#2ECC71' }}>{formatCurrency(a.paid)}</td>
+                      <td className="px-4 py-3 text-xs text-right" style={{ color: 'var(--text-muted)' }}>{a.invoiceCount}</td>
+                      <td className="px-4 py-3 text-xs text-right" style={{ color: 'var(--text-muted)' }}>
+                        {new Date(a.joinDate).toLocaleDateString('pl-PL', { month: 'short', year: 'numeric' })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+
+        {/* ── Package distribution with revenue ── */}
         <Card className="p-5">
-          <h3 className="font-semibold mb-4">Zawodnicy według pakietów</h3>
+          <h3 className="font-semibold mb-4">Pakiety</h3>
           {packageDistribution.length === 0 ? (
             <p className="text-sm text-center py-4" style={{ color: 'var(--text-muted)' }}>Brak zawodników z przypisanym pakietem</p>
           ) : (
             <div className={`grid gap-4 ${packageDistribution.length <= 2 ? 'grid-cols-2' : packageDistribution.length <= 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3'}`}>
-              {packageDistribution.map(([pkg, count]) => (
-                <div key={pkg} className="text-center p-4 rounded-xl" style={{ background: 'var(--bg-elevated)' }}>
-                  <div className="text-2xl font-bold mb-1">{count}</div>
-                  <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{pkg}</div>
-                  <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                    {allAthletes.length > 0 ? Math.round((count / allAthletes.length) * 100) : 0}%
+              {packageDistribution.map(([pkg, stats]) => (
+                <div key={pkg} className="p-4 rounded-xl" style={{ background: 'var(--bg-elevated)' }}>
+                  <div className="text-base font-bold mb-0.5">{pkg}</div>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {stats.count} zawodników · {allAthletes.length > 0 ? Math.round((stats.count / allAthletes.length) * 100) : 0}%
+                  </div>
+                  <div className="text-sm font-semibold mt-2" style={{ color: '#FF5C1B' }}>
+                    {formatCurrency(stats.mrr)} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/mies.</span>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </Card>
+
       </div>
     </div>
   )
