@@ -195,22 +195,32 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
       status: inv.status,
     })
     setConfirmingDelete(false)
+    setEditError(null)
   }
 
   function closeEdit() {
     setEditingInvoice(null)
     setConfirmingDelete(false)
+    setEditError(null)
   }
+
+  const [editError, setEditError] = useState<string | null>(null)
 
   async function handleUpdate() {
     if (!editingInvoice || saving) return
     setSaving(true)
-    await updateInvoice(editingInvoice.id, {
+    setEditError(null)
+    const result = await updateInvoice(editingInvoice.id, {
       description: editForm.description || undefined,
       amount: parseFloat(editForm.amount),
       due_date: editForm.dueDate || undefined,
       status: editForm.status,
     })
+    if (result && 'error' in result) {
+      setEditError(result.error ?? 'Nie udało się zapisać zmian')
+      setSaving(false)
+      return
+    }
     closeEdit()
     setSaving(false)
     startTransition(() => router.refresh())
@@ -219,7 +229,13 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
   async function handleDelete() {
     if (!editingInvoice || saving) return
     setSaving(true)
-    await deleteInvoice(editingInvoice.id)
+    setEditError(null)
+    const result = await deleteInvoice(editingInvoice.id)
+    if (result && 'error' in result) {
+      setEditError(result.error ?? 'Nie udało się usunąć faktury')
+      setSaving(false)
+      return
+    }
     closeEdit()
     setSaving(false)
     startTransition(() => router.refresh())
@@ -273,9 +289,11 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
             <div className="text-xl font-bold text-red-400">{formatCurrency(totals.overdue)}</div>
           </Card>
           <Card className="p-4">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Łącznie wyfiltrowane</div>
-            <div className="text-xl font-bold">{formatCurrency(totals.paid + totals.pending + totals.overdue)}</div>
-            <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{filtered.length} faktur</div>
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Do zapłaty</div>
+            <div className={`text-xl font-bold ${totals.pending + totals.overdue > 0 ? 'text-red-400' : 'text-green-400'}`}>
+              {formatCurrency(totals.pending + totals.overdue)}
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{filtered.length} faktur wyfiltrowanych</div>
           </Card>
         </div>
 
@@ -501,6 +519,9 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
               ))}
             </select>
           </div>
+          {editError && (
+            <div className="text-xs text-red-400">{editError}</div>
+          )}
           <div className="flex gap-2 pt-2">
             <Button variant="secondary" onClick={closeEdit}>Anuluj</Button>
             <Button onClick={handleUpdate} disabled={!editForm.amount || saving}>
