@@ -72,9 +72,13 @@ export async function sendMessage(_: unknown, formData: FormData) {
 }
 
 export async function loadThreadMessages(athleteId: string) {
+  if (!athleteId) return []
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
+
+  const ownsAthlete = await assertCoachOwnsAthlete(user.id, athleteId)
+  if (!ownsAthlete) return []
 
   const { data } = await supabase
     .from('messages')

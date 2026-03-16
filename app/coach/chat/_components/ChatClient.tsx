@@ -68,9 +68,12 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
 
   // Poll: refresh sidebar summaries + current thread every 5s
   useEffect(() => {
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       startTransition(() => router.refresh())
-      if (selectedAthleteId) void loadMessages(selectedAthleteId)
+      if (selectedAthleteId) {
+        await loadMessages(selectedAthleteId)
+        void markCoachThreadRead(selectedAthleteId)
+      }
     }, 5000)
     return () => clearInterval(interval)
   }, [router, selectedAthleteId, loadMessages])
