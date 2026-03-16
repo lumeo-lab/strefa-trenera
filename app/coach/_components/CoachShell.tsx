@@ -25,7 +25,7 @@ export function CoachShell({ coachName, coachPlan, coachAvatar, children }: Prop
           coachAvatar={coachAvatar}
         />
         <main
-          className="flex-1 min-h-screen overflow-auto transition-all duration-200"
+          className="flex-1 min-h-screen overflow-auto transition-all duration-200 pb-32"
           style={{ marginLeft: collapsed ? '64px' : '256px', background: 'var(--bg-base)' }}
         >
           {children}
