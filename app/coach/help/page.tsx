@@ -49,6 +49,18 @@ const FAQ = [
 
 export default function HelpPage() {
   const [open, setOpen] = useState<number | null>(null)
+  const [formName, setFormName] = useState('')
+  const [formEmail, setFormEmail] = useState('')
+  const [formMsg, setFormMsg] = useState('')
+  const [sent, setSent] = useState(false)
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const subject = encodeURIComponent('Pytanie od trenera — Strefa Trenera')
+    const body = encodeURIComponent(`Imię: ${formName}\nEmail: ${formEmail}\n\n${formMsg}`)
+    window.open(`mailto:kontakt@strefa-trenera.pl?subject=${subject}&body=${body}`)
+    setSent(true)
+  }
 
   return (
     <div>
@@ -84,9 +96,63 @@ export default function HelpPage() {
           </p>
         </Card>
 
+        {/* Contact form */}
+        <Card className="p-6">
+          <h2 className="font-bold text-lg mb-4">Napisz do nas</h2>
+          {sent ? (
+            <div className="py-6 text-center">
+              <div className="text-4xl mb-3">✅</div>
+              <div className="font-semibold mb-1">Otworzyliśmy Twój program pocztowy</div>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Wyślij wiadomość, aby skontaktować się z nami.</p>
+              <button onClick={() => setSent(false)} className="mt-4 text-sm cursor-pointer" style={{ color: '#FF5C1B', background: 'none', border: 'none' }}>
+                Napisz ponownie
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Imię i nazwisko</label>
+                  <input
+                    value={formName} onChange={e => setFormName(e.target.value)}
+                    required placeholder="np. Anna Kowalska"
+                    className="w-full px-3 py-2.5 rounded-xl text-sm"
+                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Email</label>
+                  <input
+                    type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)}
+                    required placeholder="twoj@email.com"
+                    className="w-full px-3 py-2.5 rounded-xl text-sm"
+                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Wiadomość</label>
+                <textarea
+                  value={formMsg} onChange={e => setFormMsg(e.target.value)}
+                  required rows={5} placeholder="Opisz swój problem lub pytanie..."
+                  className="w-full px-3 py-2.5 rounded-xl text-sm resize-none"
+                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white cursor-pointer"
+                style={{ background: '#FF5C1B', border: 'none' }}
+              >
+                Wyślij wiadomość
+              </button>
+            </form>
+          )}
+        </Card>
+
         {/* FAQ */}
         <div>
-          <h2 className="font-bold text-lg mb-4">Najczęstsze pytania</h2>
+          <h2 className="font-bold text-lg mb-4">Najczęstsze pytania (FAQ)</h2>
           <div className="space-y-2">
             {FAQ.map((item, i) => (
               <div key={i} className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
