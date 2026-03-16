@@ -259,7 +259,6 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
     { id: 'pending', label: 'Oczekujące' },
     { id: 'paid', label: 'Opłacone' },
     { id: 'overdue', label: 'Przeterminowane' },
-    { id: 'cancelled', label: 'Anulowane' },
   ]
 
   // Count per filter (respecting athlete filter)
@@ -275,7 +274,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
       />
       <div className="p-6">
         {/* KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-6">
           <Card className="p-4">
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Opłacone</div>
             <div className="text-xl font-bold text-green-400">{formatCurrency(totals.paid)}</div>
@@ -288,46 +287,32 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Przeterminowane</div>
             <div className="text-xl font-bold text-red-400">{formatCurrency(totals.overdue)}</div>
           </Card>
-          <Card className="p-4">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Do zapłaty</div>
-            <div className={`text-xl font-bold ${totals.pending + totals.overdue > 0 ? 'text-red-400' : 'text-green-400'}`}>
-              {formatCurrency(totals.pending + totals.overdue)}
-            </div>
-            <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{filtered.length} faktur wyfiltrowanych</div>
-          </Card>
         </div>
 
         {/* Filters row */}
-        <div className="space-y-3 mb-6">
-          {/* Status filters */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {filters.map(f => (
-              <button key={f.id} onClick={() => setFilter(f.id)}
-                className="px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer"
-                style={{
-                  background: filter === f.id ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                  color: filter === f.id ? '#FF5C1B' : 'var(--text-muted)',
-                  border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
-                }}>
-                {f.label} ({athleteFiltered.filter(i => f.id === 'all' || i.status === f.id).length})
-              </button>
+        <div className="flex items-center gap-2 flex-wrap mb-6">
+          {filters.map(f => (
+            <button key={f.id} onClick={() => setFilter(f.id)}
+              className="px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer"
+              style={{
+                background: filter === f.id ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                color: filter === f.id ? '#FF5C1B' : 'var(--text-muted)',
+                border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
+              }}>
+              {f.label} ({athleteFiltered.filter(i => f.id === 'all' || i.status === f.id).length})
+            </button>
+          ))}
+          <select
+            value={athleteFilter}
+            onChange={e => setAthleteFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl text-sm cursor-pointer ml-auto"
+            style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+          >
+            <option value="all">Wszyscy zawodnicy ({invoiceAthletes.length})</option>
+            {invoiceAthletes.map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
             ))}
-          </div>
-
-          {/* Athlete filter */}
-          <div className="flex items-center gap-3">
-            <select
-              value={athleteFilter}
-              onChange={e => setAthleteFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl text-sm cursor-pointer"
-              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-            >
-              <option value="all">Wszyscy zawodnicy ({invoiceAthletes.length})</option>
-              {invoiceAthletes.map(([id, name]) => (
-                <option key={id} value={id}>{name}</option>
-              ))}
-            </select>
-          </div>
+          </select>
         </div>
 
         {/* Table */}
