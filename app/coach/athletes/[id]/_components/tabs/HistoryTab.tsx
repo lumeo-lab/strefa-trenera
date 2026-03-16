@@ -4,7 +4,7 @@ import { Fragment, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { formatDate, intensityColor, sessionTypeLabel } from '@/lib/utils'
 import { SessionType } from '@/lib/types'
-import { FeedbackDetail } from './FeedbackTab'
+import { FeedbackDetail } from '@/components/coach/FeedbackCard'
 import { SessionTypeDef } from '@/lib/useCustomSessionTypes'
 import type {
   CoachFeedbackRow,

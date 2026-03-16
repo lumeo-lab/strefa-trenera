@@ -9,7 +9,7 @@ import {
 import { SessionType } from '@/lib/types'
 import { markSessionCompleted } from '@/lib/actions/sessions'
 import { useCustomSessionTypes } from '@/lib/useCustomSessionTypes'
-import { FeedbackDetail } from './FeedbackTab'
+import { FeedbackDetail } from '@/components/coach/FeedbackCard'
 import { Modal } from '@/components/ui/Modal'
 import { SessionModal } from '../modals/SessionModal'
 import type { CoachFeedbackRow, CoachTrainingSessionRow, FeedbackByDateMap } from '../types'

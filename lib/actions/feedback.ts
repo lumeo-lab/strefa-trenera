@@ -47,7 +47,7 @@ function buildFeedbackFields(formData: FormData) {
   }
 
   const aiSummary = validFeeling
-    ? `${validFeeling} — ${intensity || trainingType || 'trening'}`
+    ? `${validFeeling} — ${trainingType || 'trening'}`
     : (trainingType || (hasVoice ? 'Feedback głosowy' : 'Feedback'))
 
   const rawWatchLink = (formData.get('watch_link') as string || '').trim() || null
