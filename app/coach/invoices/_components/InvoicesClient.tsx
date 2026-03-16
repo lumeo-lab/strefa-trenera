@@ -1,6 +1,6 @@
 'use client'
 
-import { startTransition, useEffect, useRef, useState } from 'react'
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
@@ -37,6 +37,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
 
   // ── Filter & sort ────────────────────────────────────────────────
   const [filter, setFilter] = useState<Filter>('all')
+  const [athleteFilter, setAthleteFilter] = useState<string>('all')
   const [sortKey, setSortKey] = useState<SortKey | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
@@ -49,12 +50,23 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
   const [localInvoices, setLocalInvoices] = useState(invoices)
   useEffect(() => setLocalInvoices(invoices), [invoices])
   const [statusChangingId, setStatusChangingId] = useState<string | null>(null)
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   async function handleStatusChange(invId: string, athleteId: string | undefined, next: InvoiceStatus) {
+    // Confirm before cancelling
+    if (next === 'cancelled') {
+      setConfirmCancelId(invId)
+      return
+    }
+    await doStatusChange(invId, athleteId, next)
+  }
+
+  async function doStatusChange(invId: string, athleteId: string | undefined, next: InvoiceStatus) {
     const prev = localInvoices.find(i => i.id === invId)?.status as InvoiceStatus
     setLocalInvoices(ls => ls.map(i => i.id === invId ? { ...i, status: next } : i))
     setStatusChangingId(invId)
+    setConfirmCancelId(null)
     try {
       const result = await updateInvoiceStatus(invId, next, athleteId)
       if (result?.error) {
@@ -80,25 +92,44 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
     }
   }
 
-  const filtered = localInvoices.filter(inv => filter === 'all' || inv.status === filter)
-  const sorted = sortKey
-    ? [...filtered].sort((a, b) => {
-        let av: string | number = '', bv: string | number = ''
-        if (sortKey === 'athlete') { av = a.athletes?.name ?? ''; bv = b.athletes?.name ?? '' }
-        else if (sortKey === 'amount') { av = a.amount ?? 0; bv = b.amount ?? 0 }
-        else { av = a[sortKey] ?? ''; bv = b[sortKey] ?? '' }
-        if (av < bv) return sortDir === 'asc' ? -1 : 1
-        if (av > bv) return sortDir === 'asc' ? 1 : -1
-        return 0
-      })
-    : filtered
+  // ── Derived data ──────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    let list = localInvoices
+    if (athleteFilter !== 'all') list = list.filter(inv => inv.athlete_id === athleteFilter)
+    if (filter !== 'all') list = list.filter(inv => inv.status === filter)
+    return list
+  }, [localInvoices, filter, athleteFilter])
 
-  // ── KPIs ─────────────────────────────────────────────────────────
-  const totals = {
-    paid: localInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.amount, 0),
-    pending: localInvoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0),
-    overdue: localInvoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0),
-  }
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered
+    return [...filtered].sort((a, b) => {
+      let av: string | number = '', bv: string | number = ''
+      if (sortKey === 'athlete') { av = a.athletes?.name ?? ''; bv = b.athletes?.name ?? '' }
+      else if (sortKey === 'amount') { av = a.amount ?? 0; bv = b.amount ?? 0 }
+      else { av = a[sortKey] ?? ''; bv = b[sortKey] ?? '' }
+      if (av < bv) return sortDir === 'asc' ? -1 : 1
+      if (av > bv) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filtered, sortKey, sortDir])
+
+  // KPIs based on filtered view
+  const totals = useMemo(() => ({
+    paid: filtered.filter(i => i.status === 'paid').reduce((s, i) => s + i.amount, 0),
+    pending: filtered.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0),
+    overdue: filtered.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0),
+  }), [filtered])
+
+  // Unique athletes that have invoices (for dropdown)
+  const invoiceAthletes = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const inv of localInvoices) {
+      if (inv.athletes && !map.has(inv.athletes.id)) {
+        map.set(inv.athletes.id, inv.athletes.name)
+      }
+    }
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], 'pl'))
+  }, [localInvoices])
 
   // ── Create modal ─────────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false)
@@ -107,10 +138,20 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
   const [createForm, setCreateForm] = useState({
     athleteId: athletes[0]?.id ?? '',
     description: '',
-    amount: '',
+    amount: athletes[0]?.package_price ? String(athletes[0].package_price) : '',
     dueDate: '',
   })
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Auto-fill amount when athlete changes in create form
+  function handleCreateAthleteChange(athleteId: string) {
+    const ath = athletes.find(a => a.id === athleteId)
+    setCreateForm(f => ({
+      ...f,
+      athleteId,
+      amount: ath?.package_price ? String(ath.package_price) : f.amount,
+    }))
+  }
 
   async function handleCreate() {
     if (!createForm.athleteId || !createForm.amount || submitting) return
@@ -132,7 +173,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
       return
     }
     setCreateOpen(false)
-    setCreateForm({ athleteId: athletes[0]?.id ?? '', description: '', amount: '', dueDate: '' })
+    setCreateForm({ athleteId: athletes[0]?.id ?? '', description: '', amount: athletes[0]?.package_price ? String(athletes[0].package_price) : '', dueDate: '' })
     setCreateError(null)
     if (fileRef.current) fileRef.current.value = ''
     setSubmitting(false)
@@ -205,6 +246,11 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
     { id: 'cancelled', label: 'Anulowane' },
   ]
 
+  // Count per filter (respecting athlete filter)
+  const athleteFiltered = athleteFilter !== 'all'
+    ? localInvoices.filter(i => i.athlete_id === athleteFilter)
+    : localInvoices
+
   return (
     <div>
       <CoachTopbar
@@ -213,7 +259,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
       />
       <div className="p-6">
         {/* KPIs */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <Card className="p-4">
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Opłacone</div>
             <div className="text-xl font-bold text-green-400">{formatCurrency(totals.paid)}</div>
@@ -226,26 +272,49 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Przeterminowane</div>
             <div className="text-xl font-bold text-red-400">{formatCurrency(totals.overdue)}</div>
           </Card>
+          <Card className="p-4">
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Łącznie wyfiltrowane</div>
+            <div className="text-xl font-bold">{formatCurrency(totals.paid + totals.pending + totals.overdue)}</div>
+            <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{filtered.length} faktur</div>
+          </Card>
         </div>
 
-        {/* Filters */}
-        <div className="flex items-center gap-2 mb-6">
-          {filters.map(f => (
-            <button key={f.id} onClick={() => setFilter(f.id)}
-              className="px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer"
-              style={{
-                background: filter === f.id ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                color: filter === f.id ? '#FF5C1B' : 'var(--text-muted)',
-                border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
-              }}>
-              {f.label} ({localInvoices.filter(i => f.id === 'all' || i.status === f.id).length})
-            </button>
-          ))}
+        {/* Filters row */}
+        <div className="space-y-3 mb-6">
+          {/* Status filters */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {filters.map(f => (
+              <button key={f.id} onClick={() => setFilter(f.id)}
+                className="px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer"
+                style={{
+                  background: filter === f.id ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                  color: filter === f.id ? '#FF5C1B' : 'var(--text-muted)',
+                  border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
+                }}>
+                {f.label} ({athleteFiltered.filter(i => f.id === 'all' || i.status === f.id).length})
+              </button>
+            ))}
+          </div>
+
+          {/* Athlete filter */}
+          <div className="flex items-center gap-3">
+            <select
+              value={athleteFilter}
+              onChange={e => setAthleteFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl text-sm cursor-pointer"
+              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            >
+              <option value="all">Wszyscy zawodnicy ({invoiceAthletes.length})</option>
+              {invoiceAthletes.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Table */}
-        <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-          <table className="w-full text-sm">
+        <div className="rounded-2xl overflow-hidden overflow-x-auto" style={{ border: '1px solid var(--border)' }}>
+          <table className="w-full text-sm min-w-[800px]">
             <thead>
               <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
                 {columns.map((col) => (
@@ -327,15 +396,32 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
         </div>
       </div>
 
+      {/* Confirm cancel modal */}
+      <Modal open={!!confirmCancelId} onClose={() => setConfirmCancelId(null)} title="Anulowanie faktury">
+        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+          Czy na pewno chcesz anulować tę fakturę? Status zmieni się na &quot;Anulowana&quot;.
+        </p>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setConfirmCancelId(null)}>Nie, wróć</Button>
+          <Button variant="danger" onClick={() => {
+            if (!confirmCancelId) return
+            const inv = localInvoices.find(i => i.id === confirmCancelId)
+            void doStatusChange(confirmCancelId, inv?.athlete_id, 'cancelled')
+          }}>
+            Tak, anuluj fakturę
+          </Button>
+        </div>
+      </Modal>
+
       {/* Create Modal */}
       <Modal open={createOpen} onClose={() => { setCreateOpen(false); setCreateError(null) }} title="Nowa faktura">
         <div className="space-y-4">
           <div>
             <label className="text-xs mb-1.5 block" style={labelStyle}>Zawodnik</label>
             <select value={createForm.athleteId}
-              onChange={e => setCreateForm(f => ({ ...f, athleteId: e.target.value }))}
+              onChange={e => handleCreateAthleteChange(e.target.value)}
               className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle}>
-              {athletes.map(a => <option key={a.id} value={a.id}>{a.name} — {a.package}</option>)}
+              {athletes.map(a => <option key={a.id} value={a.id}>{a.name} — {a.package} ({formatCurrency(a.package_price)})</option>)}
             </select>
           </div>
           <div>
