@@ -20,6 +20,76 @@ export type Database = {
         }
         Update: Partial<Database['public']['Tables']['coaches']['Insert']>
       }
+      coach_session_types: {
+        Row: {
+          id: string
+          coach_id: string
+          key: string
+          label: string
+          color: string | null
+          is_builtin: boolean
+          position: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          coach_id: string
+          key: string
+          label: string
+          color?: string | null
+          is_builtin?: boolean
+          position?: number
+        }
+        Update: Partial<Database['public']['Tables']['coach_session_types']['Insert']>
+      }
+      coach_week_templates: {
+        Row: {
+          id: string
+          coach_id: string
+          name: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          coach_id: string
+          name: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['coach_week_templates']['Insert']>
+      }
+      coach_week_template_items: {
+        Row: {
+          id: string
+          template_id: string
+          day_offset: number
+          position: number
+          type: string
+          title: string
+          description: string
+          planned_distance: number | null
+          planned_duration: number | null
+          planned_pace: string | null
+          url: string | null
+          url_label: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          template_id: string
+          day_offset: number
+          position?: number
+          type?: string
+          title: string
+          description?: string
+          planned_distance?: number | null
+          planned_duration?: number | null
+          planned_pace?: string | null
+          url?: string | null
+          url_label?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['coach_week_template_items']['Insert']>
+      }
       athletes: {
         Row: {
           id: string

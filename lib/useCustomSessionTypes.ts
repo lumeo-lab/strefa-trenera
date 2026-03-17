@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { SessionType } from './types'
 import { sessionTypeLabel } from './utils'
 
@@ -29,20 +29,110 @@ export function useCustomSessionTypes() {
   })
   const [labelOverrides, setLabelOverrides] = useState<Record<string, string>>(savedData.overrides)
   const [custom, setCustom] = useState<SessionTypeDef[]>(savedData.custom)
+  const [loading, setLoading] = useState(true)
 
-  const builtins: SessionTypeDef[] = BUILTIN_SESSION_TYPE_KEYS.map(k => ({
+  const builtins: SessionTypeDef[] = useMemo(() => BUILTIN_SESSION_TYPE_KEYS.map(k => ({
     key: k,
     label: labelOverrides[k] ?? sessionTypeLabel(k),
     isBuiltin: true,
-  }))
+  })), [labelOverrides])
 
-  const all: SessionTypeDef[] = [...builtins, ...custom]
+  const all: SessionTypeDef[] = useMemo(() => [...builtins, ...custom], [builtins, custom])
 
-  function saveAll(overrides: Record<string, string>, customTypes: SessionTypeDef[]) {
+  async function saveAll(overrides: Record<string, string>, customTypes: SessionTypeDef[]) {
     setLabelOverrides(overrides)
     setCustom(customTypes)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ overrides, custom: customTypes }))
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ overrides, custom: customTypes }))
+    }
+
+    const res = await fetch('/api/session-types', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        overrides,
+        custom: customTypes.map((type, index) => ({
+          key: type.key,
+          label: type.label,
+          color: type.color ?? '#3B82F6',
+          position: index,
+        })),
+      }),
+    })
+
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: string } | null
+      throw new Error(data?.error || 'Nie udało się zapisać typów treningów.')
+    }
   }
 
-  return { all, builtins, custom, labelOverrides, saveAll }
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadFromServer() {
+      try {
+        const res = await fetch('/api/session-types', { cache: 'no-store' })
+        const data = (await res.json().catch(() => null)) as {
+          error?: string
+          items?: Array<{
+            key: string
+            label: string
+            color: string | null
+            is_builtin: boolean
+            position: number
+          }>
+        } | null
+
+        if (!res.ok) {
+          throw new Error(data?.error || 'Nie udało się pobrać typów treningów.')
+        }
+
+        if (cancelled) return
+
+        const items = data?.items ?? []
+        if (items.length > 0) {
+          const nextOverrides: Record<string, string> = {}
+          const nextCustom: SessionTypeDef[] = []
+
+          for (const item of items) {
+            if (item.is_builtin) {
+              nextOverrides[item.key] = item.label
+            } else {
+              nextCustom.push({
+                key: item.key,
+                label: item.label,
+                color: item.color ?? undefined,
+                isBuiltin: false,
+              })
+            }
+          }
+
+          setLabelOverrides(nextOverrides)
+          setCustom(nextCustom)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ overrides: nextOverrides, custom: nextCustom }))
+          }
+          return
+        }
+
+        if (typeof window !== 'undefined' && (Object.keys(savedData.overrides).length > 0 || savedData.custom.length > 0)) {
+          await saveAll(savedData.overrides, savedData.custom)
+        }
+      } catch {
+        // Local fallback is already in state.
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void loadFromServer()
+
+    return () => {
+      cancelled = true
+    }
+  // savedData intentionally used only for one-time migration
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return { all, builtins, custom, labelOverrides, saveAll, loading }
 }

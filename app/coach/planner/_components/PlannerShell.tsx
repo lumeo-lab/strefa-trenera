@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
-import { Avatar } from '@/components/ui/Avatar'
 import { PlanTab } from '@/app/coach/athletes/[id]/_components/tabs/PlanTab'
 import type { CoachFeedbackRow, CoachTrainingSessionRow, FeedbackByDateMap } from '@/app/coach/athletes/[id]/_components/types'
 
@@ -56,33 +55,37 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
 
   return (
     <div>
-      <CoachTopbar title="Planer" subtitle={selectedAthlete?.name ?? ''} />
+      <CoachTopbar
+        title="Planer"
+        subtitle={selectedAthlete?.name ?? ''}
+        actions={(
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+              Zawodnik
+            </span>
+            <select
+              value={selectedAthleteId}
+              onChange={(e) => setSelectedAthleteId(e.target.value)}
+              className="px-3 py-2 rounded-xl text-sm font-medium cursor-pointer min-w-56"
+              style={{
+                background: 'var(--bg-card)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-strong)',
+                boxShadow: '0 1px 0 rgba(255,255,255,0.03) inset',
+              }}
+              aria-label="Wybierz zawodnika"
+            >
+              {athletes.map((athlete) => (
+                <option key={athlete.id} value={athlete.id}>
+                  {athlete.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      />
 
       <div className="p-6">
-        {/* Athlete selector */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex items-center gap-3 flex-wrap">
-            {athletes.map(a => {
-              const isActive = a.id === selectedAthleteId
-              return (
-                <button
-                  key={a.id}
-                  onClick={() => setSelectedAthleteId(a.id)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm cursor-pointer transition-all"
-                  style={{
-                    background: isActive ? 'rgba(255,92,27,0.12)' : 'var(--bg-subtle)',
-                    border: isActive ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
-                    color: isActive ? '#FF5C1B' : 'var(--text-muted)',
-                  }}
-                >
-                  <Avatar initials={a.avatar} size="sm" />
-                  <span className={isActive ? 'font-semibold' : 'font-medium'}>{a.name}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
         {/* Reuse PlanTab from athlete profile */}
         <PlanTab
           athleteId={selectedAthleteId}

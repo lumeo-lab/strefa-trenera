@@ -4,7 +4,7 @@ import React, { startTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { intensityColor, sessionTypeLabel } from '@/lib/utils'
+import { formatDate, intensityColor, sessionTypeLabel } from '@/lib/utils'
 import { SessionType } from '@/lib/types'
 import { createSession, deleteSession as deleteSessionAction, updateSession } from '@/lib/actions/sessions'
 import { BUILTIN_SESSION_TYPE_KEYS, SessionTypeDef, useCustomSessionTypes } from '@/lib/useCustomSessionTypes'
@@ -17,12 +17,10 @@ const PRESET_TYPE_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F97316', '#10B981
 interface SessionDraft {
   title: string; type: string; description: string
   plannedDistance: string; plannedDuration: string; plannedPace: string; url: string; urlLabel: string
-  completed: boolean; actualDistance: string; actualDuration: string; actualPace: string; avgHr: string; maxHr: string
 }
 
 const emptyDraft = (): SessionDraft => ({
   title: '', type: 'easy', description: '', plannedDistance: '', plannedDuration: '', plannedPace: '', url: '', urlLabel: '',
-  completed: false, actualDistance: '', actualDuration: '', actualPace: '', avgHr: '', maxHr: '',
 })
 
 interface SessionModalProps {
@@ -32,11 +30,20 @@ interface SessionModalProps {
   today: string
   editSession?: CoachTrainingSessionRow | null
   initialDate?: string
+  onActionComplete?: (notice: { tone: 'success' | 'error'; text: string }) => void
 }
 
-export function SessionModal({ open, onClose, athleteId, today, editSession, initialDate }: SessionModalProps) {
+function shiftISODate(date: string, days: number): string {
+  if (!date) return ''
+  const dt = new Date(`${date}T12:00:00`)
+  dt.setDate(dt.getDate() + days)
+  return dt.toISOString().slice(0, 10)
+}
+
+export function SessionModal({ open, onClose, athleteId, today, editSession, initialDate, onActionComplete }: SessionModalProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const { all: allSessionTypes, custom: customSessionTypes, labelOverrides, saveAll: saveSessionTypes } = useCustomSessionTypes()
 
@@ -46,9 +53,11 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
   const [editingCustomTypes, setEditingCustomTypes] = useState<SessionTypeDef[]>([])
   const [newTypeLabel, setNewTypeLabel] = useState('')
   const [newTypeColor, setNewTypeColor] = useState(PRESET_TYPE_COLORS[0])
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [savingTypeDefs, setSavingTypeDefs] = useState(false)
 
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(editSession?.id ?? null)
-  const [draftDate, setDraftDate] = useState(editSession?.date ?? initialDate ?? '')
+  const [editingSessionId] = useState<string | null>(editSession?.id ?? null)
+  const [draftDate] = useState(editSession?.date ?? initialDate ?? '')
   const [draft, setDraft] = useState<SessionDraft>(() => {
     if (editSession) {
       return {
@@ -60,12 +69,6 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
         plannedPace: editSession.planned_pace ?? '',
         url: editSession.url ?? '',
         urlLabel: editSession.url_label ?? '',
-        completed: editSession.completed ?? false,
-        actualDistance: editSession.actual_distance?.toString() ?? '',
-        actualDuration: editSession.actual_duration?.toString() ?? '',
-        actualPace: editSession.actual_pace ?? '',
-        avgHr: editSession.avg_hr?.toString() ?? '',
-        maxHr: editSession.max_hr?.toString() ?? '',
       }
     }
     return emptyDraft()
@@ -78,9 +81,21 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
     setNewTypeColor(PRESET_TYPE_COLORS[0])
     setSessionTypeModalOpen(true)
   }
-  function saveSessionTypeEdits() {
-    saveSessionTypes(editingBuiltinLabels, editingCustomTypes)
-    setSessionTypeModalOpen(false)
+  async function saveSessionTypeEdits() {
+    if (savingTypeDefs) return
+    setSavingTypeDefs(true)
+    try {
+      await saveSessionTypes(editingBuiltinLabels, editingCustomTypes)
+      setSessionTypeModalOpen(false)
+      setError(null)
+      onActionComplete?.({ tone: 'success', text: 'Typy treningów zostały zapisane.' })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Nie udało się zapisać typów treningów.'
+      setError(message)
+      onActionComplete?.({ tone: 'error', text: message })
+    } finally {
+      setSavingTypeDefs(false)
+    }
   }
   function addCustomType() {
     if (!newTypeLabel.trim()) return
@@ -89,90 +104,138 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
     setNewTypeLabel('')
   }
 
-  async function saveSession() {
-    if (!draft.title.trim() || saving) return
+  async function persistSession(options?: {
+    date?: string
+    duplicate?: boolean
+    successText?: string
+  }) {
+    if (saving) return
+    const targetDate = options?.date ?? draftDate
+    const duplicate = options?.duplicate ?? false
+
+    if (!targetDate) {
+      setError('Wybierz datę sesji.')
+      return
+    }
+    if (!draft.title.trim()) {
+      setError('Podaj nazwę sesji.')
+      return
+    }
+    setError(null)
     setSaving(true)
 
     const fd = new FormData()
     fd.set('athlete_id', athleteId)
-    fd.set('date', draftDate)
+    fd.set('date', targetDate)
     fd.set('type', draft.type)
     fd.set('title', draft.title)
     fd.set('description', draft.description)
 
-    if (editingSessionId) {
+    if (editingSessionId && !duplicate) {
       fd.set('planned_distance', draft.plannedDistance)
       fd.set('planned_duration', draft.plannedDuration)
       fd.set('planned_pace', draft.plannedPace)
       fd.set('url', draft.url)
       fd.set('url_label', draft.urlLabel)
-      fd.set('completed', draft.completed.toString())
-      fd.set('actual_distance', draft.actualDistance)
-      fd.set('actual_duration', draft.actualDuration)
-      fd.set('actual_pace', draft.actualPace)
-      fd.set('avg_hr', draft.avgHr)
-      fd.set('max_hr', draft.maxHr)
     } else {
       if (draft.plannedDistance) fd.set('planned_distance', draft.plannedDistance)
       if (draft.plannedDuration) fd.set('planned_duration', draft.plannedDuration)
       if (draft.plannedPace) fd.set('planned_pace', draft.plannedPace)
       if (draft.url) fd.set('url', draft.url)
       if (draft.urlLabel) fd.set('url_label', draft.urlLabel)
-      if (draft.completed) fd.set('completed', 'true')
-      if (draft.actualDistance) fd.set('actual_distance', draft.actualDistance)
-      if (draft.actualDuration) fd.set('actual_duration', draft.actualDuration)
-      if (draft.actualPace) fd.set('actual_pace', draft.actualPace)
-      if (draft.avgHr) fd.set('avg_hr', draft.avgHr)
-      if (draft.maxHr) fd.set('max_hr', draft.maxHr)
     }
 
-    if (editingSessionId) {
-      fd.set('id', editingSessionId)
-      fd.set('athlete_id', athleteId)
-      await updateSession(null, fd)
-    } else {
-      await createSession(null, fd)
+    const result = editingSessionId && !duplicate
+      ? await updateSession(null, fd)
+      : await createSession(null, fd)
+
+    if (result && 'error' in result) {
+      setError(result.error ?? 'Nie udało się zapisać sesji.')
+      onActionComplete?.({ tone: 'error', text: result.error ?? 'Nie udało się zapisać sesji.' })
+      setSaving(false)
+      return
     }
 
     onClose()
     setSaving(false)
+    setDeleteConfirm(false)
+    onActionComplete?.({
+      tone: 'success',
+      text: options?.successText ?? (editingSessionId && !duplicate ? 'Zmiany sesji zostały zapisane.' : 'Sesja została dodana.'),
+    })
     startTransition(() => router.refresh())
+  }
+
+  async function saveSession() {
+    await persistSession()
   }
 
   async function handleDeleteSession() {
     if (!editingSessionId || saving) return
+    setError(null)
     setSaving(true)
-    await deleteSessionAction(editingSessionId, athleteId)
+    const result = await deleteSessionAction(editingSessionId, athleteId)
+    if (result && 'error' in result) {
+      setError(result.error ?? 'Nie udało się usunąć sesji.')
+      onActionComplete?.({ tone: 'error', text: result.error ?? 'Nie udało się usunąć sesji.' })
+      setSaving(false)
+      return
+    }
     onClose()
     setSaving(false)
+    setDeleteConfirm(false)
+    onActionComplete?.({ tone: 'success', text: 'Sesja została usunięta.' })
     startTransition(() => router.refresh())
   }
 
   const sessionFooter = (
-    <div className="flex gap-3">
+    <div className="space-y-2">
       {editingSessionId && (
-        <button
-          onClick={handleDeleteSession}
-          disabled={saving}
-          className="px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer"
-          style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}
-        >🗑 Usuń</button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => persistSession({ date: shiftISODate(draftDate || today, 1), successText: 'Sesja została przeniesiona na kolejny dzień.' })}
+            disabled={saving}
+            className="whitespace-nowrap"
+          >
+            Przenieś na jutro
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => persistSession({ date: shiftISODate(draftDate || today, 7), duplicate: true, successText: 'Sesja została skopiowana na kolejny tydzień.' })}
+            disabled={saving}
+            className="whitespace-nowrap"
+          >
+            Kopiuj na za tydzień
+          </Button>
+        </div>
       )}
-      {editingSessionId && (
-        <button
-          onClick={() => {
-            const cur = { ...draft }
-            setEditingSessionId(null)
-            setDraftDate('')
-            setDraft({ ...cur, completed: false, actualDistance: '', actualDuration: '', actualPace: '', avgHr: '', maxHr: '' })
-          }}
-          className="px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer"
-          style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
-        >📋 Duplikuj</button>
-      )}
-      <Button className="flex-1" onClick={saveSession} disabled={!draft.title.trim() || saving}>
-        {saving ? 'Zapisywanie...' : editingSessionId ? 'Zapisz zmiany' : 'Dodaj sesję'}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        {editingSessionId && (
+          deleteConfirm ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Na pewno usunąć?</span>
+              <Button variant="danger" size="sm" onClick={handleDeleteSession} disabled={saving}>
+                {saving ? 'Usuwanie...' : 'Potwierdź'}
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setDeleteConfirm(false)} disabled={saving}>
+                Anuluj
+              </Button>
+            </div>
+          ) : (
+            <Button variant="danger" size="sm" onClick={() => setDeleteConfirm(true)} disabled={saving}>
+              Usuń
+            </Button>
+          )
+        )}
+        <div className="ml-auto">
+          <Button className="whitespace-nowrap" onClick={saveSession} disabled={!draft.title.trim() || !draftDate || saving}>
+            {saving ? 'Zapisywanie...' : editingSessionId ? 'Zapisz zmiany' : 'Dodaj sesję'}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 
@@ -187,8 +250,12 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
         <div className="space-y-4">
           <div>
             <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Data</label>
-            <input type="date" value={draftDate} onChange={e => setDraftDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+            <div
+              className="w-full px-3 py-2 rounded-xl text-sm"
+              style={{ ...inputStyle, opacity: 0.85 }}
+            >
+              {draftDate ? formatDate(draftDate, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'Brak daty'}
+            </div>
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -216,6 +283,14 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
               placeholder="np. Rozbieganie 10 km"
               className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
           </div>
+          {error && (
+            <div
+              className="rounded-xl px-4 py-3 text-sm"
+              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)', color: '#DC2626' }}
+            >
+              {error}
+            </div>
+          )}
           <div>
             <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Opis / instrukcje</label>
             <textarea value={draft.description} onChange={e => setDraft(d => ({ ...d, description: e.target.value }))}
@@ -257,65 +332,6 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
             </div>
           )}
 
-          {/* Wyniki */}
-          {(editingSessionId || (draftDate && draftDate < today)) && (
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-              <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Wyniki</div>
-              <button
-                type="button"
-                onClick={() => setDraft(d => ({ ...d, completed: !d.completed }))}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer w-full mb-3"
-                style={{
-                  background: draft.completed ? 'rgba(46,204,113,0.12)' : 'var(--bg-elevated)',
-                  color: draft.completed ? '#2ECC71' : 'var(--text-muted)',
-                  border: `1px solid ${draft.completed ? 'rgba(46,204,113,0.3)' : 'var(--border-mid)'}`,
-                  justifyContent: 'flex-start',
-                }}
-              >
-                <span>{draft.completed ? '✅' : '○'}</span>
-                <span>Sesja wykonana</span>
-              </button>
-              {draft.completed && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Dystans rzeczywisty (km)</label>
-                    <input type="number" value={draft.actualDistance}
-                      onChange={e => setDraft(d => ({ ...d, actualDistance: e.target.value }))}
-                      placeholder="np. 10.2" min="0" step="0.1"
-                      className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-                  </div>
-                  <div>
-                    <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Czas (min)</label>
-                    <input type="number" value={draft.actualDuration}
-                      onChange={e => setDraft(d => ({ ...d, actualDuration: e.target.value }))}
-                      placeholder="np. 65" min="0"
-                      className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-                  </div>
-                  <div>
-                    <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Tempo (/km)</label>
-                    <input value={draft.actualPace}
-                      onChange={e => setDraft(d => ({ ...d, actualPace: e.target.value }))}
-                      placeholder="np. 5:20"
-                      className="w-full px-3 py-2 rounded-xl text-sm font-mono" style={inputStyle} />
-                  </div>
-                  <div>
-                    <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Tętno śr. (bpm)</label>
-                    <input type="number" value={draft.avgHr}
-                      onChange={e => setDraft(d => ({ ...d, avgHr: e.target.value }))}
-                      placeholder="np. 155" min="0"
-                      className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-                  </div>
-                  <div>
-                    <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Tętno max (bpm)</label>
-                    <input type="number" value={draft.maxHr}
-                      onChange={e => setDraft(d => ({ ...d, maxHr: e.target.value }))}
-                      placeholder="np. 178" min="0"
-                      className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </Modal>
 
@@ -327,8 +343,8 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
         size="sm"
         footer={
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setSessionTypeModalOpen(false)}>Anuluj</Button>
-            <Button onClick={saveSessionTypeEdits}>Zapisz</Button>
+            <Button variant="secondary" onClick={() => setSessionTypeModalOpen(false)} disabled={savingTypeDefs}>Anuluj</Button>
+            <Button onClick={saveSessionTypeEdits} disabled={savingTypeDefs}>{savingTypeDefs ? 'Zapisywanie...' : 'Zapisz'}</Button>
           </div>
         }
       >

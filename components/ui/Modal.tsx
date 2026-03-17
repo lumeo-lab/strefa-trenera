@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 
 interface ModalProps {
   open: boolean
@@ -15,12 +15,18 @@ const FOCUSABLE_SELECTOR =
 
 export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
-  const titleId = 'modal-title'
+  const onCloseRef = useRef(onClose)
+  const titleId = useId()
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  useEffect(() => {
+    if (!open) return
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key === 'Tab' && dialogRef.current) {
@@ -33,19 +39,12 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
             e.preventDefault()
             last.focus()
           }
-        } else {
-          if (document.activeElement === last) {
-            e.preventDefault()
-            first.focus()
-          }
+        } else if (document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
         }
       }
-    },
-    [onClose],
-  )
-
-  useEffect(() => {
-    if (!open) return
+    }
     document.addEventListener('keydown', handleKeyDown)
     // Focus first focusable element inside the dialog
     const timer = setTimeout(() => {
@@ -58,7 +57,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
       document.removeEventListener('keydown', handleKeyDown)
       clearTimeout(timer)
     }
-  }, [open, handleKeyDown])
+  }, [open])
 
   if (!open) return null
 
