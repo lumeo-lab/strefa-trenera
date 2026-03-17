@@ -25,16 +25,18 @@ export function feedbackLabel(parsed: ReturnType<typeof parseFeedbackTranscript>
 }
 
 export function FeedbackCard({
-  fb, isExpanded, isReplying, replyText, submitting, showAthleteName,
-  onExpand, onReplyStart, onReplyChange, onReplySubmit, onReplyCancel,
+  fb, isExpanded, isReplying, replyText, submitting, markingRead, showAthleteName,
+  onExpand, onMarkRead, onReplyStart, onReplyChange, onReplySubmit, onReplyCancel,
 }: {
   fb: FeedbackCardData
   isExpanded: boolean
   isReplying: boolean
   replyText: string
   submitting: boolean
+  markingRead: boolean
   showAthleteName: boolean
   onExpand: () => void
+  onMarkRead: () => void
   onReplyStart: () => void
   onReplyChange: (text: string) => void
   onReplySubmit: () => void
@@ -74,9 +76,16 @@ export function FeedbackCard({
             </div>
           </div>
 
-          <Button variant="ghost" size="sm" onClick={onExpand}>
-            {isExpanded ? '▲ Zwiń' : '▼ Rozwiń'}
-          </Button>
+          <div className="flex items-center gap-2">
+            {!fb.read && (
+              <Button variant="secondary" size="sm" onClick={onMarkRead} disabled={markingRead}>
+                {markingRead ? 'Zapisywanie...' : 'Oznacz jako przeczytane'}
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={onExpand}>
+              {isExpanded ? '▲ Zwiń' : '▼ Rozwiń'}
+            </Button>
+          </div>
         </div>
 
         {/* Expanded */}

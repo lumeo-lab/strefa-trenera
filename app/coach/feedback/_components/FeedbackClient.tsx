@@ -16,7 +16,7 @@ type FeedbackWithJoins = FeedbackRow & {
   training_sessions: { id: string; title: string } | null
 }
 
-type Filter = 'all' | 'today' | 'unread' | 'alert'
+type Filter = 'all' | 'today' | 'unread' | 'needs_reply' | 'warning' | 'alarm'
 type SortKey = 'date' | 'signal'
 type ViewMode = 'grouped' | 'chronological'
 
@@ -27,18 +27,20 @@ const PAGE_SIZE = 30
 function OverviewStats({ feedbacks, today }: { feedbacks: FeedbackWithJoins[]; today: string }) {
   const todayCount = feedbacks.filter(f => f.date === today).length
   const unreadCount = feedbacks.filter(f => !f.read).length
-  const alertCount = feedbacks.filter(f => f.signal === 'red' || f.signal === 'yellow').length
-  const noReplyCount = feedbacks.filter(f => !f.coach_reply && !f.read).length
+  const alarmCount = feedbacks.filter(f => f.signal === 'red').length
+  const warningCount = feedbacks.filter(f => f.signal === 'yellow').length
+  const noReplyCount = feedbacks.filter(f => !f.coach_reply).length
 
   const stats = [
     { label: 'Dziś', value: todayCount, color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
     { label: 'Nieprzeczytane', value: unreadCount, color: '#FF5C1B', bg: 'rgba(255,92,27,0.1)' },
-    { label: 'Alerty', value: alertCount, color: '#E74C3C', bg: 'rgba(231,76,60,0.1)' },
+    { label: 'Alarm', value: alarmCount, color: '#E74C3C', bg: 'rgba(231,76,60,0.1)' },
+    { label: 'Uwaga', value: warningCount, color: '#F1C40F', bg: 'rgba(241,196,15,0.1)' },
     { label: 'Bez odpowiedzi', value: noReplyCount, color: '#F1C40F', bg: 'rgba(241,196,15,0.1)' },
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
       {stats.map(s => (
         <div key={s.label} className="rounded-xl p-3 text-center" style={{ background: s.bg, border: `1px solid ${s.color}20` }}>
           <div className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
@@ -62,7 +64,9 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
   const [replyingId, setReplyingId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [markingReadId, setMarkingReadId] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
 
   // Unique athletes for dropdown
   const athletes = useMemo(() => {
@@ -87,7 +91,9 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
     // Status filter
     if (filter === 'today') list = list.filter(f => f.date === today)
     else if (filter === 'unread') list = list.filter(f => !f.read)
-    else if (filter === 'alert') list = list.filter(f => f.signal === 'red' || f.signal === 'yellow')
+    else if (filter === 'needs_reply') list = list.filter(f => !f.coach_reply)
+    else if (filter === 'warning') list = list.filter(f => f.signal === 'yellow')
+    else if (filter === 'alarm') list = list.filter(f => f.signal === 'red')
 
     // Sort
     if (sortKey === 'signal') {
@@ -117,43 +123,69 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
       if (!f.read) group.hasUnread = true
       if (f.signal === 'red' || f.signal === 'yellow') group.hasAlert = true
     }
-    // Sort groups: unread/alert first, then by most recent feedback
+    // Sort groups: unread first, then alerts, then by most recent feedback
     return Array.from(map.values()).sort((a, b) => {
       if (a.hasUnread !== b.hasUnread) return a.hasUnread ? -1 : 1
       if (a.hasAlert !== b.hasAlert) return a.hasAlert ? -1 : 1
-      return 0
+      const latestA = a.feedbacks[0]?.created_at ?? ''
+      const latestB = b.feedbacks[0]?.created_at ?? ''
+      return latestB.localeCompare(latestA)
     })
   }, [filtered])
 
   const unreadCount = useMemo(() => initialFeedbacks.filter(f => !f.read).length, [initialFeedbacks])
 
-  async function handleExpand(id: string, isRead: boolean, athleteId?: string) {
+  async function handleExpand(id: string) {
     setExpandedId(prev => prev === id ? null : id)
-    if (!isRead) {
-      await markFeedbackRead(id, athleteId)
+  }
+
+  async function handleMarkRead(id: string, athleteId?: string) {
+    if (markingReadId) return
+    setMarkingReadId(id)
+    setStatusMessage(null)
+    try {
+      const result = await markFeedbackRead(id, athleteId)
+      if (result && 'error' in result) {
+        setStatusMessage({ tone: 'error', text: `Nie udało się oznaczyć feedbacku jako przeczytany: ${result.error}` })
+        return
+      }
+      setStatusMessage({ tone: 'success', text: 'Feedback został oznaczony jako przeczytany.' })
       startTransition(() => router.refresh())
+    } finally {
+      setMarkingReadId(null)
     }
   }
 
   async function handleReply(id: string, athleteId: string) {
     if (!replyText.trim() || submitting) return
     setSubmitting(true)
+    setStatusMessage(null)
     const fd = new FormData()
     fd.set('id', id)
     fd.set('athlete_id', athleteId)
     fd.set('reply', replyText)
-    await replyFeedback(null, fd)
-    setReplyingId(null)
-    setReplyText('')
-    setSubmitting(false)
-    startTransition(() => router.refresh())
+    try {
+      const result = await replyFeedback(null, fd)
+      if (result && 'error' in result) {
+        setStatusMessage({ tone: 'error', text: `Nie udało się zapisać odpowiedzi: ${result.error}` })
+        return
+      }
+      setReplyingId(null)
+      setReplyText('')
+      setStatusMessage({ tone: 'success', text: 'Odpowiedź została zapisana.' })
+      startTransition(() => router.refresh())
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const filterButtons: { id: Filter; label: string; count: number }[] = [
     { id: 'all', label: 'Wszystkie', count: initialFeedbacks.length },
     { id: 'today', label: 'Dziś', count: initialFeedbacks.filter(f => f.date === today).length },
     { id: 'unread', label: 'Nieprzeczytane', count: unreadCount },
-    { id: 'alert', label: 'Alert', count: initialFeedbacks.filter(f => f.signal !== 'green').length },
+    { id: 'needs_reply', label: 'Bez odpowiedzi', count: initialFeedbacks.filter(f => !f.coach_reply).length },
+    { id: 'warning', label: 'Uwaga', count: initialFeedbacks.filter(f => f.signal === 'yellow').length },
+    { id: 'alarm', label: 'Alarm', count: initialFeedbacks.filter(f => f.signal === 'red').length },
   ]
 
   // Paginated list for chronological view
@@ -169,8 +201,10 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
         isReplying={replyingId === fb.id}
         replyText={replyingId === fb.id ? replyText : ''}
         submitting={submitting}
+        markingRead={markingReadId === fb.id}
         showAthleteName={showAthleteName}
-        onExpand={() => handleExpand(fb.id, fb.read, fb.athletes?.id)}
+        onExpand={() => handleExpand(fb.id)}
+        onMarkRead={() => handleMarkRead(fb.id, fb.athletes?.id)}
         onReplyStart={() => { setReplyingId(fb.id); setReplyText(fb.coach_reply ?? '') }}
         onReplyChange={setReplyText}
         onReplySubmit={() => handleReply(fb.id, fb.athletes?.id ?? '')}
@@ -186,6 +220,19 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
       <div className="p-6 max-w-4xl mx-auto">
         {/* Overview stats */}
         <OverviewStats feedbacks={initialFeedbacks} today={today} />
+
+        {statusMessage && (
+          <div
+            className="mb-6 rounded-xl px-4 py-3 text-sm"
+            style={{
+              background: statusMessage.tone === 'success' ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)',
+              border: `1px solid ${statusMessage.tone === 'success' ? 'rgba(46,204,113,0.25)' : 'rgba(231,76,60,0.25)'}`,
+              color: statusMessage.tone === 'success' ? '#2ECC71' : '#E74C3C',
+            }}
+          >
+            {statusMessage.text}
+          </div>
+        )}
 
         {/* Toolbar: filters + view mode + sort + athlete dropdown */}
         <div className="space-y-3 mb-6">

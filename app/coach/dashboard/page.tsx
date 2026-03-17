@@ -24,10 +24,9 @@ export default async function DashboardPage() {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 
-  // Week bounds Mon–Sun
+  // End of current week (Sunday)
   const dow = getBusinessWeekday(todayDate)
-  const weekStart = addDaysToBusinessDate(todayStr, -(dow === 0 ? 6 : dow - 1))
-  const weekEnd = addDaysToBusinessDate(weekStart, 6)
+  const weekEnd = addDaysToBusinessDate(todayStr, dow === 0 ? 0 : 7 - dow)
 
   // 14 days ahead for races
   const twoWeeksStr = addDaysToBusinessDate(todayStr, 14)
@@ -41,7 +40,6 @@ export default async function DashboardPage() {
     { data: unreadMessages },
     { data: invoices },
     { data: todaySessions },
-    { data: weekSummarySessions },
     { data: planningSessions },
     { data: upcomingRaces },
     { data: invoiceList },
@@ -79,11 +77,6 @@ export default async function DashboardPage() {
     supabase.from('training_sessions')
       .select('athlete_id, completed, actual_distance')
       .eq('coach_id', user!.id)
-      .gte('date', weekStart)
-      .lte('date', weekEnd),
-    supabase.from('training_sessions')
-      .select('athlete_id, completed, actual_distance')
-      .eq('coach_id', user!.id)
       .gte('date', todayStr)
       .lte('date', weekEnd),
     supabase.from('athlete_races')
@@ -107,7 +100,6 @@ export default async function DashboardPage() {
   const feedbacks = (unreadFeedbacks ?? []) as unknown as DashboardFeedbackRow[]
   const messages = (unreadMessages ?? []) as unknown as DashboardMessageRow[]
   const sessions = (todaySessions ?? []) as unknown as DashboardSessionRow[]
-  const weekSummary = (weekSummarySessions ?? []) as DashboardWeekSessionRow[]
   const planningWindow = (planningSessions ?? []) as DashboardWeekSessionRow[]
   const races = (upcomingRaces ?? []) as unknown as DashboardRaceRow[]
   const allInvoiceRows = (invoiceList ?? []) as unknown as DashboardInvoiceRow[]
@@ -146,14 +138,6 @@ export default async function DashboardPage() {
   const totalUnreadMessages = unreadMessagesCount ?? 0
   const raceSoonCount = races.filter(race => race.date === todayStr || race.date === tomorrowStr).length
 
-  // Week summary
-  const weekTotal = weekSummary.length
-  const weekCompleted = weekSummary.filter(s => s.completed).length
-  const weekKm = weekSummary
-    .filter(s => s.completed && s.actual_distance)
-    .reduce((sum, s) => sum + (s.actual_distance || 0), 0)
-  const weekRate = weekTotal > 0 ? Math.round((weekCompleted / weekTotal) * 100) : 0
-
   return (
     <DashboardClient
       coachName={coachName}
@@ -176,7 +160,6 @@ export default async function DashboardPage() {
       overdueCount={overdueCount}
       raceSoonCount={raceSoonCount}
       alertAthletes={alertAthletes}
-      weekStats={{ total: weekTotal, completed: weekCompleted, km: weekKm, rate: weekRate }}
     />
   )
 }

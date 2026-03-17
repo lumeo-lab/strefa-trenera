@@ -6,7 +6,7 @@ import { useState } from 'react'
 
 export type KpiId = 'athletes' | 'feedback' | 'revenue' | 'payments'
 export type SectionId =
-  | 'today_actions' | 'week_summary' | 'today_plan' | 'messages' | 'alerts' | 'no_sessions_week'
+  | 'today_actions' | 'today_plan' | 'messages' | 'alerts' | 'no_sessions_week'
   | 'feedback_list' | 'upcoming_races' | 'recent_athletes' | 'overdue_invoices'
 
 export type Prefs = {
@@ -27,7 +27,6 @@ export const DEFAULT_PREFS: Prefs = {
   ],
   sections: [
     { id: 'today_actions', visible: true },
-    { id: 'week_summary', visible: true },
     { id: 'today_plan', visible: true },
     { id: 'feedback_list', visible: true },
     { id: 'messages', visible: true },
@@ -41,7 +40,6 @@ export const DEFAULT_PREFS: Prefs = {
 
 export const SECTION_COL: Record<SectionId, 'full' | 'left' | 'right'> = {
   today_actions: 'full',
-  week_summary: 'full',
   today_plan: 'left', messages: 'left', alerts: 'left', no_sessions_week: 'left',
   feedback_list: 'right', upcoming_races: 'right', recent_athletes: 'right', overdue_invoices: 'right',
 }
@@ -55,7 +53,6 @@ export const KPI_META: Record<KpiId, { label: string; icon: string }> = {
 
 export const SECTION_META: Record<SectionId, { label: string; icon: string; desc: string }> = {
   today_actions:    { label: 'Najważniejsze na dziś', icon: '✅', desc: 'Szybka lista spraw do wykonania' },
-  week_summary:     { label: 'Podsumowanie tygodnia', icon: '📊', desc: 'Krótki przegląd bieżącego tygodnia' },
   today_plan:       { label: 'Dziś w planie', icon: '📅', desc: 'Sesje zaplanowane na dziś' },
   messages:         { label: 'Nieprzeczytane wiadomości', icon: '💬', desc: 'Wiadomości, które czekają na odpowiedź' },
   alerts:           { label: 'Wymagają uwagi', icon: '⚠️', desc: 'Zawodnicy ze statusem uwagi lub alertu' },

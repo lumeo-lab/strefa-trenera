@@ -14,7 +14,7 @@ import {
 } from './useDashboardPrefs'
 
 import { TodayActionsSection } from './sections/ActionSections'
-import { TodayPlanSection, WeekSummarySection } from './sections/TodaySections'
+import { TodayPlanSection } from './sections/TodaySections'
 import { FeedbackListSection, MessagesSection } from './sections/CommunicationSections'
 import { AlertsSection, NoSessionsSection, RecentAthletesSection } from './sections/AthleteSections'
 import { OverdueInvoicesSection, UpcomingRacesSection } from './sections/FinanceRaceSections'
@@ -83,7 +83,6 @@ interface Props {
   overdueCount: number
   raceSoonCount: number
   alertAthletes: DashboardAthleteRow[]
-  weekStats: { total: number; completed: number; km: number; rate: number }
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -92,7 +91,7 @@ export function DashboardClient({
   coachName, todayIso, todayLabel, allAthletes, feedbacks, messages, sessions,
   weekSessions, races, overdueInvoices, totalUnread, totalUnreadMessages,
   estimatedMonthlyRevenue, activeCount, pendingAmount, overdueAmount,
-  pendingCount, overdueCount, raceSoonCount, alertAthletes, weekStats,
+  pendingCount, overdueCount, raceSoonCount, alertAthletes,
 }: Props) {
 
   const {
@@ -200,7 +199,6 @@ export function DashboardClient({
           raceSoonCount={raceSoonCount}
         />
       )
-      case 'week_summary':      return <WeekSummarySection weekStats={weekStats} />
       case 'today_plan':        return <TodayPlanSection sessions={sessions} todayCompleted={todayCompleted} />
       case 'messages':          return <MessagesSection messages={messages} />
       case 'alerts':            return <AlertsSection alertAthletes={alertAthletes} />
