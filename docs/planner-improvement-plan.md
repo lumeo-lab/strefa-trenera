@@ -64,15 +64,7 @@ Planer ma być:
    - `krócej niż plan`
    - `mocniej niż plan`
 
-3. Dodać statusy robocze sesji.
-   Np.:
-   - `zaplanowana`
-   - `wykonana`
-   - `wykonana + feedback`
-   - `wykonana bez feedbacku`
-   - `minął termin bez oznaczenia`
-
-4. Dodać wyraźniejsze oznaczenia dni problemowych.
+3. Dodać wyraźniejsze oznaczenia dni problemowych.
    Np. dni z:
    - problemowym feedbackiem,
    - brakiem feedbacku po wykonaniu,

@@ -103,16 +103,37 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
   }
   function feedbackToneStyle(feedback: CoachFeedbackRow): React.CSSProperties {
     if (feedback.signal === 'red') {
-      return { background: 'rgba(239,68,68,0.12)', color: '#DC2626', border: '1px solid rgba(239,68,68,0.22)' }
+      return {
+        background: 'linear-gradient(180deg, rgba(255,244,244,0.96) 0%, rgba(255,237,237,0.96) 100%)',
+        color: '#B42318',
+        border: '1px solid rgba(229,72,77,0.28)',
+        boxShadow: 'inset 3px 0 0 #E5484D',
+      }
     }
     if (feedback.signal === 'yellow') {
-      return { background: 'rgba(245,158,11,0.12)', color: '#D97706', border: '1px solid rgba(245,158,11,0.22)' }
+      return {
+        background: 'linear-gradient(180deg, rgba(255,249,235,0.98) 0%, rgba(255,244,214,0.98) 100%)',
+        color: '#B7791F',
+        border: '1px solid rgba(234,179,8,0.28)',
+        boxShadow: 'inset 3px 0 0 #EAB308',
+      }
     }
-    return { background: 'rgba(34,197,94,0.12)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.22)' }
+    return {
+      background: 'linear-gradient(180deg, rgba(238,252,244,0.98) 0%, rgba(228,249,237,0.98) 100%)',
+      color: '#15803D',
+      border: '1px solid rgba(34,197,94,0.24)',
+      boxShadow: 'inset 3px 0 0 #22C55E',
+    }
   }
   function feedbackToneIcon(feedback: CoachFeedbackRow): string {
     const parsed = parseFeedbackTranscript(feedback.transcript ?? '')
     return parsed.feeling || '💬'
+  }
+  const noFeedbackStyle: React.CSSProperties = {
+    background: 'linear-gradient(180deg, rgba(245,248,255,0.98) 0%, rgba(239,244,255,0.98) 100%)',
+    color: '#51607A',
+    border: '1px solid rgba(148,163,184,0.28)',
+    boxShadow: 'inset 3px 0 0 #94A3B8',
   }
   function openNewSession(date: string) {
     setStatusMessage(null)
@@ -498,17 +519,27 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
                       </div>
                     ))}
                   </div>
-                  {showFeedback && visibleFeedbackByDate[dateStr] && (
+                  {showFeedback && daySessions.length > 0 && (
                     <div
                       className="px-1.5 pb-3 pt-2 shrink-0"
-                      style={{ borderTop: daySessions.length > 0 ? '1px dashed var(--border-strong)' : 'none' }}
+                      style={{ borderTop: '1px dashed var(--border-strong)' }}
                     >
-                      <button onClick={() => setFeedbackModalData(visibleFeedbackByDate[dateStr])}
-                        className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
-                        style={feedbackToneStyle(visibleFeedbackByDate[dateStr])}>
-                        <span>{feedbackToneIcon(visibleFeedbackByDate[dateStr])}</span>
-                        <span>feedback</span>
-                      </button>
+                      {visibleFeedbackByDate[dateStr] ? (
+                        <button onClick={() => setFeedbackModalData(visibleFeedbackByDate[dateStr])}
+                          className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
+                          style={feedbackToneStyle(visibleFeedbackByDate[dateStr])}>
+                          <span>{feedbackToneIcon(visibleFeedbackByDate[dateStr])}</span>
+                          <span>feedback</span>
+                        </button>
+                      ) : (
+                        <div
+                          className="w-full py-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1"
+                          style={noFeedbackStyle}
+                        >
+                          <span>💬</span>
+                          <span>brak feedbacku</span>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className="p-1.5 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
@@ -623,16 +654,25 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
                           ))}
                           {daySessions.length > 3 && <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>+{daySessions.length - 3} więcej</div>}
                         </div>
-                        {showFeedback && visibleFeedbackByDate[dateStr] && (
+                        {showFeedback && daySessions.length > 0 && (
                           <div
                             className="mt-2 pt-2"
-                            style={{ borderTop: daySessions.length > 0 ? '1px dashed var(--border-strong)' : 'none' }}
+                            style={{ borderTop: '1px dashed var(--border-strong)' }}
                           >
-                            <button onClick={e => { e.stopPropagation(); setFeedbackModalData(visibleFeedbackByDate[dateStr]) }}
-                              className="w-full text-center cursor-pointer rounded-lg py-0.5"
-                            style={{ fontSize: '10px', ...feedbackToneStyle(visibleFeedbackByDate[dateStr]) }}>
-                              {feedbackToneIcon(visibleFeedbackByDate[dateStr])} feedback
-                            </button>
+                            {visibleFeedbackByDate[dateStr] ? (
+                              <button onClick={e => { e.stopPropagation(); setFeedbackModalData(visibleFeedbackByDate[dateStr]) }}
+                                className="w-full text-center cursor-pointer rounded-lg py-0.5"
+                                style={{ fontSize: '10px', ...feedbackToneStyle(visibleFeedbackByDate[dateStr]) }}>
+                                {feedbackToneIcon(visibleFeedbackByDate[dateStr])} feedback
+                              </button>
+                            ) : (
+                              <div
+                                className="w-full text-center rounded-lg py-0.5"
+                                style={{ fontSize: '10px', ...noFeedbackStyle }}
+                              >
+                                💬 brak feedbacku
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
