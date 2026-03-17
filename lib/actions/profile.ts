@@ -13,7 +13,10 @@ export async function updateCoachAvatar(_: unknown, formData: FormData) {
   if (!user) return { error: AUTH_ERROR }
 
   const file = formData.get('avatar_file') as File | null
-  let avatar = formData.get('avatar_type') as string ?? ''
+  const currentAvatar = (formData.get('current_avatar') as string | null) ?? ''
+  const avatarType = (formData.get('avatar_type') as string | null) ?? ''
+  const removeAvatar = formData.get('remove_avatar') === 'true'
+  let avatar = currentAvatar
 
   if (file && file.size > 0) {
     if (!ALLOWED_AVATAR_TYPES.has(file.type)) {
@@ -31,6 +34,10 @@ export async function updateCoachAvatar(_: unknown, formData: FormData) {
     if (uploadError) return { error: uploadError.message }
     const { data: urlData } = supabase.storage.from('coach-avatars').getPublicUrl(path)
     avatar = urlData.publicUrl + `?t=${Date.now()}`
+  } else if (removeAvatar) {
+    avatar = ''
+  } else if (avatarType) {
+    avatar = avatarType
   }
 
   const { error } = await supabase.from('coaches').update({ avatar }).eq('id', user.id)

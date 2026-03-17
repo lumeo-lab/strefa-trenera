@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef, useState } from 'react'
+import type React from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -53,14 +54,29 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
 
   const [selectedEmoji, setSelectedEmoji] = useState<string>(currentEmoji(avatar))
   const [previewUrl, setPreviewUrl] = useState<string | null>(avatar.startsWith('http') ? avatar : null)
+  const [removeAvatar, setRemoveAvatar] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const passFormRef = useRef<HTMLFormElement>(null)
+
+  useEffect(() => {
+    if (!previewUrl?.startsWith('blob:')) return
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setPreviewUrl(URL.createObjectURL(file))
     setSelectedEmoji('')
+    setRemoveAvatar(false)
+  }
+
+  function clearCustomAvatar() {
+    if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl)
+    setPreviewUrl(null)
+    setSelectedEmoji('')
+    setRemoveAvatar(true)
+    if (fileRef.current) fileRef.current.value = ''
   }
 
   const previewAvatarEl = previewUrl ? (
@@ -107,7 +123,7 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
             {/* Avatar */}
             <Card className="p-5">
               <h3 className="font-semibold mb-5">Zdjęcie profilowe</h3>
-              <div className="flex items-start gap-6">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
                 <div className="shrink-0 flex flex-col items-center gap-2">
                   {previewAvatarEl}
                   <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Podgląd</div>
@@ -115,12 +131,18 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
                 <div className="flex-1 space-y-5">
                   <div>
                     <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Wybierz grafikę</div>
-                    <div className="grid grid-cols-8 gap-1.5">
+                    <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-1.5">
                       {AVATAR_EMOJIS.map(em => (
                         <button
                           key={em}
                           type="button"
-                          onClick={() => { setSelectedEmoji(em); setPreviewUrl(null); if (fileRef.current) fileRef.current.value = '' }}
+                          onClick={() => {
+                            if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl)
+                            setSelectedEmoji(em)
+                            setPreviewUrl(null)
+                            setRemoveAvatar(false)
+                            if (fileRef.current) fileRef.current.value = ''
+                          }}
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-xl cursor-pointer transition-all hover:scale-110"
                           style={{
                             background: selectedEmoji === em && !previewUrl ? 'rgba(255,92,27,0.15)' : 'var(--bg-elevated)',
@@ -142,11 +164,11 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
                       style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}>
                       📷 Wybierz plik
                     </label>
-                    {previewUrl && (
-                      <button type="button" onClick={() => { setPreviewUrl(null); if (fileRef.current) fileRef.current.value = '' }}
+                    {(previewUrl || selectedEmoji || avatar) && (
+                      <button type="button" onClick={clearCustomAvatar}
                         className="ml-2 text-xs px-3 py-2 rounded-xl cursor-pointer"
                         style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-                        ✕ Usuń
+                        ✕ Usuń awatar
                       </button>
                     )}
                     <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>JPG, PNG lub WEBP, max 2 MB</p>
@@ -156,6 +178,8 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
               <form action={async (fd) => {
                 if (previewUrl && fileRef.current?.files?.[0]) fd.set('avatar_file', fileRef.current.files[0])
                 fd.set('avatar_type', selectedEmoji ? `emoji:${selectedEmoji}` : '')
+                fd.set('current_avatar', avatar)
+                fd.set('remove_avatar', removeAvatar ? 'true' : 'false')
                 await avatarAction(fd)
               }} className="mt-5 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
                 {avatarState?.error && <p className="text-xs text-red-400 mb-2">{avatarState.error}</p>}

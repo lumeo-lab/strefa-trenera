@@ -19,18 +19,21 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
   const [editing, setEditing] = useState<Package | null>(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   function openCreate() {
     setEditing(null)
     setError(null)
+    setSuccess(null)
     setModalOpen(true)
   }
 
   function openEdit(pkg: Package) {
     setEditing(pkg)
     setError(null)
+    setSuccess(null)
     setModalOpen(true)
   }
 
@@ -44,6 +47,7 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
     e.preventDefault()
     setPending(true)
     setError(null)
+    setSuccess(null)
     const fd = new FormData(e.currentTarget)
     if (editing) fd.set('id', editing.id)
     const result = editing
@@ -53,6 +57,7 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
     if (result && 'error' in result) {
       setError(result.error)
     } else {
+      setSuccess(editing ? 'Zmiany pakietu zostały zapisane.' : 'Pakiet został utworzony.')
       closeModal()
       router.refresh()
     }
@@ -61,6 +66,7 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
   async function handleDelete(id: string) {
     setDeleting(true)
     setError(null)
+    setSuccess(null)
     const result = await deletePackage(id)
     if (result && 'error' in result) {
       setError(result.error ?? 'Nie udało się usunąć pakietu')
@@ -70,6 +76,7 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
     }
     setDeleteConfirm(null)
     setDeleting(false)
+    setSuccess('Pakiet został usunięty.')
     router.refresh()
   }
 
@@ -89,7 +96,10 @@ export function PackagesClient({ packages }: { packages: Package[] }) {
         </button>
       </div>
 
-      {/* Error from delete */}
+      {/* Messages */}
+      {success && (
+        <div className="text-xs text-green-400 mb-4">{success}</div>
+      )}
       {error && !modalOpen && (
         <div className="text-xs text-red-400 mb-4">{error}</div>
       )}
