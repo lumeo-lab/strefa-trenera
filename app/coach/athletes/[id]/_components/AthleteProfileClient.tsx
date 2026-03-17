@@ -47,7 +47,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     athleteFeedbacks.filter(f => f.session_id).map(f => [f.session_id as string, f])
   )
   const feedbackByDate: FeedbackByDateMap = Object.fromEntries(
-    athleteFeedbacks.map(f => [f.date, f])
+    athleteFeedbacks.filter(f => !f.session_id).map(f => [f.date, f])
   )
 
   // Date helpers
@@ -55,7 +55,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const currentMonth = today.slice(0, 7)
 
   // Session types
-  const { all: allSessionTypes, custom: customSessionTypes } = useCustomSessionTypes()
+  const { all: allSessionTypes } = useCustomSessionTypes()
 
   // Invite link
   const [linkCopied, setLinkCopied] = useState(false)
@@ -232,6 +232,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           <PlanTab
             athleteId={athlete.id}
             sessions={initialSessions}
+            feedbackBySession={feedbackBySession}
             feedbackByDate={feedbackByDate}
             today={today}
             currentMonth={currentMonth}
@@ -247,7 +248,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             today={today}
             currentMonth={currentMonth}
             allSessionTypes={allSessionTypes}
-            customSessionTypes={customSessionTypes}
           />
         )}
 

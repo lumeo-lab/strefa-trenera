@@ -4,16 +4,15 @@ import React, { startTransition, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   dayName, formatDate,
-  getWeekDays, intensityColor, isToday, parseFeedbackTranscript, toISODate,
+  getWeekDays, isToday, parseFeedbackTranscript, toISODate,
 } from '@/lib/utils'
-import { SessionType } from '@/lib/types'
 import { duplicateWeekSessions, moveSessionDate } from '@/lib/actions/sessions'
 import { applyWeekTemplate, saveWeekTemplate } from '@/lib/actions/sessions'
 import { useCustomSessionTypes } from '@/lib/useCustomSessionTypes'
 import { FeedbackDetail } from '@/components/coach/FeedbackCard'
 import { Modal } from '@/components/ui/Modal'
 import { SessionModal } from '../modals/SessionModal'
-import type { CoachFeedbackRow, CoachTrainingSessionRow, FeedbackByDateMap } from '../types'
+import type { CoachFeedbackRow, CoachTrainingSessionRow, FeedbackByDateMap, FeedbackBySessionMap } from '../types'
 
 function shiftMonth(m: string, d: number): string {
   const [y, mo] = m.split('-').map(Number)
@@ -51,14 +50,15 @@ function getMonthBounds(monthStr: string): { from: string; to: string } {
 interface PlanTabProps {
   athleteId: string
   sessions: CoachTrainingSessionRow[]
+  feedbackBySession: FeedbackBySessionMap
   feedbackByDate: FeedbackByDateMap
   today: string
   currentMonth: string
 }
 
-export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMonth }: PlanTabProps) {
+export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate, today, currentMonth }: PlanTabProps) {
   const router = useRouter()
-  const { custom: customSessionTypes } = useCustomSessionTypes()
+  const { all: allSessionTypes } = useCustomSessionTypes()
 
   const [planView, setPlanView] = useState<'week' | 'month'>('week')
   const [density, setDensity] = useState<'full' | 'compact'>('full')
@@ -68,6 +68,7 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
   const [visibleSessions, setVisibleSessions] = useState<CoachTrainingSessionRow[]>(sessions)
+  const [visibleFeedbackBySession, setVisibleFeedbackBySession] = useState<FeedbackBySessionMap>(feedbackBySession)
   const [visibleFeedbackByDate, setVisibleFeedbackByDate] = useState<FeedbackByDateMap>(feedbackByDate)
   const [loadingRange, setLoadingRange] = useState(false)
   const [copyWeekConfirm, setCopyWeekConfirm] = useState(false)
@@ -89,12 +90,8 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
   // Feedback detail modal
   const [feedbackModalData, setFeedbackModalData] = useState<CoachFeedbackRow | null>(null)
 
-  function typeClass(type: string): string {
-    if (customSessionTypes.find(t => t.key === type)) return ''
-    return intensityColor(type as SessionType)
-  }
   function typeStyle(type: string): React.CSSProperties {
-    const c = customSessionTypes.find(t => t.key === type)
+    const c = allSessionTypes.find(t => t.key === type)
     return c?.color ? { background: c.color + '33', color: c.color } : {}
   }
   function completionStyle(session: CoachTrainingSessionRow): React.CSSProperties {
@@ -130,10 +127,10 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
     return parsed.feeling || '💬'
   }
   const noFeedbackStyle: React.CSSProperties = {
-    background: 'linear-gradient(180deg, rgba(245,248,255,0.98) 0%, rgba(239,244,255,0.98) 100%)',
-    color: '#51607A',
-    border: '1px solid rgba(148,163,184,0.28)',
-    boxShadow: 'inset 3px 0 0 #94A3B8',
+    background: 'linear-gradient(180deg, rgba(255,244,244,0.96) 0%, rgba(255,237,237,0.96) 100%)',
+    color: '#B42318',
+    border: '1px solid rgba(229,72,77,0.24)',
+    boxShadow: 'inset 3px 0 0 #E5484D',
   }
   function openNewSession(date: string) {
     setStatusMessage(null)
@@ -147,6 +144,12 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
     setEditingSession(session)
     setNewSessionDate('')
     setSessionModalOpen(true)
+  }
+  function getSessionFeedback(sessionId: string): CoachFeedbackRow | null {
+    return visibleFeedbackBySession[sessionId] ?? null
+  }
+  function getDateFeedback(dateStr: string): CoachFeedbackRow | null {
+    return visibleFeedbackByDate[dateStr] ?? null
   }
 
   async function handleMoveSession(sessionId: string, targetDate: string) {
@@ -268,8 +271,9 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
 
   useEffect(() => {
     setVisibleSessions(sessions)
+    setVisibleFeedbackBySession(feedbackBySession)
     setVisibleFeedbackByDate(feedbackByDate)
-  }, [sessions, feedbackByDate, athleteId])
+  }, [sessions, feedbackBySession, feedbackByDate, athleteId])
 
   useEffect(() => {
     let cancelled = false
@@ -297,11 +301,17 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
         if (cancelled) return
 
         const nextFeedbackByDate: FeedbackByDateMap = {}
+        const nextFeedbackBySession: FeedbackBySessionMap = {}
         for (const fb of data?.feedbacks ?? []) {
-          if (!nextFeedbackByDate[fb.date]) nextFeedbackByDate[fb.date] = fb
+          if (fb.session_id && !nextFeedbackBySession[fb.session_id]) {
+            nextFeedbackBySession[fb.session_id] = fb
+          } else if (!fb.session_id && !nextFeedbackByDate[fb.date]) {
+            nextFeedbackByDate[fb.date] = fb
+          }
         }
 
         setVisibleSessions(data?.sessions ?? [])
+        setVisibleFeedbackBySession(nextFeedbackBySession)
         setVisibleFeedbackByDate(nextFeedbackByDate)
       } catch (error) {
         if (cancelled) return
@@ -325,21 +335,21 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
     <>
       <div>
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex flex-col gap-3 mb-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
             <button
               onClick={() => setPlanView('week')}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all"
+              className="flex-1 px-4 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
               style={{ background: planView === 'week' ? '#FF5C1B' : 'transparent', color: planView === 'week' ? 'white' : 'var(--text-muted)' }}
             >📅 Tydzień</button>
             <button
               onClick={() => setPlanView('month')}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all"
+              className="flex-1 px-4 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
               style={{ background: planView === 'month' ? '#FF5C1B' : 'transparent', color: planView === 'month' ? 'white' : 'var(--text-muted)' }}
             >📆 Miesiąc</button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-start gap-3 xl:justify-end">
             <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
               <button
                 onClick={() => setDensity('full')}
@@ -365,13 +375,13 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
               <span>{showFeedback ? 'Ukryj feedback' : 'Pokaż feedback'}</span>
             </button>
             {planView === 'week' ? (
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
               <div className="flex gap-1">
                 <button onClick={() => setWeekOffset(w => w - 1)} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>←</button>
                 <button onClick={() => setWeekOffset(0)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Dziś</button>
                 <button onClick={() => setWeekOffset(w => w + 1)} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>→</button>
               </div>
-              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              <span className="text-sm whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
                 {formatDate(weekStart, { day: 'numeric', month: 'short' })} — {formatDate(weekEnd, { day: 'numeric', month: 'short' })}
               </span>
               {copyWeekConfirm ? (
@@ -399,13 +409,13 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
               )}
               </div>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
               <div className="flex gap-1">
                 <button onClick={() => setSelectedMonth(m => shiftMonth(m, -1))} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>←</button>
                 <button onClick={() => setSelectedMonth(currentMonth)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Dziś</button>
                 <button onClick={() => setSelectedMonth(m => shiftMonth(m, 1))} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>→</button>
               </div>
-              <span className="text-sm capitalize font-medium" style={{ color: 'var(--text-muted)' }}>
+              <span className="text-sm capitalize font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
                 {monthLabel(selectedMonth)}
               </span>
               </div>
@@ -434,8 +444,9 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
 
         {/* Week view */}
         {planView === 'week' && (
-          <div className="grid grid-cols-7 gap-2 pb-20" style={{ minHeight: '260px' }}>
-            {weekDays.map(day => {
+          <div className="overflow-x-auto pb-20">
+            <div className="grid grid-cols-7 gap-2 min-w-[980px]" style={{ minHeight: '260px' }}>
+              {weekDays.map(day => {
               const dateStr = toISODate(day)
               const daySessions = weekSessions.filter(s => s.date === dateStr)
               const todayFlag = isToday(dateStr)
@@ -479,56 +490,68 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
                       </div>
                     )}
                     {daySessions.map(session => (
-                      <div key={session.id} onClick={() => openEditSession(session)}
-                        draggable
-                        onDragStart={(e) => {
-                          setDraggedSessionId(session.id)
-                          e.dataTransfer.effectAllowed = 'move'
-                          e.dataTransfer.setData('text/plain', session.id)
-                        }}
-                        onDragEnd={() => {
-                          setDraggedSessionId(null)
-                          setDragTargetDate(null)
-                        }}
-                        className={`relative p-2 rounded-xl cursor-pointer hover:opacity-80 ${typeClass(session.type)}`}
-                        style={{
-                          ...typeStyle(session.type),
-                          ...completionStyle(session),
-                          opacity: draggedSessionId === session.id ? 0.55 : 1,
-                        }}>
-                        <div className="font-semibold text-xs leading-tight mb-1">{session.title}</div>
-                        {density === 'full' && session.description && <div className="text-xs opacity-60 leading-tight mb-1">{session.description}</div>}
-                        <div className="flex flex-col gap-0.5 text-xs opacity-75">
-                          {session.planned_distance && <span>📏 {session.planned_distance} km</span>}
-                          {session.planned_duration && <span>⏱ {session.planned_duration} min</span>}
-                          {session.planned_pace && <span>⚡ {session.planned_pace}/km</span>}
-                        </div>
-                        {density === 'full' && session.actual_distance && (
-                          <div className="flex flex-col gap-0.5 text-xs mt-1" style={{ color: 'rgba(46,204,113,0.9)' }}>
-                            <span>✓ {session.actual_distance} km</span>
-                            {session.actual_pace && <span>⚡ {session.actual_pace}/km</span>}
+                      <div key={session.id} className="space-y-1.5">
+                        <div onClick={() => openEditSession(session)}
+                          draggable
+                          onDragStart={(e) => {
+                            setDraggedSessionId(session.id)
+                            e.dataTransfer.effectAllowed = 'move'
+                            e.dataTransfer.setData('text/plain', session.id)
+                          }}
+                          onDragEnd={() => {
+                            setDraggedSessionId(null)
+                            setDragTargetDate(null)
+                          }}
+                          className="relative p-2 rounded-xl cursor-pointer hover:opacity-80"
+                          style={{
+                            ...typeStyle(session.type),
+                            ...completionStyle(session),
+                            opacity: draggedSessionId === session.id ? 0.55 : 1,
+                          }}>
+                          <div className="font-semibold text-xs leading-tight mb-1">{session.title}</div>
+                          {density === 'full' && session.description && <div className="text-xs opacity-60 leading-tight mb-1">{session.description}</div>}
+                          <div className="flex flex-col gap-0.5 text-xs opacity-75">
+                            {session.planned_distance && <span>📏 {session.planned_distance} km</span>}
+                            {session.planned_duration && <span>⏱ {session.planned_duration} min</span>}
+                            {session.planned_pace && <span>⚡ {session.planned_pace}/km</span>}
                           </div>
-                        )}
-                        {density === 'full' && session.url && (
-                          <a href={session.url} target="_blank" rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            className="flex items-center gap-1 mt-1.5 text-xs opacity-80 hover:opacity-100">
-                            🔗 <span className="underline">{session.url_label || 'Link'}</span>
-                          </a>
+                          {density === 'full' && session.actual_distance && (
+                            <div className="flex flex-col gap-0.5 text-xs mt-1" style={{ color: 'rgba(46,204,113,0.9)' }}>
+                              <span>✓ {session.actual_distance} km</span>
+                              {session.actual_pace && <span>⚡ {session.actual_pace}/km</span>}
+                            </div>
+                          )}
+                          {density === 'full' && session.url && (
+                            <a href={session.url} target="_blank" rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="flex items-center gap-1 mt-1.5 text-xs opacity-80 hover:opacity-100">
+                              🔗 <span className="underline">{session.url_label || 'Link'}</span>
+                            </a>
+                          )}
+                        </div>
+                        {showFeedback && getSessionFeedback(session.id) && (
+                          <button
+                            onClick={() => setFeedbackModalData(getSessionFeedback(session.id))}
+                            className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
+                            style={feedbackToneStyle(getSessionFeedback(session.id) as CoachFeedbackRow)}
+                          >
+                            <span>{feedbackToneIcon(getSessionFeedback(session.id) as CoachFeedbackRow)}</span>
+                            <span>feedback</span>
+                          </button>
                         )}
                       </div>
                     ))}
                   </div>
-                  {showFeedback && daySessions.length > 0 && (
+                  {showFeedback && daySessions.length > 0 && !daySessions.some((session) => getSessionFeedback(session.id)) && (
                     <div
                       className="px-1.5 pb-3 pt-2 shrink-0"
                       style={{ borderTop: '1px dashed var(--border-strong)' }}
                     >
-                      {visibleFeedbackByDate[dateStr] ? (
-                        <button onClick={() => setFeedbackModalData(visibleFeedbackByDate[dateStr])}
+                      {getDateFeedback(dateStr) ? (
+                        <button onClick={() => setFeedbackModalData(getDateFeedback(dateStr))}
                           className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
-                          style={feedbackToneStyle(visibleFeedbackByDate[dateStr])}>
-                          <span>{feedbackToneIcon(visibleFeedbackByDate[dateStr])}</span>
+                          style={feedbackToneStyle(getDateFeedback(dateStr) as CoachFeedbackRow)}>
+                          <span>{feedbackToneIcon(getDateFeedback(dateStr) as CoachFeedbackRow)}</span>
                           <span>feedback</span>
                         </button>
                       ) : (
@@ -536,7 +559,7 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
                           className="w-full py-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1"
                           style={noFeedbackStyle}
                         >
-                          <span>💬</span>
+                          <span style={{ color: '#DC2626' }}>✕</span>
                           <span>brak feedbacku</span>
                         </div>
                       )}
@@ -549,14 +572,15 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
                   </div>
                 </div>
               )
-            })}
+              })}
+            </div>
           </div>
         )}
 
         {/* Month view */}
         {planView === 'month' && (
-          <div className="pb-20">
-            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+          <div className="pb-20 overflow-x-auto">
+            <div className="rounded-2xl overflow-hidden min-w-[980px]" style={{ border: '1px solid var(--border)' }}>
               <div className="grid grid-cols-7" style={{ borderBottom: '1px solid var(--border)' }}>
                 {['Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob', 'Nie'].map(d => (
                   <div key={d} className="py-3 text-center text-xs font-semibold" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>{d}</div>
@@ -573,7 +597,7 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
                     const isSelected = selectedDay === dateStr
                     const dayNum = parseInt(dateStr.split('-')[2])
                     return (
-                      <div key={dateStr} className="min-h-36 p-2 transition-colors"
+                      <div key={dateStr} className="min-h-40 p-2 transition-colors flex flex-col"
                         onDragOver={(e) => {
                           if (!draggedSessionId) return
                           e.preventDefault()
@@ -611,66 +635,77 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
                             className="w-5 h-5 rounded-full flex items-center justify-center text-xs cursor-pointer"
                             style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>+</button>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 flex-1">
                           {daySessions.slice(0, 3).map(s => (
-                            <div key={s.id} onClick={() => openEditSession(s)}
-                              draggable
-                              onDragStart={(e) => {
-                                setDraggedSessionId(s.id)
-                                e.dataTransfer.effectAllowed = 'move'
-                                e.dataTransfer.setData('text/plain', s.id)
-                              }}
-                              onDragEnd={() => {
-                                setDraggedSessionId(null)
-                                setDragTargetDate(null)
-                              }}
-                              className={`relative p-2 rounded-xl cursor-pointer hover:opacity-80 ${typeClass(s.type)}`}
-                              style={{
-                                ...typeStyle(s.type),
-                                ...completionStyle(s),
-                                opacity: draggedSessionId === s.id ? 0.55 : 1,
-                              }}>
-                              <div className="font-semibold text-xs leading-tight mb-1">{s.title}</div>
-                              {density === 'full' && s.description && <div className="text-xs opacity-60 leading-tight mb-1">{s.description}</div>}
-                              <div className="flex flex-col gap-0.5 text-xs opacity-75">
-                                {s.planned_distance && <span>📏 {s.planned_distance} km</span>}
-                                {s.planned_duration && <span>⏱ {s.planned_duration} min</span>}
-                                {s.planned_pace && <span>⚡ {s.planned_pace}/km</span>}
-                              </div>
-                              {density === 'full' && s.actual_distance && (
-                                <div className="flex flex-col gap-0.5 text-xs mt-1" style={{ color: 'rgba(46,204,113,0.9)' }}>
-                                  <span>✓ {s.actual_distance} km</span>
-                                  {s.actual_pace && <span>⚡ {s.actual_pace}/km</span>}
+                            <div key={s.id} className="space-y-1">
+                              <div onClick={() => openEditSession(s)}
+                                draggable
+                                onDragStart={(e) => {
+                                  setDraggedSessionId(s.id)
+                                  e.dataTransfer.effectAllowed = 'move'
+                                  e.dataTransfer.setData('text/plain', s.id)
+                                }}
+                                onDragEnd={() => {
+                                  setDraggedSessionId(null)
+                                  setDragTargetDate(null)
+                                }}
+                                className="relative p-2 rounded-xl cursor-pointer hover:opacity-80"
+                                style={{
+                                  ...typeStyle(s.type),
+                                  ...completionStyle(s),
+                                  opacity: draggedSessionId === s.id ? 0.55 : 1,
+                                }}>
+                                <div className="font-semibold text-xs leading-tight mb-1">{s.title}</div>
+                                {density === 'full' && s.description && <div className="text-xs opacity-60 leading-tight mb-1">{s.description}</div>}
+                                <div className="flex flex-col gap-0.5 text-xs opacity-75">
+                                  {s.planned_distance && <span>📏 {s.planned_distance} km</span>}
+                                  {s.planned_duration && <span>⏱ {s.planned_duration} min</span>}
+                                  {s.planned_pace && <span>⚡ {s.planned_pace}/km</span>}
                                 </div>
-                              )}
-                              {density === 'full' && s.url && (
-                                <a href={s.url} target="_blank" rel="noopener noreferrer"
-                                  onClick={e => e.stopPropagation()}
-                                  className="flex items-center gap-1 mt-1.5 text-xs opacity-80 hover:opacity-100">
-                                  🔗 <span className="underline">{s.url_label || 'Link'}</span>
-                                </a>
+                                {density === 'full' && s.actual_distance && (
+                                  <div className="flex flex-col gap-0.5 text-xs mt-1" style={{ color: 'rgba(46,204,113,0.9)' }}>
+                                    <span>✓ {s.actual_distance} km</span>
+                                    {s.actual_pace && <span>⚡ {s.actual_pace}/km</span>}
+                                  </div>
+                                )}
+                                {density === 'full' && s.url && (
+                                  <a href={s.url} target="_blank" rel="noopener noreferrer"
+                                    onClick={e => e.stopPropagation()}
+                                    className="flex items-center gap-1 mt-1.5 text-xs opacity-80 hover:opacity-100">
+                                    🔗 <span className="underline">{s.url_label || 'Link'}</span>
+                                  </a>
+                                )}
+                              </div>
+                              {showFeedback && getSessionFeedback(s.id) && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); setFeedbackModalData(getSessionFeedback(s.id)) }}
+                                  className="w-full text-center cursor-pointer rounded-lg py-0.5"
+                                  style={{ fontSize: '10px', ...feedbackToneStyle(getSessionFeedback(s.id) as CoachFeedbackRow) }}
+                                >
+                                  {feedbackToneIcon(getSessionFeedback(s.id) as CoachFeedbackRow)} feedback
+                                </button>
                               )}
                             </div>
                           ))}
                           {daySessions.length > 3 && <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>+{daySessions.length - 3} więcej</div>}
                         </div>
-                        {showFeedback && daySessions.length > 0 && (
+                        {showFeedback && daySessions.length > 0 && !daySessions.some((session) => getSessionFeedback(session.id)) && (
                           <div
-                            className="mt-2 pt-2"
+                            className="mt-auto pt-2"
                             style={{ borderTop: '1px dashed var(--border-strong)' }}
                           >
-                            {visibleFeedbackByDate[dateStr] ? (
-                              <button onClick={e => { e.stopPropagation(); setFeedbackModalData(visibleFeedbackByDate[dateStr]) }}
+                            {getDateFeedback(dateStr) ? (
+                              <button onClick={e => { e.stopPropagation(); setFeedbackModalData(getDateFeedback(dateStr)) }}
                                 className="w-full text-center cursor-pointer rounded-lg py-0.5"
-                                style={{ fontSize: '10px', ...feedbackToneStyle(visibleFeedbackByDate[dateStr]) }}>
-                                {feedbackToneIcon(visibleFeedbackByDate[dateStr])} feedback
+                                style={{ fontSize: '10px', ...feedbackToneStyle(getDateFeedback(dateStr) as CoachFeedbackRow) }}>
+                                {feedbackToneIcon(getDateFeedback(dateStr) as CoachFeedbackRow)} feedback
                               </button>
                             ) : (
                               <div
                                 className="w-full text-center rounded-lg py-0.5"
                                 style={{ fontSize: '10px', ...noFeedbackStyle }}
                               >
-                                💬 brak feedbacku
+                                <span style={{ color: '#DC2626' }}>✕</span> brak feedbacku
                               </div>
                             )}
                           </div>
@@ -694,7 +729,7 @@ export function PlanTab({ athleteId, sessions, feedbackByDate, today, currentMon
                 ) : (
                   <div className="space-y-2">
                     {visibleSessions.filter(s => s.date === selectedDay).map(session => (
-                      <div key={session.id} className={`flex items-center gap-4 p-3 rounded-xl ${typeClass(session.type)}`}
+                      <div key={session.id} className="flex items-center gap-4 p-3 rounded-xl"
                         style={typeStyle(session.type)}>
                         <div className="flex-1">
                           <div className="font-semibold text-sm">{session.title}</div>

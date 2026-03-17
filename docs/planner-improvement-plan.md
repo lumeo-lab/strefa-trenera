@@ -50,27 +50,7 @@ Planer ma być:
    - nazwać go,
    - użyć go ponownie.
 
-## Etap 3: Lepsza kontrola realizacji planu
-
-1. Dodać porównanie `plan vs wykonanie`.
-   Pokazywać:
-   - planowany dystans vs rzeczywisty,
-   - planowany czas vs rzeczywisty,
-   - planowane tempo vs rzeczywiste.
-
-2. Dodać prosty sygnał odchylenia.
-   Np.:
-   - `zgodnie z planem`
-   - `krócej niż plan`
-   - `mocniej niż plan`
-
-3. Dodać wyraźniejsze oznaczenia dni problemowych.
-   Np. dni z:
-   - problemowym feedbackiem,
-   - brakiem feedbacku po wykonaniu,
-   - dużym odchyleniem od planu.
-
-## Etap 4: Mocniejsze powiązanie z feedbackiem
+## Etap 3: Mocniejsze powiązanie z feedbackiem
 
 1. Lepiej oznaczyć feedback w kalendarzu.
    Nie tylko sam przycisk `feedback`, ale też poziom ważności.
@@ -86,7 +66,7 @@ Planer ma być:
    - bez feedbacku,
    - z problemowym feedbackiem.
 
-## Etap 5: UX i ergonomia profesjonalnego narzędzia
+## Etap 4: UX i ergonomia profesjonalnego narzędzia
 
 1. Dopracować planner na mniejszych ekranach.
    Tydzień i miesiąc powinny mieć lepsze zachowanie na małych laptopach i mobile.
@@ -111,10 +91,9 @@ Planer ma być:
 1. Typy treningów do bazy.
 2. Szybkie kopiowanie i przesuwanie sesji.
 3. Kopiowanie tygodnia i szablony.
-4. Plan vs wykonanie.
-5. Lepszy feedback w kalendarzu.
-6. Responsywność i dopracowanie UX.
-7. Lekki widok zbiorczy dla grupy.
+4. Lepszy feedback w kalendarzu.
+5. Responsywność i dopracowanie UX.
+6. Lekki widok zbiorczy dla grupy.
 
 ## Najbliższy sensowny pakiet
 

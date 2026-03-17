@@ -2,10 +2,10 @@
 
 import { Fragment, useState } from 'react'
 import { Card } from '@/components/ui/Card'
-import { formatDate, intensityColor, sessionTypeLabel } from '@/lib/utils'
+import { formatDate, sessionTypeLabel } from '@/lib/utils'
 import { SessionType } from '@/lib/types'
 import { FeedbackDetail } from '@/components/coach/FeedbackCard'
-import { SessionTypeDef } from '@/lib/useCustomSessionTypes'
+import { SessionTypeDef } from '@/lib/session-type-defs'
 import type {
   CoachFeedbackRow,
   CoachTrainingSessionRow,
@@ -32,10 +32,9 @@ interface HistoryTabProps {
   today: string
   currentMonth: string
   allSessionTypes: SessionTypeDef[]
-  customSessionTypes: SessionTypeDef[]
 }
 
-export function HistoryTab({ sessions, feedbacks, feedbackBySession, feedbackByDate, today, currentMonth, allSessionTypes, customSessionTypes }: HistoryTabProps) {
+export function HistoryTab({ sessions, feedbacks, feedbackBySession, feedbackByDate, today, currentMonth, allSessionTypes }: HistoryTabProps) {
   const [historyMonth, setHistoryMonth] = useState(currentMonth)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
@@ -47,12 +46,8 @@ export function HistoryTab({ sessions, feedbacks, feedbackBySession, feedbackByD
     })
   }
 
-  function typeClass(type: string): string {
-    if (customSessionTypes.find(t => t.key === type)) return ''
-    return intensityColor(type as SessionType)
-  }
   function typeStyle(type: string): React.CSSProperties {
-    const c = customSessionTypes.find(t => t.key === type)
+    const c = allSessionTypes.find(t => t.key === type)
     return c?.color ? { background: c.color + '33', color: c.color } : {}
   }
   function typeLabel(type: string): string {
@@ -136,7 +131,7 @@ export function HistoryTab({ sessions, feedbacks, feedbackBySession, feedbackByD
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(session.date, { day: 'numeric', month: 'short' })}</td>
                       <td className="px-4 py-3 font-medium text-xs">{session.title}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${typeClass(session.type)}`}
+                        <span className="text-xs px-2 py-0.5 rounded-full"
                           style={typeStyle(session.type)}>
                           {typeLabel(session.type)}
                         </span>

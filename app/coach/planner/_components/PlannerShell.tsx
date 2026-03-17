@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { PlanTab } from '@/app/coach/athletes/[id]/_components/tabs/PlanTab'
-import type { CoachFeedbackRow, CoachTrainingSessionRow, FeedbackByDateMap } from '@/app/coach/athletes/[id]/_components/types'
+import type { CoachFeedbackRow, CoachTrainingSessionRow, FeedbackByDateMap, FeedbackBySessionMap } from '@/app/coach/athletes/[id]/_components/types'
 
 type Athlete = {
   id: string
@@ -35,8 +35,18 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
   const feedbackByDate: FeedbackByDateMap = useMemo(() => {
     const map: FeedbackByDateMap = {}
     for (const fb of feedbacks) {
-      if (fb.athlete_id === selectedAthleteId) {
+      if (fb.athlete_id === selectedAthleteId && !fb.session_id) {
         map[fb.date] = fb
+      }
+    }
+    return map
+  }, [feedbacks, selectedAthleteId])
+
+  const feedbackBySession: FeedbackBySessionMap = useMemo(() => {
+    const map: FeedbackBySessionMap = {}
+    for (const fb of feedbacks) {
+      if (fb.athlete_id === selectedAthleteId && fb.session_id) {
+        map[fb.session_id] = fb
       }
     }
     return map
@@ -59,14 +69,14 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
         title="Planer"
         subtitle={selectedAthlete?.name ?? ''}
         actions={(
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+          <div className="flex items-center gap-2 max-w-full">
+            <span className="hidden sm:inline text-xs font-semibold uppercase tracking-[0.08em] whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
               Zawodnik
             </span>
             <select
               value={selectedAthleteId}
               onChange={(e) => setSelectedAthleteId(e.target.value)}
-              className="px-3 py-2 rounded-xl text-sm font-medium cursor-pointer min-w-56"
+              className="px-3 py-2 rounded-xl text-sm font-medium cursor-pointer w-[min(58vw,14rem)] sm:w-56"
               style={{
                 background: 'var(--bg-card)',
                 color: 'var(--text-primary)',
@@ -85,11 +95,12 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
         )}
       />
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {/* Reuse PlanTab from athlete profile */}
         <PlanTab
           athleteId={selectedAthleteId}
           sessions={athleteSessions}
+          feedbackBySession={feedbackBySession}
           feedbackByDate={feedbackByDate}
           today={today}
           currentMonth={currentMonth}

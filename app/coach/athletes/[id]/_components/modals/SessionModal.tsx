@@ -4,10 +4,10 @@ import React, { startTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { formatDate, intensityColor, sessionTypeLabel } from '@/lib/utils'
-import { SessionType } from '@/lib/types'
+import { formatDate, sessionTypeLabel } from '@/lib/utils'
 import { createSession, deleteSession as deleteSessionAction, updateSession } from '@/lib/actions/sessions'
-import { BUILTIN_SESSION_TYPE_KEYS, SessionTypeDef, useCustomSessionTypes } from '@/lib/useCustomSessionTypes'
+import { BUILTIN_SESSION_TYPE_KEYS, SessionTypeDef } from '@/lib/session-type-defs'
+import { useCustomSessionTypes } from '@/lib/useCustomSessionTypes'
 import { INPUT_STYLE } from '@/lib/styles'
 import type { CoachTrainingSessionRow } from '../types'
 
@@ -45,16 +45,18 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { all: allSessionTypes, custom: customSessionTypes, labelOverrides, saveAll: saveSessionTypes } = useCustomSessionTypes()
+  const { all: allSessionTypes, builtins: builtinSessionTypes, custom: customSessionTypes, saveAll: saveSessionTypes } = useCustomSessionTypes()
 
   // Session type editor modal
   const [sessionTypeModalOpen, setSessionTypeModalOpen] = useState(false)
-  const [editingBuiltinLabels, setEditingBuiltinLabels] = useState<Record<string, string>>({})
+  const [editingBuiltinTypes, setEditingBuiltinTypes] = useState<SessionTypeDef[]>([])
   const [editingCustomTypes, setEditingCustomTypes] = useState<SessionTypeDef[]>([])
   const [newTypeLabel, setNewTypeLabel] = useState('')
   const [newTypeColor, setNewTypeColor] = useState(PRESET_TYPE_COLORS[0])
+  const [openBuiltinColorKey, setOpenBuiltinColorKey] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [savingTypeDefs, setSavingTypeDefs] = useState(false)
+  const [sessionTypeError, setSessionTypeError] = useState<string | null>(null)
 
   const [editingSessionId] = useState<string | null>(editSession?.id ?? null)
   const [draftDate] = useState(editSession?.date ?? initialDate ?? '')
@@ -75,23 +77,25 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
   })
 
   function openSessionTypeModal() {
-    setEditingBuiltinLabels({ ...labelOverrides })
+    setEditingBuiltinTypes(builtinSessionTypes.map(t => ({ ...t })))
     setEditingCustomTypes(customSessionTypes.map(t => ({ ...t })))
     setNewTypeLabel('')
     setNewTypeColor(PRESET_TYPE_COLORS[0])
+    setOpenBuiltinColorKey(null)
+    setSessionTypeError(null)
     setSessionTypeModalOpen(true)
   }
   async function saveSessionTypeEdits() {
     if (savingTypeDefs) return
     setSavingTypeDefs(true)
+    setSessionTypeError(null)
     try {
-      await saveSessionTypes(editingBuiltinLabels, editingCustomTypes)
+      await saveSessionTypes(editingBuiltinTypes, editingCustomTypes)
       setSessionTypeModalOpen(false)
-      setError(null)
       onActionComplete?.({ tone: 'success', text: 'Typy treningów zostały zapisane.' })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Nie udało się zapisać typów treningów.'
-      setError(message)
+      setSessionTypeError(message)
       onActionComplete?.({ tone: 'error', text: message })
     } finally {
       setSavingTypeDefs(false)
@@ -127,9 +131,13 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
     const fd = new FormData()
     fd.set('athlete_id', athleteId)
     fd.set('date', targetDate)
-    fd.set('type', draft.type)
+    fd.set('type', draft.type || 'easy')
     fd.set('title', draft.title)
     fd.set('description', draft.description)
+
+    if (editingSessionId && !duplicate) {
+      fd.set('id', editingSessionId)
+    }
 
     if (editingSessionId && !duplicate) {
       fd.set('planned_distance', draft.plannedDistance)
@@ -265,12 +273,12 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
             <div className="flex flex-wrap gap-2">
               {allSessionTypes.map(t => (
                 <button key={t.key} onClick={() => setDraft(d => ({ ...d, type: t.key }))}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all ${t.isBuiltin ? intensityColor(t.key as SessionType) : ''}`}
+                  className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
                   style={{
                     opacity: draft.type === t.key ? 1 : 0.4,
                     outline: draft.type === t.key ? '2px solid currentColor' : 'none',
                     outlineOffset: '1px',
-                    ...(!t.isBuiltin && t.color ? { background: t.color + '33', color: t.color } : {}),
+                    ...(t.color ? { background: `${t.color}33`, color: t.color } : {}),
                   }}>
                   {t.label}
                 </button>
@@ -353,22 +361,65 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
           <div>
             <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Wbudowane typy</div>
             <div className="space-y-2">
-              {BUILTIN_SESSION_TYPE_KEYS.map(key => (
-                <div key={key} className="flex items-center gap-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${intensityColor(key)}`}
-                    style={{ minWidth: 52, textAlign: 'center' }}>
-                    ●
-                  </span>
-                  <input
-                    value={editingBuiltinLabels[key] ?? labelOverrides[key] ?? sessionTypeLabel(key)}
-                    onChange={e => setEditingBuiltinLabels(prev => ({ ...prev, [key]: e.target.value }))}
-                    className="flex-1 px-3 py-2 rounded-xl text-sm"
-                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
-                  />
+              {BUILTIN_SESSION_TYPE_KEYS.map(key => {
+                const builtin = editingBuiltinTypes.find((item) => item.key === key)
+                return (
+                <div key={key} className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setOpenBuiltinColorKey((current) => current === key ? null : key)}
+                      className="inline-flex items-center gap-2 px-2.5 py-2 rounded-xl cursor-pointer shrink-0"
+                      style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-muted)' }}
+                      aria-label={`Zmień kolor typu ${builtin?.label ?? sessionTypeLabel(key)}`}
+                    >
+                      <span
+                        className="w-3.5 h-3.5 rounded-full"
+                        style={{ background: builtin?.color ?? '#3B82F6' }}
+                      />
+                      <span className="text-[11px] font-semibold">{openBuiltinColorKey === key ? 'Ukryj' : 'Kolor'}</span>
+                    </button>
+                    <input
+                      value={builtin?.label ?? sessionTypeLabel(key)}
+                      onChange={e => setEditingBuiltinTypes(prev => prev.map((item) => item.key === key ? { ...item, label: e.target.value } : item))}
+                      className="flex-1 px-3 py-2 rounded-xl text-sm"
+                      style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+                  {openBuiltinColorKey === key && (
+                    <div className="ml-0 sm:ml-[110px] flex gap-1.5 flex-wrap rounded-xl px-3 py-2" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                      {PRESET_TYPE_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => {
+                            setEditingBuiltinTypes(prev => prev.map((item) => item.key === key ? { ...item, color } : item))
+                            setOpenBuiltinColorKey(null)
+                          }}
+                          className="w-5 h-5 rounded-full cursor-pointer transition-transform hover:scale-110"
+                          style={{
+                            background: color,
+                            outline: builtin?.color === color ? '2px solid white' : 'none',
+                            outlineOffset: 2,
+                            boxShadow: builtin?.color === color ? `0 0 0 3px ${color}` : 'none',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
+              )})}
             </div>
           </div>
+
+          {sessionTypeError && (
+            <div
+              className="rounded-xl px-4 py-3 text-sm"
+              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)', color: '#DC2626' }}
+            >
+              {sessionTypeError}
+            </div>
+          )}
 
           {/* Custom types */}
           {editingCustomTypes.length > 0 && (
