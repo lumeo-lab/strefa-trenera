@@ -22,6 +22,36 @@ type ViewMode = 'grouped' | 'chronological'
 
 const PAGE_SIZE = 30
 
+function SelectField({
+  value,
+  onChange,
+  children,
+}: {
+  value: string
+  onChange: (value: string) => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="relative min-w-0">
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full min-w-0 rounded-xl px-3 py-2 pr-11 text-sm cursor-pointer appearance-none"
+        style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+      >
+        {children}
+      </select>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-xs"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        ▾
+      </span>
+    </div>
+  )
+}
+
 // ── Overview stats cards ──────────────────────────────────────────────────────
 
 function OverviewStats({ feedbacks, today }: { feedbacks: FeedbackWithJoins[]; today: string }) {
@@ -256,51 +286,43 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
 
         {/* Toolbar: filters + view mode + sort + athlete dropdown */}
         <div className="mb-6 rounded-2xl p-3 sm:p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[185px_minmax(240px,1fr)_150px_340px] gap-2 items-center">
-            <select
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[185px_minmax(220px,1fr)_150px_minmax(220px,240px)] gap-2 items-center">
+            <SelectField
               value={filter}
-              onChange={e => { setFilter(e.target.value as Filter); setVisibleCount(PAGE_SIZE) }}
-              className="min-w-0 px-3 py-2 pr-10 rounded-xl text-sm cursor-pointer appearance-none"
-              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+              onChange={(value) => {
+                setFilter(value as Filter)
+                setVisibleCount(PAGE_SIZE)
+              }}
             >
               {filterButtons.map(f => (
                 <option key={f.id} value={f.id}>
                   {f.label} ({f.count})
                 </option>
               ))}
-            </select>
+            </SelectField>
 
-            <select
+            <SelectField
               value={athleteFilter}
-              onChange={e => { setAthleteFilter(e.target.value); setVisibleCount(PAGE_SIZE) }}
-              className="min-w-0 px-3 py-2 pr-10 rounded-xl text-sm cursor-pointer appearance-none"
-              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+              onChange={(value) => {
+                setAthleteFilter(value)
+                setVisibleCount(PAGE_SIZE)
+              }}
             >
               <option value="all">Wszyscy zawodnicy ({athletes.length})</option>
               {athletes.map(a => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
-            </select>
+            </SelectField>
 
-            <select
-              value={sortKey}
-              onChange={e => setSortKey(e.target.value as SortKey)}
-              className="min-w-0 px-3 py-2 pr-10 rounded-xl text-sm cursor-pointer appearance-none"
-              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-            >
+            <SelectField value={sortKey} onChange={(value) => setSortKey(value as SortKey)}>
               <option value="date">Najnowsze</option>
               <option value="signal">Najważniejsze</option>
-            </select>
+            </SelectField>
 
-            <select
-              value={viewMode}
-              onChange={e => setViewMode(e.target.value as ViewMode)}
-              className="min-w-0 px-3 py-2 pr-10 rounded-xl text-sm cursor-pointer appearance-none"
-              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-            >
+            <SelectField value={viewMode} onChange={(value) => setViewMode(value as ViewMode)}>
               <option value="grouped">Grupuj po zawodniku</option>
               <option value="chronological">Chronologicznie</option>
-            </select>
+            </SelectField>
           </div>
         </div>
 

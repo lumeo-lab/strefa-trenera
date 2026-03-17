@@ -28,6 +28,36 @@ type ThreadSummary = {
 
 type ThreadFilter = 'all' | 'unread'
 
+function SelectField({
+  value,
+  onChange,
+  children,
+}: {
+  value: string
+  onChange: (value: string) => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full rounded-xl px-3 py-2 pr-11 text-sm cursor-pointer appearance-none"
+        style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+      >
+        {children}
+      </select>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-xs"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        ▾
+      </span>
+    </div>
+  )
+}
+
 export function ChatClient({ threadSummaries, coachId, coachName, initialAthleteId }: {
   threadSummaries: ThreadSummary[]
   coachId: string
@@ -173,24 +203,19 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   }
 
   return (
-    <div className="h-[calc(100dvh-64px)] overflow-hidden -mb-64">
+    <div className="flex h-[calc(100dvh-64px)] flex-col overflow-hidden -mb-64">
       <CoachTopbar title="Czat" subtitle={totalUnread > 0 ? `${totalUnread} nieprzeczytanych` : `${threadSummaries.length} zawodników`} />
 
-      <div className="flex h-[calc(100dvh-64px)] overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* ── Sidebar: thread list ── */}
         <div className="w-72 border-r flex flex-col shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
           {/* Search */}
           <div className="px-3 py-3 border-b space-y-3" style={{ borderColor: 'var(--border)' }}>
-            <select
-              value={filter}
-              onChange={e => setFilter(e.target.value as ThreadFilter)}
-              className="w-full px-3 py-2 pr-10 rounded-xl text-sm cursor-pointer appearance-none"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-            >
+            <SelectField value={filter} onChange={(value) => setFilter(value as ThreadFilter)}>
               <option value="all">Wszystkie rozmowy</option>
               <option value="unread">Nieprzeczytane{totalUnread > 0 ? ` (${totalUnread})` : ''}</option>
-            </select>
+            </SelectField>
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
