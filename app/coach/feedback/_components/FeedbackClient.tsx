@@ -184,10 +184,6 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
       <CoachTopbar title="Feedback" subtitle={`${unreadCount} nieprzeczytanych`} />
 
       <div className="p-6 max-w-4xl mx-auto">
-        <p className="text-xs mb-5" style={{ color: 'var(--text-muted)' }}>
-          Feedbacki poszczególnych zawodników znajdziesz też w profilu zawodnika → zakładka „Feedback".
-        </p>
-
         {/* Overview stats */}
         <OverviewStats feedbacks={initialFeedbacks} today={today} />
 
@@ -260,6 +256,13 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Hint */}
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl mb-6 text-xs"
+          style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--text-muted)' }}>
+          <span style={{ fontSize: '14px' }}>💡</span>
+          Feedbacki poszczególnych zawodników znajdziesz też w profilu zawodnika → zakładka „Feedback"
         </div>
 
         {/* Feed */}
