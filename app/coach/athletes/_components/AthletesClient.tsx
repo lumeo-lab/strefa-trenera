@@ -72,9 +72,15 @@ interface Props {
 }
 
 type SortKey = 'name' | 'package' | 'status' | 'join_date' | 'last_session' | 'next_session' | 'signal' | 'weekly_load' | 'compliance' | null
-type QuickFilter = 'unread' | 'unpaid' | 'no_session' | null
+type QuickFilter = 'unread' | 'unpaid' | 'no_session' | 'weak_signal' | 'no_training' | null
 
 const ORDER_KEY = 'coach_athlete_order'
+
+function daysSinceDate(dateStr: string): number {
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  return Math.floor((now.getTime() - d.getTime()) / 86400000)
+}
 
 function SortHeader({ label, sk, sortKey, sortDir, onSort }: { label: string; sk: SortKey; sortKey: SortKey; sortDir: 'asc' | 'desc'; onSort: (key: SortKey) => void }) {
   const isActive = sortKey === sk
@@ -235,7 +241,9 @@ export function AthletesClient({
     const matchesQuick = !quickFilter ||
       (quickFilter === 'unread' && ((unreadMessagesMap[a.id] ?? 0) > 0 || (unreadFeedbackMap[a.id] ?? 0) > 0)) ||
       (quickFilter === 'unpaid' && unpaidInvoiceSet[a.id]) ||
-      (quickFilter === 'no_session' && !nextSessionMap[a.id] && a.status === 'ok')
+      (quickFilter === 'no_session' && !nextSessionMap[a.id] && a.status !== 'inactive') ||
+      (quickFilter === 'weak_signal' && (signalMap[a.id] === 'red' || signalMap[a.id] === 'yellow')) ||
+      (quickFilter === 'no_training' && a.status !== 'inactive' && (!lastSessionMap[a.id] || daysSinceDate(lastSessionMap[a.id].date) >= 7))
     return matchesText && matchesStatus && matchesQuick
   })
 
@@ -313,6 +321,14 @@ export function AthletesClient({
   function getStatusDef(key: string): StatusDef {
     return allStatuses.find(s => s.key === key) ?? { key, label: key, color: '#6B7280' }
   }
+
+  const quickFilterDefs = useMemo(() => [
+    { id: 'unread' as QuickFilter, label: 'Nieprzeczytane', count: athletes.filter(a => (unreadMessagesMap[a.id] ?? 0) > 0 || (unreadFeedbackMap[a.id] ?? 0) > 0).length },
+    { id: 'unpaid' as QuickFilter, label: 'Nieopłacone', count: athletes.filter(a => unpaidInvoiceSet[a.id]).length },
+    { id: 'no_session' as QuickFilter, label: 'Bez planu', count: athletes.filter(a => !nextSessionMap[a.id] && a.status !== 'inactive').length },
+    { id: 'weak_signal' as QuickFilter, label: 'Słaba forma', count: athletes.filter(a => signalMap[a.id] === 'red' || signalMap[a.id] === 'yellow').length },
+    { id: 'no_training' as QuickFilter, label: 'Dawno bez treningu', count: athletes.filter(a => a.status !== 'inactive' && (!lastSessionMap[a.id] || daysSinceDate(lastSessionMap[a.id].date) >= 7)).length },
+  ], [athletes, unreadMessagesMap, unreadFeedbackMap, unpaidInvoiceSet, nextSessionMap, signalMap, lastSessionMap])
 
   return (
     <div>
@@ -504,11 +520,7 @@ export function AthletesClient({
               <span className="text-[11px] font-semibold uppercase tracking-[0.12em] shrink-0" style={{ color: 'var(--text-muted)' }}>
                 Szybkie
               </span>
-              {([
-                { id: 'unread' as QuickFilter, label: 'Nieprzeczytane', count: athletes.filter(a => (unreadMessagesMap[a.id] ?? 0) > 0 || (unreadFeedbackMap[a.id] ?? 0) > 0).length },
-                { id: 'unpaid' as QuickFilter, label: 'Nieopłacone', count: athletes.filter(a => unpaidInvoiceSet[a.id]).length },
-                { id: 'no_session' as QuickFilter, label: 'Bez planu', count: athletes.filter(a => !nextSessionMap[a.id] && a.status === 'ok').length },
-              ]).map(qf => (
+              {quickFilterDefs.map(qf => (
                 <button
                   key={qf.id}
                   onClick={() => setQuickFilter(quickFilter === qf.id ? null : qf.id)}
@@ -520,7 +532,7 @@ export function AthletesClient({
                   }}
                 >
                   {qf.label}
-                  {qf.count > 0 && <span className="opacity-60">{qf.count}</span>}
+                  <span className="opacity-60">{qf.count}</span>
                 </button>
               ))}
 
