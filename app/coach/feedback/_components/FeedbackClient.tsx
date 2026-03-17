@@ -184,6 +184,10 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
       <CoachTopbar title="Feedback" subtitle={`${unreadCount} nieprzeczytanych`} />
 
       <div className="p-6 max-w-4xl mx-auto">
+        <p className="text-xs mb-5" style={{ color: 'var(--text-muted)' }}>
+          Feedbacki poszczególnych zawodników znajdziesz też w profilu zawodnika → zakładka „Feedback".
+        </p>
+
         {/* Overview stats */}
         <OverviewStats feedbacks={initialFeedbacks} today={today} />
 
