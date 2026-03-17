@@ -51,8 +51,8 @@ export function TodayActionsSection({
   if (unreadFeedbackCount > 0) {
     items.push({
       id: 'feedback',
-      title: `${unreadFeedbackCount} ${plural(unreadFeedbackCount, 'feedback czeka', 'feedbacki czekają', 'feedbacków czeka')} na przeczytanie`,
-      description: 'Warto przejrzeć nowe sygnały od zawodników i odpowiedzieć tam, gdzie trzeba.',
+      title: `${unreadFeedbackCount} ${plural(unreadFeedbackCount, 'nieprzeczytany feedback czeka', 'nieprzeczytane feedbacki czekają', 'nieprzeczytanych feedbacków czeka')}`,
+      description: 'Przejrzyj nowe sygnały od zawodników i odpowiedz tam, gdzie sprawa nadal wymaga reakcji.',
       tone: unreadFeedbackCount >= 3 ? 'warning' : 'neutral',
       href: '/coach/feedback',
       cta: 'Otwórz feedback',
@@ -62,8 +62,8 @@ export function TodayActionsSection({
   if (unreadMessagesCount > 0) {
     items.push({
       id: 'messages',
-      title: `${unreadMessagesCount} ${plural(unreadMessagesCount, 'wiadomość czeka', 'wiadomości czekają', 'wiadomości czeka')} na odpowiedź`,
-      description: 'Zawodnicy napisali i jeszcze nie dostali odpowiedzi.',
+      title: `${unreadMessagesCount} ${plural(unreadMessagesCount, 'nieprzeczytana wiadomość czeka', 'nieprzeczytane wiadomości czekają', 'nieprzeczytanych wiadomości czeka')}`,
+      description: 'Zawodnicy napisali i te wiadomości nadal są nieprzeczytane w czacie.',
       tone: unreadMessagesCount >= 3 ? 'warning' : 'neutral',
       href: '/coach/chat',
       cta: 'Otwórz czat',

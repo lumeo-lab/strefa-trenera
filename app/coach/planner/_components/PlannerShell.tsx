@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { PlanTab } from '@/app/coach/athletes/[id]/_components/tabs/PlanTab'
 import type { CoachFeedbackRow, CoachTrainingSessionRow, FeedbackByDateMap, FeedbackBySessionMap } from '@/app/coach/athletes/[id]/_components/types'
@@ -18,10 +18,40 @@ interface Props {
   feedbacks: CoachFeedbackRow[]
   today: string
   currentMonth: string
+  requestedAthleteId?: string
 }
 
-export function PlannerShell({ athletes, sessions, feedbacks, today, currentMonth }: Props) {
+export function PlannerShell({ athletes, sessions, feedbacks, today, currentMonth, requestedAthleteId }: Props) {
   const [selectedAthleteId, setSelectedAthleteId] = useState(athletes[0]?.id ?? '')
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('coach_planner_shell')
+      if (saved) {
+        const parsed = JSON.parse(saved) as { selectedAthleteId?: string }
+        if (parsed.selectedAthleteId && athletes.some((athlete) => athlete.id === parsed.selectedAthleteId)) {
+          setSelectedAthleteId(parsed.selectedAthleteId)
+        }
+      }
+    } catch {
+      // ignore invalid saved planner state
+    } finally {
+      setReady(true)
+    }
+  }, [athletes])
+
+  useEffect(() => {
+    if (!ready || !requestedAthleteId) return
+    if (athletes.some((athlete) => athlete.id === requestedAthleteId)) {
+      setSelectedAthleteId(requestedAthleteId)
+    }
+  }, [ready, requestedAthleteId, athletes])
+
+  useEffect(() => {
+    if (!ready) return
+    localStorage.setItem('coach_planner_shell', JSON.stringify({ selectedAthleteId }))
+  }, [ready, selectedAthleteId])
 
   const selectedAthlete = athletes.find(a => a.id === selectedAthleteId)
 
@@ -63,6 +93,19 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
     )
   }
 
+  if (!ready) {
+    return (
+      <div>
+        <CoachTopbar title="Planer" subtitle="Ładowanie..." />
+        <div className="p-4 sm:p-6">
+          <div className="rounded-2xl px-4 py-10 text-sm" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+            Przywracanie ostatniego widoku planera...
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <CoachTopbar
@@ -96,7 +139,6 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
       />
 
       <div className="p-4 sm:p-6">
-        {/* Reuse PlanTab from athlete profile */}
         <PlanTab
           athleteId={selectedAthleteId}
           sessions={athleteSessions}
@@ -104,6 +146,7 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
           feedbackByDate={feedbackByDate}
           today={today}
           currentMonth={currentMonth}
+          persistenceKey={`coach_planner_tab:${selectedAthleteId}`}
         />
       </div>
     </div>

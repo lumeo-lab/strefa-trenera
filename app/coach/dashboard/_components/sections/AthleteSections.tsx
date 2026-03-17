@@ -60,7 +60,7 @@ export function NoSessionsSection({ noSessionsAthletes }: {
       ) : (
         <div className="space-y-2">
           {noSessionsAthletes.slice(0, 6).map((a) => (
-            <Link key={a.id} href={`/coach/athletes/${a.id}`}
+            <Link key={a.id} href={`/coach/planner?athlete=${a.id}`}
               className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
               style={{ background: 'var(--bg-elevated)' }}>
               <Avatar initials={a.avatar} size="sm" />

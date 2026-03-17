@@ -80,7 +80,7 @@ export function TodayPlanSection({ sessions, todayCompleted }: {
           {sessions.map((s) => {
             const ath = s.athletes
             return (
-              <Link key={s.id} href={`/coach/athletes/${s.athlete_id}`}
+              <Link key={s.id} href={`/coach/planner?athlete=${s.athlete_id}`}
                 className="flex items-center gap-3 p-3 rounded-xl transition-opacity hover:opacity-80"
                 style={{ background: 'var(--bg-elevated)' }}>
                 <Avatar initials={ath?.avatar ?? '?'} size="sm" />

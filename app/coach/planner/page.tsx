@@ -6,42 +6,35 @@ import { PlannerShell } from './_components/PlannerShell'
 
 export const metadata: Metadata = { title: 'Planer | Strefa Trenera' }
 
-export default async function PlannerPage() {
+export default async function PlannerPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const today = getBusinessToday()
   const currentMonth = today.slice(0, 7)
+  const params = (await searchParams) ?? {}
+  const requestedAthleteId = typeof params.athlete === 'string' ? params.athlete : ''
 
-  const [{ data: athletes }, { data: sessions }, { data: feedbacks }] = await Promise.all([
-    supabase
-      .from('athletes')
-      .select('id, name, avatar, status')
-      .eq('coach_id', user.id)
-      .neq('status', 'inactive')
-      .order('name'),
-    supabase
-      .from('training_sessions')
-      .select('*')
-      .eq('coach_id', user.id)
-      .order('date', { ascending: false })
-      .limit(500),
-    supabase
-      .from('feedbacks')
-      .select('*')
-      .eq('coach_id', user.id)
-      .order('date', { ascending: false })
-      .limit(500),
-  ])
+  const { data: athletes } = await supabase
+    .from('athletes')
+    .select('id, name, avatar, status')
+    .eq('coach_id', user.id)
+    .neq('status', 'inactive')
+    .order('name')
 
   return (
     <PlannerShell
       athletes={athletes ?? []}
-      sessions={sessions ?? []}
-      feedbacks={feedbacks ?? []}
+      sessions={[]}
+      feedbacks={[]}
       today={today}
       currentMonth={currentMonth}
+      requestedAthleteId={requestedAthleteId}
     />
   )
 }

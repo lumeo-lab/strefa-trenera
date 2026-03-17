@@ -47,6 +47,10 @@ function getMonthBounds(monthStr: string): { from: string; to: string } {
   }
 }
 
+function formatFeedbackBadgeLabel(sessionTitle: string, totalSessions: number) {
+  return totalSessions > 1 ? `feedback · ${sessionTitle}` : 'feedback'
+}
+
 interface PlanTabProps {
   athleteId: string
   sessions: CoachTrainingSessionRow[]
@@ -54,9 +58,10 @@ interface PlanTabProps {
   feedbackByDate: FeedbackByDateMap
   today: string
   currentMonth: string
+  persistenceKey?: string
 }
 
-export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate, today, currentMonth }: PlanTabProps) {
+export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate, today, currentMonth, persistenceKey }: PlanTabProps) {
   const router = useRouter()
   const { all: allSessionTypes } = useCustomSessionTypes()
 
@@ -81,6 +86,7 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; created_at: string }>>([])
   const [templatesLoading, setTemplatesLoading] = useState(false)
   const [templateActionLoading, setTemplateActionLoading] = useState(false)
+  const [stateReady, setStateReady] = useState(!persistenceKey)
 
   // Session modal
   const [sessionModalOpen, setSessionModalOpen] = useState(false)
@@ -264,10 +270,70 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
   const weekStart = toISODate(weekDays[0])
   const weekEnd = toISODate(weekDays[6])
   const weekSessions = visibleSessions.filter(s => s.date >= weekStart && s.date <= weekEnd)
+  const monthSessions = visibleSessions.filter((session) => session.date.slice(0, 7) === selectedMonth)
 
   // Plan month data
   const calendarWeeks = getMonthCalendar(selectedMonth)
   const range = planView === 'week' ? { from: weekStart, to: weekEnd } : getMonthBounds(selectedMonth)
+
+  useEffect(() => {
+    if (!persistenceKey) {
+      setStateReady(true)
+      return
+    }
+
+    setStateReady(false)
+    try {
+      const saved = localStorage.getItem(persistenceKey)
+      if (saved) {
+        const parsed = JSON.parse(saved) as {
+          planView?: 'week' | 'month'
+          density?: 'full' | 'compact'
+          showFeedback?: boolean
+          weekOffset?: number
+          selectedMonth?: string
+          selectedDay?: string | null
+        }
+        if (parsed.planView === 'week' || parsed.planView === 'month') setPlanView(parsed.planView)
+        if (parsed.density === 'full' || parsed.density === 'compact') setDensity(parsed.density)
+        if (typeof parsed.showFeedback === 'boolean') setShowFeedback(parsed.showFeedback)
+        if (typeof parsed.weekOffset === 'number' && Number.isFinite(parsed.weekOffset)) setWeekOffset(parsed.weekOffset)
+        if (typeof parsed.selectedMonth === 'string' && /^\d{4}-\d{2}$/.test(parsed.selectedMonth)) setSelectedMonth(parsed.selectedMonth)
+        if (typeof parsed.selectedDay === 'string' || parsed.selectedDay === null) setSelectedDay(parsed.selectedDay ?? null)
+      } else {
+        setPlanView('week')
+        setDensity('full')
+        setShowFeedback(true)
+        setWeekOffset(0)
+        setSelectedMonth(currentMonth)
+        setSelectedDay(null)
+      }
+    } catch {
+      setPlanView('week')
+      setDensity('full')
+      setShowFeedback(true)
+      setWeekOffset(0)
+      setSelectedMonth(currentMonth)
+      setSelectedDay(null)
+    } finally {
+      setStateReady(true)
+    }
+  }, [persistenceKey, currentMonth, athleteId])
+
+  useEffect(() => {
+    if (!persistenceKey || !stateReady) return
+    localStorage.setItem(
+      persistenceKey,
+      JSON.stringify({
+        planView,
+        density,
+        showFeedback,
+        weekOffset,
+        selectedMonth,
+        selectedDay,
+      }),
+    )
+  }, [persistenceKey, stateReady, planView, density, showFeedback, weekOffset, selectedMonth, selectedDay])
 
   useEffect(() => {
     setVisibleSessions(sessions)
@@ -277,6 +343,9 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
+
+    if (!stateReady) return () => {}
 
     async function loadRange() {
       if (!athleteId) return
@@ -287,7 +356,10 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
           from: range.from,
           to: range.to,
         })
-        const res = await fetch(`/api/planner?${params.toString()}`, { cache: 'no-store' })
+        const res = await fetch(`/api/planner?${params.toString()}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
         const data = (await res.json().catch(() => null)) as {
           error?: string
           sessions?: CoachTrainingSessionRow[]
@@ -315,6 +387,8 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
         setVisibleFeedbackByDate(nextFeedbackByDate)
       } catch (error) {
         if (cancelled) return
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (error instanceof TypeError && error.message === 'Load failed') return
         setStatusMessage({
           tone: 'error',
           text: error instanceof Error ? error.message : 'Nie udało się pobrać danych planera.',
@@ -328,96 +402,127 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
 
     return () => {
       cancelled = true
+      controller.abort()
     }
-  }, [athleteId, range.from, range.to])
+  }, [athleteId, range.from, range.to, stateReady])
+
+  if (!stateReady) {
+    return (
+      <div className="rounded-2xl px-4 py-10 text-sm" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+        Przywracanie ostatniego widoku planera...
+      </div>
+    )
+  }
 
   return (
     <>
       <div>
         {/* Toolbar */}
-        <div className="flex flex-col gap-3 mb-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <button
-              onClick={() => setPlanView('week')}
-              className="flex-1 px-4 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
-              style={{ background: planView === 'week' ? '#FF5C1B' : 'transparent', color: planView === 'week' ? 'white' : 'var(--text-muted)' }}
-            >📅 Tydzień</button>
-            <button
-              onClick={() => setPlanView('month')}
-              className="flex-1 px-4 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
-              style={{ background: planView === 'month' ? '#FF5C1B' : 'transparent', color: planView === 'month' ? 'white' : 'var(--text-muted)' }}
-            >📆 Miesiąc</button>
-          </div>
-
-          <div className="flex flex-wrap items-start gap-3 xl:justify-end">
-            <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <button
-                onClick={() => setDensity('full')}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
-                style={{ background: density === 'full' ? '#FF5C1B' : 'transparent', color: density === 'full' ? 'white' : 'var(--text-muted)' }}
-              >
-                Widok pełny
-              </button>
-              <button
-                onClick={() => setDensity('compact')}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
-                style={{ background: density === 'compact' ? '#FF5C1B' : 'transparent', color: density === 'compact' ? 'white' : 'var(--text-muted)' }}
-              >
-                Widok skrócony
-              </button>
-            </div>
-            <button
-              onClick={() => setShowFeedback((value) => !value)}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap inline-flex items-center gap-1.5"
-              style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-            >
-              <span>{showFeedback ? '🙈' : '💬'}</span>
-              <span>{showFeedback ? 'Ukryj feedback' : 'Pokaż feedback'}</span>
-            </button>
-            {planView === 'week' ? (
-              <div className="flex flex-wrap items-center gap-3">
+        <div className="mb-4 space-y-3">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+            <div className="rounded-2xl p-1" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
               <div className="flex gap-1">
-                <button onClick={() => setWeekOffset(w => w - 1)} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>←</button>
-                <button onClick={() => setWeekOffset(0)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Dziś</button>
-                <button onClick={() => setWeekOffset(w => w + 1)} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>→</button>
+                <button
+                  onClick={() => setPlanView('week')}
+                  className="flex-1 px-4 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
+                  style={{ background: planView === 'week' ? '#FF5C1B' : 'transparent', color: planView === 'week' ? 'white' : 'var(--text-muted)' }}
+                >📅 Tydzień</button>
+                <button
+                  onClick={() => setPlanView('month')}
+                  className="flex-1 px-4 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
+                  style={{ background: planView === 'month' ? '#FF5C1B' : 'transparent', color: planView === 'month' ? 'white' : 'var(--text-muted)' }}
+                >📆 Miesiąc</button>
               </div>
-              <span className="text-sm whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
-                {formatDate(weekStart, { day: 'numeric', month: 'short' })} — {formatDate(weekEnd, { day: 'numeric', month: 'short' })}
-              </span>
-              {copyWeekConfirm ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Skopiować ten tydzień na kolejny?</span>
-                  <button onClick={handleCopyWeek} disabled={copyingWeek} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'rgba(255,92,27,0.12)', color: '#FF5C1B', border: '1px solid rgba(255,92,27,0.22)' }}>
-                    {copyingWeek ? 'Kopiowanie...' : 'Potwierdź'}
+            </div>
+
+            <div className="flex flex-wrap items-stretch gap-3 xl:justify-end">
+              <div className="rounded-2xl p-1" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setDensity('full')}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
+                    style={{ background: density === 'full' ? '#FF5C1B' : 'transparent', color: density === 'full' ? 'white' : 'var(--text-muted)' }}
+                  >
+                    Widok pełny
                   </button>
-                  <button onClick={() => setCopyWeekConfirm(false)} disabled={copyingWeek} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                    Anuluj
+                  <button
+                    onClick={() => setDensity('compact')}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
+                    style={{ background: density === 'compact' ? '#FF5C1B' : 'transparent', color: density === 'compact' ? 'white' : 'var(--text-muted)' }}
+                  >
+                    Widok skrócony
                   </button>
                 </div>
-              ) : (
-                <>
-                  <button onClick={() => setCopyWeekConfirm(true)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                    Skopiuj tydzień
-                  </button>
-                  <button onClick={() => setSaveTemplateOpen(true)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                    Zapisz szablon
-                  </button>
-                  <button onClick={() => void handleOpenTemplates()} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                    Użyj szablonu
-                  </button>
-                </>
-              )}
+              </div>
+              <button
+                onClick={() => setShowFeedback((value) => !value)}
+                className="px-3 py-1.5 rounded-xl text-sm font-medium cursor-pointer transition-all whitespace-nowrap inline-flex items-center gap-1.5"
+                style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+              >
+                <span>{showFeedback ? '🙈' : '💬'}</span>
+                <span>{showFeedback ? 'Ukryj feedback' : 'Pokaż feedback'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-2xl px-3 py-2.5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            {planView === 'week' ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex gap-1">
+                    <button onClick={() => setWeekOffset(w => w - 1)} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>←</button>
+                    <button onClick={() => setWeekOffset(0)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Dziś</button>
+                    <button onClick={() => setWeekOffset(w => w + 1)} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>→</button>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Zakres</div>
+                    <div className="text-sm font-medium">
+                      {formatDate(weekStart, { day: 'numeric', month: 'short' })} — {formatDate(weekEnd, { day: 'numeric', month: 'short' })}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {copyWeekConfirm ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Skopiować ten tydzień na kolejny?</span>
+                      <button onClick={handleCopyWeek} disabled={copyingWeek} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'rgba(255,92,27,0.12)', color: '#FF5C1B', border: '1px solid rgba(255,92,27,0.22)' }}>
+                        {copyingWeek ? 'Kopiowanie...' : 'Potwierdź'}
+                      </button>
+                      <button onClick={() => setCopyWeekConfirm(false)} disabled={copyingWeek} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                        Anuluj
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button onClick={() => setCopyWeekConfirm(true)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                        Skopiuj tydzień
+                      </button>
+                      <button onClick={() => setSaveTemplateOpen(true)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                        Zapisz szablon
+                      </button>
+                      <button onClick={() => void handleOpenTemplates()} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                        Użyj szablonu
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             ) : (
-              <div className="flex flex-wrap items-center gap-3">
-              <div className="flex gap-1">
-                <button onClick={() => setSelectedMonth(m => shiftMonth(m, -1))} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>←</button>
-                <button onClick={() => setSelectedMonth(currentMonth)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Dziś</button>
-                <button onClick={() => setSelectedMonth(m => shiftMonth(m, 1))} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>→</button>
-              </div>
-              <span className="text-sm capitalize font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
-                {monthLabel(selectedMonth)}
-              </span>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex gap-1">
+                    <button onClick={() => setSelectedMonth(m => shiftMonth(m, -1))} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>←</button>
+                    <button onClick={() => setSelectedMonth(currentMonth)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Dziś</button>
+                    <button onClick={() => setSelectedMonth(m => shiftMonth(m, 1))} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>→</button>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Miesiąc</div>
+                    <div className="text-sm capitalize font-medium">{monthLabel(selectedMonth)}</div>
+                  </div>
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {monthSessions.length === 0 ? 'Brak zaplanowanych sesji w tym miesiącu.' : `${monthSessions.length} ${monthSessions.length === 1 ? 'sesja' : monthSessions.length < 5 ? 'sesje' : 'sesji'} w tym miesiącu`}
+                </div>
               </div>
             )}
           </div>
@@ -445,10 +550,28 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
         {/* Week view */}
         {planView === 'week' && (
           <div className="overflow-x-auto pb-20">
+            {weekSessions.length === 0 && (
+              <div className="mb-4 rounded-2xl px-4 py-5" style={{ background: 'var(--bg-card)', border: '1px dashed var(--border)' }}>
+                <div className="text-sm font-semibold">Brak sesji w tym tygodniu</div>
+                <div className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Kliknij `+ dodaj` w wybranym dniu albo użyj szablonu, jeśli chcesz szybko ułożyć cały tydzień.
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-7 gap-2 min-w-[980px]" style={{ minHeight: '260px' }}>
               {weekDays.map(day => {
               const dateStr = toISODate(day)
               const daySessions = weekSessions.filter(s => s.date === dateStr)
+              const sessionFeedbacks = daySessions
+                .map((session) => ({ session, feedback: getSessionFeedback(session.id) }))
+                .filter((item): item is { session: CoachTrainingSessionRow; feedback: CoachFeedbackRow } => !!item.feedback)
+              const dateFeedback = getDateFeedback(dateStr)
+              const canShowNoFeedback = dateStr < today
+              const missingSessionFeedbacks = canShowNoFeedback
+                ? daySessions.filter((session) => !getSessionFeedback(session.id))
+                : []
+              const showNoFeedback = missingSessionFeedbacks.length > 0 && !dateFeedback
+              const hasBottomFeedbackSection = sessionFeedbacks.length > 0 || !!dateFeedback || showNoFeedback
               const todayFlag = isToday(dateStr)
 
               return (
@@ -485,8 +608,8 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
                   </div>
                   <div className="flex-1 p-1.5 space-y-1.5 overflow-y-auto">
                     {daySessions.length === 0 && (
-                      <div className="h-full flex items-center justify-center py-4">
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>wolny</span>
+                      <div className="h-full flex items-center justify-center py-5">
+                        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>wolny dzień</span>
                       </div>
                     )}
                     {daySessions.map(session => (
@@ -507,6 +630,8 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
                             ...typeStyle(session.type),
                             ...completionStyle(session),
                             opacity: draggedSessionId === session.id ? 0.55 : 1,
+                            transition: 'transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease',
+                            boxShadow: draggedSessionId === session.id ? '0 10px 24px rgba(15,23,42,0.16)' : 'none',
                           }}>
                           <div className="font-semibold text-xs leading-tight mb-1">{session.title}</div>
                           {density === 'full' && session.description && <div className="text-xs opacity-60 leading-tight mb-1">{session.description}</div>}
@@ -529,41 +654,64 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
                             </a>
                           )}
                         </div>
-                        {showFeedback && getSessionFeedback(session.id) && (
-                          <button
-                            onClick={() => setFeedbackModalData(getSessionFeedback(session.id))}
-                            className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
-                            style={feedbackToneStyle(getSessionFeedback(session.id) as CoachFeedbackRow)}
-                          >
-                            <span>{feedbackToneIcon(getSessionFeedback(session.id) as CoachFeedbackRow)}</span>
-                            <span>feedback</span>
-                          </button>
-                        )}
                       </div>
                     ))}
                   </div>
-                  {showFeedback && daySessions.length > 0 && !daySessions.some((session) => getSessionFeedback(session.id)) && (
+                  {showFeedback && daySessions.length > 0 && hasBottomFeedbackSection && (
                     <div
                       className="px-1.5 pb-3 pt-2 shrink-0"
                       style={{ borderTop: '1px dashed var(--border-strong)' }}
                     >
-                      {getDateFeedback(dateStr) ? (
-                        <button onClick={() => setFeedbackModalData(getDateFeedback(dateStr))}
+                      {sessionFeedbacks.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {sessionFeedbacks.map(({ session, feedback }) => (
+                            <button
+                              key={feedback.id}
+                              onClick={() => setFeedbackModalData(feedback)}
+                              className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
+                              style={feedbackToneStyle(feedback)}
+                            >
+                              <span>{feedbackToneIcon(feedback)}</span>
+                              <span>{formatFeedbackBadgeLabel(session.title, daySessions.length)}</span>
+                            </button>
+                          ))}
+                          {dateFeedback && (
+                            <button
+                              onClick={() => setFeedbackModalData(dateFeedback)}
+                              className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
+                              style={feedbackToneStyle(dateFeedback)}
+                            >
+                              <span>{feedbackToneIcon(dateFeedback)}</span>
+                              <span>feedback dzienny</span>
+                            </button>
+                          )}
+                          {showNoFeedback && (
+                            <div
+                              className="w-full py-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1"
+                              style={noFeedbackStyle}
+                            >
+                              <span style={{ color: '#DC2626' }}>✕</span>
+                              <span>{missingSessionFeedbacks.length > 1 ? 'brak feedbacku przy części treningów' : 'brak feedbacku'}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : dateFeedback ? (
+                        <button onClick={() => setFeedbackModalData(dateFeedback)}
                           className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
-                          style={feedbackToneStyle(getDateFeedback(dateStr) as CoachFeedbackRow)}>
-                          <span>{feedbackToneIcon(getDateFeedback(dateStr) as CoachFeedbackRow)}</span>
+                          style={feedbackToneStyle(dateFeedback)}>
+                          <span>{feedbackToneIcon(dateFeedback)}</span>
                           <span>feedback</span>
                         </button>
-                      ) : (
+                      ) : showNoFeedback ? (
                         <div
                           className="w-full py-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1"
                           style={noFeedbackStyle}
                         >
                           <span style={{ color: '#DC2626' }}>✕</span>
-                          <span>brak feedbacku</span>
+                          <span>{missingSessionFeedbacks.length > 1 ? 'brak feedbacku przy części treningów' : 'brak feedbacku'}</span>
                         </div>
-                      )}
-                    </div>
+                      ) : null}
+                  </div>
                   )}
                   <div className="p-1.5 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
                     <button onClick={() => openNewSession(dateStr)}
@@ -580,6 +728,14 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
         {/* Month view */}
         {planView === 'month' && (
           <div className="pb-20 overflow-x-auto">
+            {monthSessions.length === 0 && (
+              <div className="mb-4 rounded-2xl px-4 py-5" style={{ background: 'var(--bg-card)', border: '1px dashed var(--border)' }}>
+                <div className="text-sm font-semibold">Brak sesji w tym miesiącu</div>
+                <div className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Dodaj pierwszy trening z poziomu wybranego dnia albo wróć do widoku tygodnia, jeśli chcesz planować szybciej.
+                </div>
+              </div>
+            )}
             <div className="rounded-2xl overflow-hidden min-w-[980px]" style={{ border: '1px solid var(--border)' }}>
               <div className="grid grid-cols-7" style={{ borderBottom: '1px solid var(--border)' }}>
                 {['Pon', 'Wto', 'Śro', 'Czw', 'Pią', 'Sob', 'Nie'].map(d => (
@@ -593,11 +749,21 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
                       <div key={di} className="min-h-36 p-2" style={{ background: 'var(--bg-base)', borderRight: di < 6 ? '1px solid var(--border)' : 'none' }} />
                     )
                     const daySessions = visibleSessions.filter(s => s.date === dateStr)
+                    const sessionFeedbacks = daySessions
+                      .map((session) => ({ session, feedback: getSessionFeedback(session.id) }))
+                      .filter((item): item is { session: CoachTrainingSessionRow; feedback: CoachFeedbackRow } => !!item.feedback)
+                    const dateFeedback = getDateFeedback(dateStr)
+                    const canShowNoFeedback = dateStr < today
+                    const missingSessionFeedbacks = canShowNoFeedback
+                      ? daySessions.filter((session) => !getSessionFeedback(session.id))
+                      : []
+                    const showNoFeedback = missingSessionFeedbacks.length > 0 && !dateFeedback
+                    const hasBottomFeedbackSection = sessionFeedbacks.length > 0 || !!dateFeedback || showNoFeedback
                     const todayFlag = isToday(dateStr)
                     const isSelected = selectedDay === dateStr
                     const dayNum = parseInt(dateStr.split('-')[2])
                     return (
-                      <div key={dateStr} className="min-h-40 p-2 transition-colors flex flex-col"
+                      <div key={dateStr} className="min-h-44 p-2 transition-colors flex flex-col"
                         onDragOver={(e) => {
                           if (!draggedSessionId) return
                           e.preventDefault()
@@ -654,6 +820,8 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
                                   ...typeStyle(s.type),
                                   ...completionStyle(s),
                                   opacity: draggedSessionId === s.id ? 0.55 : 1,
+                                  transition: 'transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease',
+                                  boxShadow: draggedSessionId === s.id ? '0 10px 24px rgba(15,23,42,0.16)' : 'none',
                                 }}>
                                 <div className="font-semibold text-xs leading-tight mb-1">{s.title}</div>
                                 {density === 'full' && s.description && <div className="text-xs opacity-60 leading-tight mb-1">{s.description}</div>}
@@ -676,38 +844,59 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
                                   </a>
                                 )}
                               </div>
-                              {showFeedback && getSessionFeedback(s.id) && (
-                                <button
-                                  onClick={e => { e.stopPropagation(); setFeedbackModalData(getSessionFeedback(s.id)) }}
-                                  className="w-full text-center cursor-pointer rounded-lg py-0.5"
-                                  style={{ fontSize: '10px', ...feedbackToneStyle(getSessionFeedback(s.id) as CoachFeedbackRow) }}
-                                >
-                                  {feedbackToneIcon(getSessionFeedback(s.id) as CoachFeedbackRow)} feedback
-                                </button>
-                              )}
                             </div>
                           ))}
                           {daySessions.length > 3 && <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>+{daySessions.length - 3} więcej</div>}
                         </div>
-                        {showFeedback && daySessions.length > 0 && !daySessions.some((session) => getSessionFeedback(session.id)) && (
+                        {showFeedback && daySessions.length > 0 && hasBottomFeedbackSection && (
                           <div
                             className="mt-auto pt-2"
                             style={{ borderTop: '1px dashed var(--border-strong)' }}
                           >
-                            {getDateFeedback(dateStr) ? (
-                              <button onClick={e => { e.stopPropagation(); setFeedbackModalData(getDateFeedback(dateStr)) }}
+                            {sessionFeedbacks.length > 0 ? (
+                              <div className="space-y-1.5">
+                                {sessionFeedbacks.map(({ session, feedback }) => (
+                                  <button
+                                    key={feedback.id}
+                                    onClick={e => { e.stopPropagation(); setFeedbackModalData(feedback) }}
+                                    className="w-full text-center cursor-pointer rounded-lg py-0.5"
+                                    style={{ fontSize: '10px', ...feedbackToneStyle(feedback) }}
+                                  >
+                                    {feedbackToneIcon(feedback)} {formatFeedbackBadgeLabel(session.title, daySessions.length)}
+                                  </button>
+                                ))}
+                                {dateFeedback && (
+                                  <button
+                                    onClick={e => { e.stopPropagation(); setFeedbackModalData(dateFeedback) }}
+                                    className="w-full text-center cursor-pointer rounded-lg py-0.5"
+                                    style={{ fontSize: '10px', ...feedbackToneStyle(dateFeedback) }}
+                                  >
+                                    {feedbackToneIcon(dateFeedback)} feedback dzienny
+                                  </button>
+                                )}
+                                {showNoFeedback && (
+                                  <div
+                                    className="w-full text-center rounded-lg py-0.5"
+                                    style={{ fontSize: '10px', ...noFeedbackStyle }}
+                                  >
+                                    <span style={{ color: '#DC2626' }}>✕</span> {missingSessionFeedbacks.length > 1 ? 'brak feedbacku przy części treningów' : 'brak feedbacku'}
+                                  </div>
+                                )}
+                              </div>
+                            ) : dateFeedback ? (
+                              <button onClick={e => { e.stopPropagation(); setFeedbackModalData(dateFeedback) }}
                                 className="w-full text-center cursor-pointer rounded-lg py-0.5"
-                                style={{ fontSize: '10px', ...feedbackToneStyle(getDateFeedback(dateStr) as CoachFeedbackRow) }}>
-                                {feedbackToneIcon(getDateFeedback(dateStr) as CoachFeedbackRow)} feedback
+                                style={{ fontSize: '10px', ...feedbackToneStyle(dateFeedback) }}>
+                                {feedbackToneIcon(dateFeedback)} feedback
                               </button>
-                            ) : (
+                            ) : showNoFeedback ? (
                               <div
                                 className="w-full text-center rounded-lg py-0.5"
                                 style={{ fontSize: '10px', ...noFeedbackStyle }}
                               >
-                                <span style={{ color: '#DC2626' }}>✕</span> brak feedbacku
+                                <span style={{ color: '#DC2626' }}>✕</span> {missingSessionFeedbacks.length > 1 ? 'brak feedbacku przy części treningów' : 'brak feedbacku'}
                               </div>
-                            )}
+                            ) : null}
                           </div>
                         )}
                       </div>
@@ -823,7 +1012,7 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
             <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Ładowanie szablonów...</div>
           ) : templates.length === 0 ? (
             <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Nie masz jeszcze zapisanych szablonów tygodnia.
+              Nie masz jeszcze zapisanych szablonów tygodnia. Zapisz dobry układ tygodnia, żeby potem używać go jednym kliknięciem.
             </div>
           ) : (
             templates.map((template) => (

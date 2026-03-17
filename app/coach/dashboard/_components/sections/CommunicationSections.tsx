@@ -56,13 +56,13 @@ export function FeedbackListSection({ feedbacks }: {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold">Feedback czekający na przeczytanie</h3>
+        <h3 className="font-semibold">Nieprzeczytane feedbacki</h3>
         <Link href="/coach/feedback" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Wszystkie →</Link>
       </div>
       {feedbacks.length === 0 ? (
         <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
           <div className="text-3xl mb-2">📥</div>
-          <div className="text-sm">Nie ma feedbacku, który czeka na przeczytanie.</div>
+          <div className="text-sm">Nie ma nieprzeczytanych feedbacków.</div>
         </div>
       ) : (
         <div className="space-y-3">

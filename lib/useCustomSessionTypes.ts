@@ -96,6 +96,7 @@ export function useCustomSessionTypes() {
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
     function handleExternalUpdate(event: Event) {
       const detail = (event as CustomEvent<{ builtins: SessionTypeDef[]; custom: SessionTypeDef[] }>).detail
@@ -146,7 +147,7 @@ export function useCustomSessionTypes() {
       migrationDataRef.current = { builtins: migratedBuiltins, custom: migratedCustom }
 
       try {
-        const res = await fetch('/api/session-types', { cache: 'no-store' })
+        const res = await fetch('/api/session-types', { cache: 'no-store', signal: controller.signal })
         const data = (await res.json().catch(() => null)) as {
           error?: string
           items?: Array<{
@@ -205,7 +206,9 @@ export function useCustomSessionTypes() {
         ) {
           await saveAll(migrationDataRef.current.builtins, migrationDataRef.current.custom)
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (error instanceof TypeError && error.message === 'Load failed') return
         if (!cancelled && migrationDataRef.current) {
           setBuiltins(migrationDataRef.current.builtins)
           setCustom(migrationDataRef.current.custom)
@@ -219,6 +222,7 @@ export function useCustomSessionTypes() {
 
     return () => {
       cancelled = true
+      controller.abort()
       if (typeof window !== 'undefined') {
         window.removeEventListener(SESSION_TYPES_UPDATED_EVENT, handleExternalUpdate as EventListener)
       }
