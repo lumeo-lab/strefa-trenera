@@ -165,8 +165,11 @@ export default function HelpPage() {
   const [category, setCategory] = useState<'all' | HelpCategory>('all')
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
+  const [formSubject, setFormSubject] = useState('')
   const [formMsg, setFormMsg] = useState('')
-  const [contactOpened, setContactOpened] = useState(false)
+  const [contactState, setContactState] = useState<'idle' | 'success' | 'error'>('idle')
+  const [contactMessage, setContactMessage] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [emailCopied, setEmailCopied] = useState(false)
   const [votes, setVotes] = useState<Record<string, 'yes' | 'no'>>(() => {
     if (typeof window === 'undefined') return {}
@@ -196,12 +199,44 @@ export default function HelpPage() {
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const subject = encodeURIComponent('Pytanie od trenera — Strefa Trenera')
-    const body = encodeURIComponent(`Imię: ${formName}\nEmail: ${formEmail}\n\n${formMsg}`)
-    window.open(`mailto:kontakt@strefa-trenera.pl?subject=${subject}&body=${body}`)
-    setContactOpened(true)
+    setIsSubmitting(true)
+    setContactState('idle')
+    setContactMessage('')
+
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formName,
+          email: formEmail,
+          subject: formSubject,
+          message: formMsg,
+        }),
+      })
+
+      const data = (await res.json().catch(() => null)) as { error?: string } | null
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Nie udało się wysłać wiadomości. Spróbuj ponownie.')
+      }
+
+      setContactState('success')
+      setContactMessage('Wiadomość została wysłana. Odpowiemy możliwie szybko.')
+      setFormName('')
+      setFormEmail('')
+      setFormSubject('')
+      setFormMsg('')
+    } catch (error) {
+      setContactState('error')
+      setContactMessage(
+        error instanceof Error ? error.message : 'Nie udało się wysłać wiadomości. Spróbuj ponownie.',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const visibleFaq = useMemo(() => {
@@ -247,21 +282,38 @@ export default function HelpPage() {
         <Card className="p-6">
           <h2 className="font-bold text-lg">Szybki kontakt</h2>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            Najszybciej odpowiadamy przez WhatsApp lub email. Jeśli użyjesz formularza poniżej, otworzymy gotową wiadomość w Twoim programie pocztowym.
+            Jeśli potrzebujesz pomocy, skontaktuj się z nami mailowo, przez WhatsApp albo przez formularz poniżej.
           </p>
 
           <div className="grid gap-4 sm:grid-cols-2 mt-5">
-            <a
-              href="mailto:kontakt@strefa-trenera.pl"
-              className="flex items-center gap-3 rounded-xl p-4 transition-opacity hover:opacity-85"
+            <div
+              className="flex items-center justify-between gap-3 rounded-xl p-4"
               style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
             >
+              <a
+                href="mailto:kontakt@strefa-trenera.pl"
+                className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-85"
+              >
               <span className="text-2xl">📧</span>
-              <div>
+              <div className="min-w-0">
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Email</div>
-                <div className="text-sm font-medium">kontakt@strefa-trenera.pl</div>
+                <div className="truncate text-sm font-medium">kontakt@strefa-trenera.pl</div>
               </div>
-            </a>
+              </a>
+              <button
+                type="button"
+                onClick={copyEmail}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg cursor-pointer transition-opacity hover:opacity-85"
+                style={{ background: 'var(--bg-hover)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                aria-label="Skopiuj adres email"
+                title={emailCopied ? 'Skopiowano email' : 'Skopiuj email'}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M9 9.75A2.25 2.25 0 0 1 11.25 7.5h7.5A2.25 2.25 0 0 1 21 9.75v9A2.25 2.25 0 0 1 18.75 21h-7.5A2.25 2.25 0 0 1 9 18.75v-9Z" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="M15 7.5V5.25A2.25 2.25 0 0 0 12.75 3h-7.5A2.25 2.25 0 0 0 3 5.25v9a2.25 2.25 0 0 0 2.25 2.25H9" stroke="currentColor" strokeWidth="1.8" />
+                </svg>
+              </button>
+            </div>
             <a
               href="https://wa.me/48662110067"
               target="_blank"
@@ -279,34 +331,31 @@ export default function HelpPage() {
 
           <div className="mt-4 flex flex-wrap items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
             <span>Odpowiadamy zazwyczaj w ciągu 24 godzin w dni robocze.</span>
-            <button
-              type="button"
-              onClick={copyEmail}
-              className="cursor-pointer rounded-lg px-2.5 py-1.5"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-            >
-              {emailCopied ? 'Skopiowano email' : 'Skopiuj email'}
-            </button>
+            {emailCopied ? <span style={{ color: '#22C55E' }}>Adres email skopiowany.</span> : null}
           </div>
         </Card>
 
         <Card className="p-6">
-          <h2 className="font-bold text-lg">Przygotuj wiadomość email</h2>
+          <h2 className="font-bold text-lg">Napisz do nas</h2>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            Ten formularz nie wysyła wiadomości przez aplikację. Po kliknięciu otworzy gotową wiadomość w Twoim programie pocztowym.
+            Wypełnij formularz, a wyślemy Twoją wiadomość bezpośrednio na `kontakt@strefa-trenera.pl`.
           </p>
-          {contactOpened ? (
-            <div className="mt-5 rounded-xl p-4" style={{ background: 'rgba(255,92,27,0.08)', border: '1px solid rgba(255,92,27,0.2)' }}>
-              <div className="font-medium">Otworzyliśmy wiadomość email.</div>
+          {contactState === 'success' ? (
+            <div className="mt-5 rounded-xl p-4" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.22)' }}>
+              <div className="font-medium">Wiadomość została wysłana.</div>
               <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                Jeśli nic się nie stało, napisz bezpośrednio na `kontakt@strefa-trenera.pl` albo użyj WhatsAppa.
+                {contactMessage}
               </p>
               <button
-                onClick={() => setContactOpened(false)}
+                type="button"
+                onClick={() => {
+                  setContactState('idle')
+                  setContactMessage('')
+                }}
                 className="mt-4 text-sm cursor-pointer"
                 style={{ color: '#FF5C1B', background: 'none', border: 'none' }}
               >
-                Przygotuj kolejną wiadomość
+                Wyślij kolejną wiadomość
               </button>
             </div>
           ) : (
@@ -337,6 +386,17 @@ export default function HelpPage() {
                 </div>
               </div>
               <div>
+                <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Temat</label>
+                <input
+                  value={formSubject}
+                  onChange={(e) => setFormSubject(e.target.value)}
+                  required
+                  placeholder="Krótko opisz, czego dotyczy wiadomość"
+                  className="w-full rounded-xl px-3 py-2.5 text-sm"
+                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                />
+              </div>
+              <div>
                 <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Wiadomość</label>
                 <textarea
                   value={formMsg}
@@ -348,12 +408,18 @@ export default function HelpPage() {
                   style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
                 />
               </div>
+              {contactState === 'error' ? (
+                <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)', color: '#DC2626' }}>
+                  {contactMessage}
+                </div>
+              ) : null}
               <button
                 type="submit"
-                className="rounded-xl px-6 py-2.5 text-sm font-semibold text-white cursor-pointer"
+                disabled={isSubmitting}
+                className="rounded-xl px-6 py-2.5 text-sm font-semibold text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
                 style={{ background: '#FF5C1B', border: 'none' }}
               >
-                Otwórz wiadomość email
+                {isSubmitting ? 'Wysyłanie...' : 'Wyślij wiadomość'}
               </button>
             </form>
           )}
