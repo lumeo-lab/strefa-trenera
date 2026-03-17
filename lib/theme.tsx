@@ -1,5 +1,5 @@
 'use client'
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useSyncExternalStore } from 'react'
 
 type Theme = 'dark' | 'light'
 
@@ -9,19 +9,33 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({ theme: 'dark', toggle: () => {} })
+const THEME_EVENT = 'coachbiz-theme-change'
+
+function subscribeThemeChange(callback: () => void) {
+  window.addEventListener('storage', callback)
+  window.addEventListener(THEME_EVENT, callback)
+  return () => {
+    window.removeEventListener('storage', callback)
+    window.removeEventListener(THEME_EVENT, callback)
+  }
+}
+
+function getClientThemeSnapshot(): Theme {
+  const storedTheme = window.localStorage.getItem('coachbiz-theme')
+  return storedTheme === 'light' ? 'light' : 'dark'
+}
+
+function getServerThemeSnapshot(): Theme {
+  return 'dark'
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'dark'
-    return (localStorage.getItem('coachbiz-theme') as Theme | null) ?? 'dark'
-  })
+  const theme = useSyncExternalStore(subscribeThemeChange, getClientThemeSnapshot, getServerThemeSnapshot)
 
   function toggle() {
-    setTheme(t => {
-      const next = t === 'dark' ? 'light' : 'dark'
-      localStorage.setItem('coachbiz-theme', next)
-      return next
-    })
+    const next = theme === 'dark' ? 'light' : 'dark'
+    window.localStorage.setItem('coachbiz-theme', next)
+    window.dispatchEvent(new Event(THEME_EVENT))
   }
 
   return (

@@ -1,89 +1,274 @@
 'use client'
 
-import { useState } from 'react'
+import Link from 'next/link'
+import { useMemo, useState } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 
-const FAQ = [
+type HelpCategory =
+  | 'start'
+  | 'zawodnicy'
+  | 'plan'
+  | 'feedback'
+  | 'czat'
+  | 'faktury'
+  | 'pakiety'
+  | 'konto'
+
+type FaqItem = {
+  id: string
+  category: HelpCategory
+  q: string
+  a: string
+  href?: string
+  cta?: string
+}
+
+const CATEGORY_LABELS: Record<HelpCategory, string> = {
+  start: 'Pierwsze kroki',
+  zawodnicy: 'Zawodnicy',
+  plan: 'Plan',
+  feedback: 'Feedback',
+  czat: 'Czat',
+  faktury: 'Faktury',
+  pakiety: 'Pakiety',
+  konto: 'Konto',
+}
+
+const QUICK_ACTIONS = [
+  { label: 'Dodaj zawodnika', href: '/coach/athletes', icon: '👤' },
+  { label: 'Otwórz planer', href: '/coach/planner', icon: '📅' },
+  { label: 'Sprawdź feedback', href: '/coach/feedback', icon: '📝' },
+  { label: 'Przejdź do faktur', href: '/coach/invoices', icon: '💳' },
+]
+
+const FAQ: FaqItem[] = [
   {
+    id: 'add-athlete',
+    category: 'start',
     q: 'Jak dodać nowego zawodnika?',
-    a: 'Przejdź do zakładki „Zawodnicy" i kliknij „+ Dodaj zawodnika". Po dodaniu zawodnika skopiuj link zaproszenia i wyślij go zawodnikowi — możesz to zrobić przez WhatsApp lub email bezpośrednio z jego profilu.',
+    a: 'Przejdź do zakładki „Zawodnicy” i kliknij „+ Dodaj zawodnika”. Po dodaniu zawodnika skopiuj link zaproszenia i wyślij go zawodnikowi z jego profilu.',
+    href: '/coach/athletes',
+    cta: 'Otwórz zawodników',
   },
   {
+    id: 'invite-link',
+    category: 'zawodnicy',
+    q: 'Co zrobić, jeśli zawodnik zgubi link do panelu?',
+    a: 'Wejdź w profil zawodnika i skopiuj link zaproszenia ponownie. Ten sam link może być używany wielokrotnie.',
+    href: '/coach/athletes',
+    cta: 'Przejdź do zawodników',
+  },
+  {
+    id: 'athlete-access',
+    category: 'zawodnicy',
     q: 'Jak zawodnik uzyskuje dostęp do swojego panelu?',
-    a: 'Zawodnik klika w link zaproszenia, który go automatycznie loguje. Link działa wielokrotnie — zawodnik może go zapisać w zakładkach. Jeśli zawodnik zgubi link, możesz go skopiować ponownie z profilu zawodnika.',
+    a: 'Zawodnik klika w link zaproszenia, który automatycznie otwiera jego panel. Nie widzi innych zawodników ani danych trenera poza swoim kontekstem.',
+    href: '/coach/athletes',
+    cta: 'Sprawdź profile zawodników',
   },
   {
+    id: 'plan-add',
+    category: 'plan',
     q: 'Jak dodać trening do planu zawodnika?',
-    a: 'Wejdź w profil zawodnika → zakładka „Plan". W widoku tygodniowym kliknij „+ dodaj" pod wybranym dniem. W widoku miesięcznym kliknij „+" przy numerze dnia. Możesz ustawić typ treningu, dystans, czas i tempo.',
+    a: 'W planerze lub w profilu zawodnika w zakładce „Plan” wybierz dzień i dodaj sesję. Możesz ustawić typ treningu, tytuł, dystans, czas i tempo.',
+    href: '/coach/planner',
+    cta: 'Otwórz planer',
   },
   {
+    id: 'no-plan',
+    category: 'plan',
+    q: 'Co oznacza, że zawodnik nie ma planu do końca tygodnia?',
+    a: 'To sygnał, że od dziś do niedzieli nie ma dla niego żadnej zaplanowanej sesji. Najszybciej uzupełnisz to z planera lub z jego profilu.',
+    href: '/coach/planner',
+    cta: 'Uzupełnij plan',
+  },
+  {
+    id: 'feedback-read',
+    category: 'feedback',
     q: 'Jak działa feedback od zawodnika?',
-    a: 'Zawodnik po treningu otwiera swój panel i wypełnia formularz feedbacku — wybiera samopoczucie, typ treningu, dystans, czas i intensywność. Może też nagrać komentarz głosowy (przeglądarka automatycznie zamienia mowę na tekst). Trener widzi feedback w zakładce „Feedback" oraz przy konkretnym treningu w planie.',
+    a: 'Zawodnik po treningu może dodać opis, samopoczucie i komentarz głosowy. Trener widzi feedback w zakładce „Feedback” oraz przy zawodniku. Wpis nie znika sam z ważnych spraw po samym otwarciu.',
+    href: '/coach/feedback',
+    cta: 'Otwórz feedback',
   },
   {
-    q: 'Jak wystawić fakturę?',
-    a: 'Przejdź do zakładki „Faktury" i kliknij „+ Nowa faktura". Wybierz zawodnika (kwota wypełni się automatycznie z ceny pakietu), wpisz opis i termin płatności. Możesz dołączyć plik PDF/JPG. Status faktury zmieniasz klikając na badge statusu w tabeli.',
+    id: 'feedback-reply',
+    category: 'feedback',
+    q: 'Co oznacza „Bez odpowiedzi” w feedbacku?',
+    a: 'To feedbacki, na które trener jeszcze nie odpowiedział. Dzięki temu łatwiej znaleźć sprawy, które nadal czekają na reakcję.',
+    href: '/coach/feedback',
+    cta: 'Sprawdź odpowiedzi',
   },
   {
+    id: 'chat-send',
+    category: 'czat',
     q: 'Jak wysłać wiadomość do zawodnika?',
-    a: 'Przejdź do zakładki „Czat", wybierz zawodnika z listy po lewej i napisz wiadomość. Zawodnik zobaczy ją w swoim panelu. Nowe wiadomości od zawodników są oznaczone liczbą przy jego nazwie.',
+    a: 'Przejdź do zakładki „Czat”, wybierz zawodnika z listy po lewej i napisz wiadomość. Zawodnik zobaczy ją w swoim panelu.',
+    href: '/coach/chat',
+    cta: 'Otwórz czat',
   },
   {
-    q: 'Jak zmienić hasło lub email?',
-    a: 'Przejdź do „Ustawienia" w dolnej części menu. Tam możesz zmienić imię i nazwisko, adres email (wymaga potwierdzenia) oraz hasło.',
+    id: 'chat-unread',
+    category: 'czat',
+    q: 'Co oznacza „Nieprzeczytane” w czacie?',
+    a: 'To rozmowy, w których są wiadomości od zawodnika jeszcze nieprzeczytane przez trenera. Filtr pomaga szybko wyłapać, komu trzeba odpisać.',
+    href: '/coach/chat',
+    cta: 'Przejdź do czatu',
   },
   {
-    q: 'Czy zawodnicy mogą widzieć wzajemnie swoje dane?',
-    a: 'Nie. Każdy zawodnik ma dostęp tylko do swojego panelu. Dane są oddzielone na poziomie bazy danych.',
+    id: 'invoice-create',
+    category: 'faktury',
+    q: 'Jak wystawić fakturę?',
+    a: 'Przejdź do zakładki „Faktury” i kliknij „+ Nowa faktura”. Wybierz zawodnika, wpisz opis i termin płatności. Kwota może wypełnić się automatycznie z ceny pakietu.',
+    href: '/coach/invoices',
+    cta: 'Otwórz faktury',
   },
   {
-    q: 'Co oznacza „Obciążenie 7 dni" na liście zawodników?',
-    a: 'To suma kilometrów z treningów z ostatnich 7 dni. Pomaga szybko ocenić aktualny poziom obciążenia bez wchodzenia w profil każdego zawodnika.',
+    id: 'invoice-status',
+    category: 'faktury',
+    q: 'Jak działa status oczekująca, opłacona i przeterminowana?',
+    a: 'Opłacona oznacza, że płatność została zaksięgowana. Oczekująca to faktura jeszcze nieopłacona w terminie. Przeterminowana oznacza fakturę po terminie płatności.',
+    href: '/coach/invoices',
+    cta: 'Sprawdź płatności',
   },
   {
+    id: 'packages',
+    category: 'pakiety',
     q: 'Jak działają pakiety i cennik?',
-    a: 'Przejdź do „Ustawienia" → zakładka „Pakiety i cennik". Tam tworzysz pakiety (np. Plan Pro, Plan Standard) z opisem i ceną miesięczną. Pakiet przypisujesz zawodnikowi w jego profilu w zakładce „Dane". Cena pakietu automatycznie wypełnia się przy tworzeniu faktury.',
+    a: 'W ustawieniach w zakładce „Pakiety i cennik” tworzysz własne pakiety z nazwą, opisem i ceną miesięczną. Potem przypisujesz je zawodnikom w ich danych.',
+    href: '/coach/settings',
+    cta: 'Przejdź do ustawień',
+  },
+  {
+    id: 'account',
+    category: 'konto',
+    q: 'Jak zmienić hasło, email lub awatar?',
+    a: 'W ustawieniach możesz zmienić nazwę, adres email, hasło i awatar. Zmiana emaila wymaga potwierdzenia na nowym adresie.',
+    href: '/coach/settings',
+    cta: 'Otwórz ustawienia',
+  },
+  {
+    id: 'privacy',
+    category: 'konto',
+    q: 'Czy zawodnicy mogą widzieć wzajemnie swoje dane?',
+    a: 'Nie. Każdy zawodnik ma dostęp tylko do swojego panelu i własnych danych.',
+    href: '/coach/athletes',
+    cta: 'Zobacz zawodników',
   },
 ]
 
+const HELP_VOTES_KEY = 'coach-help-votes'
+
 export default function HelpPage() {
-  const [open, setOpen] = useState<number | null>(null)
+  const [open, setOpen] = useState<string | null>(FAQ[0]?.id ?? null)
+  const [query, setQuery] = useState('')
+  const [category, setCategory] = useState<'all' | HelpCategory>('all')
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
   const [formMsg, setFormMsg] = useState('')
-  const [sent, setSent] = useState(false)
+  const [contactOpened, setContactOpened] = useState(false)
+  const [emailCopied, setEmailCopied] = useState(false)
+  const [votes, setVotes] = useState<Record<string, 'yes' | 'no'>>(() => {
+    if (typeof window === 'undefined') return {}
+    const raw = window.localStorage.getItem(HELP_VOTES_KEY)
+    if (!raw) return {}
+    try {
+      return JSON.parse(raw) as Record<string, 'yes' | 'no'>
+    } catch {
+      window.localStorage.removeItem(HELP_VOTES_KEY)
+      return {}
+    }
+  })
+
+  function saveVote(id: string, vote: 'yes' | 'no') {
+    const next = { ...votes, [id]: vote }
+    setVotes(next)
+    window.localStorage.setItem(HELP_VOTES_KEY, JSON.stringify(next))
+  }
+
+  async function copyEmail() {
+    try {
+      await navigator.clipboard.writeText('kontakt@strefa-trenera.pl')
+      setEmailCopied(true)
+      window.setTimeout(() => setEmailCopied(false), 1800)
+    } catch {
+      setEmailCopied(false)
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const subject = encodeURIComponent('Pytanie od trenera — Strefa Trenera')
     const body = encodeURIComponent(`Imię: ${formName}\nEmail: ${formEmail}\n\n${formMsg}`)
     window.open(`mailto:kontakt@strefa-trenera.pl?subject=${subject}&body=${body}`)
-    setSent(true)
+    setContactOpened(true)
   }
+
+  const visibleFaq = useMemo(() => {
+    const normalized = query.trim().toLowerCase()
+    return FAQ.filter((item) => {
+      const inCategory = category === 'all' || item.category === category
+      const inSearch = !normalized
+        || item.q.toLowerCase().includes(normalized)
+        || item.a.toLowerCase().includes(normalized)
+      return inCategory && inSearch
+    })
+  }, [category, query])
 
   return (
     <div>
-      <CoachTopbar title="Pomoc" subtitle="FAQ i kontakt" />
+      <CoachTopbar title="Pomoc" subtitle="FAQ, szybkie skróty i kontakt" />
 
-      <div className="p-6 max-w-3xl mx-auto space-y-8">
-
-        {/* Contact info */}
+      <div className="p-6 max-w-4xl mx-auto space-y-8">
         <Card className="p-6">
-          <h2 className="font-bold text-lg mb-4">Kontakt</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <a href="mailto:kontakt@strefa-trenera.pl"
-              className="flex items-center gap-3 p-4 rounded-xl transition-colors hover:opacity-80"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="font-bold text-lg">Szybkie skróty</h2>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                Najczęstsze miejsca, do których trener wraca podczas codziennej pracy.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mt-5">
+            {QUICK_ACTIONS.map((action) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 transition-opacity hover:opacity-85"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+              >
+                <span className="text-xl">{action.icon}</span>
+                <span className="text-sm font-medium">{action.label}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <h2 className="font-bold text-lg">Szybki kontakt</h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+            Najszybciej odpowiadamy przez WhatsApp lub email. Jeśli użyjesz formularza poniżej, otworzymy gotową wiadomość w Twoim programie pocztowym.
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2 mt-5">
+            <a
+              href="mailto:kontakt@strefa-trenera.pl"
+              className="flex items-center gap-3 rounded-xl p-4 transition-opacity hover:opacity-85"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+            >
               <span className="text-2xl">📧</span>
               <div>
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Email</div>
                 <div className="text-sm font-medium">kontakt@strefa-trenera.pl</div>
               </div>
             </a>
-            <a href="https://wa.me/48662110067" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-3 p-4 rounded-xl transition-colors hover:opacity-80"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+            <a
+              href="https://wa.me/48662110067"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-xl p-4 transition-opacity hover:opacity-85"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+            >
               <span className="text-2xl">💬</span>
               <div>
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>WhatsApp / telefon</div>
@@ -91,41 +276,62 @@ export default function HelpPage() {
               </div>
             </a>
           </div>
-          <p className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
-            Odpowiadamy zazwyczaj w ciągu 24 godzin w dni robocze.
-          </p>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+            <span>Odpowiadamy zazwyczaj w ciągu 24 godzin w dni robocze.</span>
+            <button
+              type="button"
+              onClick={copyEmail}
+              className="cursor-pointer rounded-lg px-2.5 py-1.5"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            >
+              {emailCopied ? 'Skopiowano email' : 'Skopiuj email'}
+            </button>
+          </div>
         </Card>
 
-        {/* Contact form */}
         <Card className="p-6">
-          <h2 className="font-bold text-lg mb-4">Napisz do nas</h2>
-          {sent ? (
-            <div className="py-6 text-center">
-              <div className="text-4xl mb-3">✅</div>
-              <div className="font-semibold mb-1">Otworzyliśmy Twój program pocztowy</div>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Wyślij wiadomość, aby skontaktować się z nami.</p>
-              <button onClick={() => setSent(false)} className="mt-4 text-sm cursor-pointer" style={{ color: '#FF5C1B', background: 'none', border: 'none' }}>
-                Napisz ponownie
+          <h2 className="font-bold text-lg">Przygotuj wiadomość email</h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+            Ten formularz nie wysyła wiadomości przez aplikację. Po kliknięciu otworzy gotową wiadomość w Twoim programie pocztowym.
+          </p>
+          {contactOpened ? (
+            <div className="mt-5 rounded-xl p-4" style={{ background: 'rgba(255,92,27,0.08)', border: '1px solid rgba(255,92,27,0.2)' }}>
+              <div className="font-medium">Otworzyliśmy wiadomość email.</div>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                Jeśli nic się nie stało, napisz bezpośrednio na `kontakt@strefa-trenera.pl` albo użyj WhatsAppa.
+              </p>
+              <button
+                onClick={() => setContactOpened(false)}
+                className="mt-4 text-sm cursor-pointer"
+                style={{ color: '#FF5C1B', background: 'none', border: 'none' }}
+              >
+                Przygotuj kolejną wiadomość
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid sm:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-4 mt-5">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Imię i nazwisko</label>
                   <input
-                    value={formName} onChange={e => setFormName(e.target.value)}
-                    required placeholder="np. Anna Kowalska"
-                    className="w-full px-3 py-2.5 rounded-xl text-sm"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    required
+                    placeholder="np. Anna Kowalska"
+                    className="w-full rounded-xl px-3 py-2.5 text-sm"
                     style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
                   />
                 </div>
                 <div>
                   <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Email</label>
                   <input
-                    type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)}
-                    required placeholder="twoj@email.com"
-                    className="w-full px-3 py-2.5 rounded-xl text-sm"
+                    type="email"
+                    value={formEmail}
+                    onChange={(e) => setFormEmail(e.target.value)}
+                    required
+                    placeholder="twoj@email.com"
+                    className="w-full rounded-xl px-3 py-2.5 text-sm"
                     style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
                   />
                 </div>
@@ -133,49 +339,160 @@ export default function HelpPage() {
               <div>
                 <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Wiadomość</label>
                 <textarea
-                  value={formMsg} onChange={e => setFormMsg(e.target.value)}
-                  required rows={5} placeholder="Opisz swój problem lub pytanie..."
-                  className="w-full px-3 py-2.5 rounded-xl text-sm resize-none"
+                  value={formMsg}
+                  onChange={(e) => setFormMsg(e.target.value)}
+                  required
+                  rows={5}
+                  placeholder="Opisz swój problem lub pytanie..."
+                  className="w-full resize-none rounded-xl px-3 py-2.5 text-sm"
                   style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
                 />
               </div>
               <button
                 type="submit"
-                className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white cursor-pointer"
+                className="rounded-xl px-6 py-2.5 text-sm font-semibold text-white cursor-pointer"
                 style={{ background: '#FF5C1B', border: 'none' }}
               >
-                Wyślij wiadomość
+                Otwórz wiadomość email
               </button>
             </form>
           )}
         </Card>
 
-        {/* FAQ */}
-        <div>
-          <h2 className="font-bold text-lg mb-4">Najczęstsze pytania (FAQ)</h2>
-          <div className="space-y-2">
-            {FAQ.map((item, i) => (
-              <div key={i} className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
-                <button
-                  onClick={() => setOpen(open === i ? null : i)}
-                  className="w-full flex items-center justify-between px-5 py-4 text-left cursor-pointer"
-                  style={{ background: 'none', border: 'none', color: 'var(--text-primary)' }}
-                >
-                  <span className="font-medium text-sm pr-4">{item.q}</span>
-                  <span className="text-lg shrink-0" style={{ color: 'var(--text-muted)' }}>
-                    {open === i ? '−' : '+'}
-                  </span>
-                </button>
-                {open === i && (
-                  <div className="px-5 pb-4 text-sm leading-relaxed" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
-                    <div className="pt-3">{item.a}</div>
-                  </div>
-                )}
-              </div>
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="font-bold text-lg">Najczęstsze pytania</h2>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                Szybko znajdź odpowiedź albo przejdź od razu do właściwego miejsca w panelu.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[minmax(280px,1fr)_220px] lg:w-[560px]">
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Szukaj w pytaniach i odpowiedziach..."
+                className="w-full rounded-xl px-3 py-2.5 text-sm"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+              />
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as 'all' | HelpCategory)}
+                className="w-full rounded-xl px-3 py-2.5 text-sm cursor-pointer"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+              >
+                <option value="all">Wszystkie kategorie</option>
+                {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setCategory('all')}
+              className="rounded-xl px-3 py-2 text-sm cursor-pointer"
+              style={{
+                background: category === 'all' ? 'rgba(255,92,27,0.15)' : 'var(--bg-elevated)',
+                border: category === 'all' ? '1px solid rgba(255,92,27,0.25)' : '1px solid var(--border)',
+                color: category === 'all' ? '#FF5C1B' : 'var(--text-muted)',
+              }}
+            >
+              Wszystkie
+            </button>
+            {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setCategory(key as HelpCategory)}
+                className="rounded-xl px-3 py-2 text-sm cursor-pointer"
+                style={{
+                  background: category === key ? 'rgba(255,92,27,0.15)' : 'var(--bg-elevated)',
+                  border: category === key ? '1px solid rgba(255,92,27,0.25)' : '1px solid var(--border)',
+                  color: category === key ? '#FF5C1B' : 'var(--text-muted)',
+                }}
+              >
+                {label}
+              </button>
             ))}
           </div>
-        </div>
 
+          {visibleFaq.length === 0 ? (
+            <Card className="p-6">
+              <div className="text-sm font-medium">Nie znaleziono pasującej odpowiedzi.</div>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                Spróbuj innego słowa kluczowego albo skontaktuj się z nami przez email lub WhatsApp.
+              </p>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {visibleFaq.map((item) => (
+                <div key={item.id} className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+                  <button
+                    onClick={() => setOpen(open === item.id ? null : item.id)}
+                    className="w-full flex items-center justify-between px-5 py-4 text-left cursor-pointer"
+                    style={{ background: 'none', border: 'none', color: 'var(--text-primary)' }}
+                  >
+                    <div className="pr-4">
+                      <div className="text-xs mb-1" style={{ color: '#FF5C1B' }}>{CATEGORY_LABELS[item.category]}</div>
+                      <span className="font-medium text-sm">{item.q}</span>
+                    </div>
+                    <span className="text-lg shrink-0" style={{ color: 'var(--text-muted)' }}>
+                      {open === item.id ? '−' : '+'}
+                    </span>
+                  </button>
+                  {open === item.id && (
+                    <div className="px-5 pb-4" style={{ borderTop: '1px solid var(--border)' }}>
+                      <div className="pt-3 text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                        {item.a}
+                      </div>
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                          <span>Czy to pomogło?</span>
+                          <button
+                            type="button"
+                            onClick={() => saveVote(item.id, 'yes')}
+                            className="rounded-lg px-2.5 py-1.5 cursor-pointer"
+                            style={{
+                              background: votes[item.id] === 'yes' ? 'rgba(46,204,113,0.12)' : 'var(--bg-elevated)',
+                              border: votes[item.id] === 'yes' ? '1px solid rgba(46,204,113,0.3)' : '1px solid var(--border)',
+                              color: votes[item.id] === 'yes' ? '#2ECC71' : 'var(--text-muted)',
+                            }}
+                          >
+                            Tak
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => saveVote(item.id, 'no')}
+                            className="rounded-lg px-2.5 py-1.5 cursor-pointer"
+                            style={{
+                              background: votes[item.id] === 'no' ? 'rgba(231,76,60,0.12)' : 'var(--bg-elevated)',
+                              border: votes[item.id] === 'no' ? '1px solid rgba(231,76,60,0.3)' : '1px solid var(--border)',
+                              color: votes[item.id] === 'no' ? '#E74C3C' : 'var(--text-muted)',
+                            }}
+                          >
+                            Nie
+                          </button>
+                        </div>
+                        {item.href && item.cta && (
+                          <Link
+                            href={item.href}
+                            className="inline-flex items-center rounded-xl px-3 py-2 text-sm font-medium hover:opacity-85 transition-opacity"
+                            style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
+                          >
+                            {item.cta}
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
