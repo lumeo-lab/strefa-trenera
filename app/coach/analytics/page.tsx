@@ -8,6 +8,24 @@ import { getBusinessToday } from '@/lib/date'
 
 export const metadata: Metadata = { title: 'Analityka | Strefa Trenera' }
 
+type AnalyticsInvoice = {
+  amount: number
+  status: string
+  date: string
+  due_date: string | null
+  athlete_id: string
+}
+
+function isInvoiceOverdue(invoice: AnalyticsInvoice, today: string) {
+  if (invoice.status === 'paid' || invoice.status === 'cancelled') return false
+  if (invoice.status === 'overdue') return true
+  return !!invoice.due_date && invoice.due_date < today
+}
+
+function isInvoicePending(invoice: AnalyticsInvoice, today: string) {
+  return invoice.status !== 'paid' && invoice.status !== 'cancelled' && !isInvoiceOverdue(invoice, today)
+}
+
 export default async function AnalyticsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -18,19 +36,22 @@ export default async function AnalyticsPage() {
 
   const [{ data: athletes }, { data: invoices }] = await Promise.all([
     supabase.from('athletes').select('id, name, status, package, package_price, join_date').eq('coach_id', coachId),
-    supabase.from('invoices').select('amount, status, date, athlete_id').eq('coach_id', coachId).order('date'),
+    supabase.from('invoices').select('amount, status, date, due_date, athlete_id').eq('coach_id', coachId).order('date'),
   ])
 
   const allAthletes = athletes ?? []
-  const allInvoices = invoices ?? []
+  const allInvoices = (invoices ?? []) as AnalyticsInvoice[]
+  const activeAthletes = allAthletes.filter((athlete) => athlete.status !== 'inactive')
+  const activeAthletesCount = activeAthletes.length
 
   // ── KPIs ──────────────────────────────────────────────────────
   const paidInvoices = allInvoices.filter(i => i.status === 'paid')
-  const pendingInvoices = allInvoices.filter(i => i.status === 'pending')
-  const overdueInvoices = allInvoices.filter(i => i.status === 'overdue')
+  const pendingInvoices = allInvoices.filter(i => isInvoicePending(i, today))
+  const overdueInvoices = allInvoices.filter(i => isInvoiceOverdue(i, today))
   const totalPaid = paidInvoices.reduce((s, i) => s + i.amount, 0)
   const pendingAmount = pendingInvoices.reduce((s, i) => s + i.amount, 0)
   const overdueAmount = overdueInvoices.reduce((s, i) => s + i.amount, 0)
+  const totalDue = pendingAmount + overdueAmount
 
   // Current vs previous month
   const prevYM = (() => {
@@ -40,6 +61,7 @@ export default async function AnalyticsPage() {
   const currentMonthPaid = paidInvoices.filter(i => i.date.startsWith(currentYM)).reduce((s, i) => s + i.amount, 0)
   const prevMonthPaid = paidInvoices.filter(i => i.date.startsWith(prevYM)).reduce((s, i) => s + i.amount, 0)
   const revenueDelta = currentMonthPaid - prevMonthPaid
+  const averagePaidPerActiveAthlete = activeAthletesCount > 0 ? currentMonthPaid / activeAthletesCount : 0
 
   // ── Revenue by month (full history) ───────────────────────────
   const revenueByMonth = new Map<string, { paid: number; pending: number; overdue: number; count: number }>()
@@ -51,8 +73,8 @@ export default async function AnalyticsPage() {
     const entry = revenueByMonth.get(ym)!
     entry.count++
     if (inv.status === 'paid') entry.paid += inv.amount
-    else if (inv.status === 'pending') entry.pending += inv.amount
-    else if (inv.status === 'overdue') entry.overdue += inv.amount
+    else if (isInvoicePending(inv, today)) entry.pending += inv.amount
+    else if (isInvoiceOverdue(inv, today)) entry.overdue += inv.amount
   }
 
   const allMonthKeys = Array.from(revenueByMonth.keys()).sort()
@@ -95,7 +117,8 @@ export default async function AnalyticsPage() {
   }
   const packageDistribution = Array.from(packageStats.entries()).sort((a, b) => b[1].count - a[1].count)
 
-  const currentMonthLabel = new Date().toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })
+  const [currentYear, currentMonth] = currentYM.split('-').map(Number)
+  const currentMonthLabel = new Date(currentYear, currentMonth - 1, 1).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })
 
   return (
     <div>
@@ -104,7 +127,7 @@ export default async function AnalyticsPage() {
       <div className="p-6 max-w-5xl mx-auto space-y-6">
 
         {/* ── KPIs ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           <Card className="p-5">
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Opłacone w tym miesiącu</div>
             <div className="text-2xl font-bold mb-1">{formatCurrency(currentMonthPaid)}</div>
@@ -116,6 +139,15 @@ export default async function AnalyticsPage() {
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Opłacone łącznie</div>
             <div className="text-2xl font-bold mb-1">{formatCurrency(totalPaid)}</div>
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{paidInvoices.length} faktur</div>
+          </Card>
+          <Card className="p-5">
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Łącznie do odzyskania</div>
+            <div className="text-2xl font-bold mb-1" style={{ color: totalDue > 0 ? '#FF5C1B' : 'var(--text-primary)' }}>
+              {formatCurrency(totalDue)}
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Oczekujące + po terminie
+            </div>
           </Card>
           <Card className="p-5">
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Oczekujące na płatność</div>
@@ -133,6 +165,20 @@ export default async function AnalyticsPage() {
             </div>
             <div className="text-xs" style={{ color: overdueAmount > 0 ? '#E74C3C' : '#2ECC71' }}>
               {overdueAmount > 0 ? `${overdueInvoices.length} faktur` : 'Brak zaległości'}
+            </div>
+          </Card>
+          <Card className="p-5">
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Aktywni zawodnicy</div>
+            <div className="text-2xl font-bold mb-1">{activeAthletesCount}</div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Z wyłączeniem nieaktywnych
+            </div>
+          </Card>
+          <Card className="p-5">
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Średnio opłacone na aktywnego zawodnika</div>
+            <div className="text-2xl font-bold mb-1">{formatCurrency(averagePaidPerActiveAthlete)}</div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              W bieżącym miesiącu
             </div>
           </Card>
         </div>
@@ -222,7 +268,7 @@ export default async function AnalyticsPage() {
         {/* ── Top athletes by revenue ── */}
         {topAthletes.length > 0 && (
           <Card className="p-5">
-            <h3 className="font-semibold mb-4">Top zawodnicy (przychód)</h3>
+            <h3 className="font-semibold mb-4">Największy łączny opłacony przychód</h3>
             <div className="rounded-xl overflow-hidden overflow-x-auto" style={{ border: '1px solid var(--border)' }}>
               <table className="w-full text-sm min-w-[500px]">
                 <thead>

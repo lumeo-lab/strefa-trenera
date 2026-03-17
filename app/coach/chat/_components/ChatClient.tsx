@@ -203,7 +203,7 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   }
 
   return (
-    <div className="flex h-[calc(100dvh-64px)] flex-col overflow-hidden -mb-64">
+    <div className="sticky top-0 flex h-dvh flex-col overflow-hidden -mb-64">
       <CoachTopbar title="Czat" subtitle={totalUnread > 0 ? `${totalUnread} nieprzeczytanych` : `${threadSummaries.length} zawodników`} />
 
       <div className="flex flex-1 min-h-0 overflow-hidden">

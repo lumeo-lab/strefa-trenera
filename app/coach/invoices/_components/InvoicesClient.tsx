@@ -56,6 +56,8 @@ function overdueMeta(dueDate: string | null, today: string) {
 export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJoins[]; athletes: AthleteOption[] }) {
   const router = useRouter()
   const today = getBusinessToday()
+  const filtersContainerRef = useRef<HTMLDivElement>(null)
+  const filtersMeasureRef = useRef<HTMLDivElement>(null)
 
   // ── Filter & sort ────────────────────────────────────────────────
   const [filter, setFilter] = useState<Filter>('all')
@@ -64,6 +66,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
   const [sortKey, setSortKey] = useState<SortKey | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  const [compactFilters, setCompactFilters] = useState(false)
 
   function handleSort(key: SortKey) {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -328,6 +331,28 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
     }
   }, [localInvoices, athleteFilter, search, today])
 
+  useEffect(() => {
+    const container = filtersContainerRef.current
+    const measure = filtersMeasureRef.current
+    if (!container || !measure) return
+
+    const updateLayout = () => {
+      setCompactFilters(measure.scrollWidth > container.clientWidth)
+    }
+
+    updateLayout()
+
+    const observer = new ResizeObserver(updateLayout)
+    observer.observe(container)
+    observer.observe(measure)
+    window.addEventListener('resize', updateLayout)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateLayout)
+    }
+  }, [filterCounts.all, filterCounts.pending, filterCounts.paid, filterCounts.overdue])
+
   return (
     <div>
       <CoachTopbar
@@ -377,18 +402,46 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
         {/* Filters row */}
         <Card className="p-4 mb-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-wrap gap-2">
-              {filters.map(f => (
-                <button key={f.id} onClick={() => setFilter(f.id)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer"
-                  style={{
-                    background: filter === f.id ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                    color: filter === f.id ? '#FF5C1B' : 'var(--text-muted)',
-                    border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
-                  }}>
-                  {f.label} ({filterCounts[f.id]})
-                </button>
-              ))}
+            <div ref={filtersContainerRef} className="relative min-w-0 xl:flex-1">
+              <div ref={filtersMeasureRef} className="pointer-events-none invisible absolute flex gap-2 whitespace-nowrap">
+                {filters.map(f => (
+                  <span
+                    key={f.id}
+                    className="px-4 py-2 rounded-xl text-sm font-medium border"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    {f.label} ({filterCounts[f.id]})
+                  </span>
+                ))}
+              </div>
+              {compactFilters ? (
+                <select
+                  value={filter}
+                  onChange={e => setFilter(e.target.value as Filter)}
+                  className="w-full max-w-[260px] rounded-xl px-3 py-2 text-sm cursor-pointer"
+                  style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                >
+                  {filters.map(f => (
+                    <option key={f.id} value={f.id}>
+                      {f.label} ({filterCounts[f.id]})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {filters.map(f => (
+                    <button key={f.id} onClick={() => setFilter(f.id)}
+                      className="px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer"
+                      style={{
+                        background: filter === f.id ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                        color: filter === f.id ? '#FF5C1B' : 'var(--text-muted)',
+                        border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
+                      }}>
+                      {f.label} ({filterCounts[f.id]})
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="grid gap-3 md:grid-cols-[minmax(280px,1fr)_260px] xl:w-[560px]">
               <input
