@@ -27,20 +27,16 @@ const PAGE_SIZE = 30
 function OverviewStats({ feedbacks, today }: { feedbacks: FeedbackWithJoins[]; today: string }) {
   const todayCount = feedbacks.filter(f => f.date === today).length
   const unreadCount = feedbacks.filter(f => !f.read).length
-  const alarmCount = feedbacks.filter(f => f.signal === 'red').length
-  const warningCount = feedbacks.filter(f => f.signal === 'yellow').length
   const noReplyCount = feedbacks.filter(f => !f.coach_reply).length
 
   const stats = [
     { label: 'Dziś', value: todayCount, color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
     { label: 'Nieprzeczytane', value: unreadCount, color: '#FF5C1B', bg: 'rgba(255,92,27,0.1)' },
-    { label: 'Słabe samopoczucie', value: alarmCount, color: '#E74C3C', bg: 'rgba(231,76,60,0.1)' },
-    { label: 'Średnie samopoczucie', value: warningCount, color: '#F1C40F', bg: 'rgba(241,196,15,0.1)' },
     { label: 'Bez odpowiedzi', value: noReplyCount, color: '#F1C40F', bg: 'rgba(241,196,15,0.1)' },
   ]
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
       {stats.map(s => (
         <div key={s.label} className="rounded-xl p-3 text-center" style={{ background: s.bg, border: `1px solid ${s.color}20` }}>
           <div className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
@@ -234,34 +230,22 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
           </div>
         )}
 
-        <div className="mb-4 flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-          <span className="font-semibold">Legenda:</span>
-          <span className="px-2.5 py-1 rounded-full whitespace-nowrap" style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.2)' }}>
-            Słabe samopoczucie = szybka reakcja
-          </span>
-          <span className="px-2.5 py-1 rounded-full whitespace-nowrap" style={{ background: 'rgba(241,196,15,0.1)', color: '#B7791F', border: '1px solid rgba(241,196,15,0.2)' }}>
-            Średnie samopoczucie = warto sprawdzić
-          </span>
-        </div>
-
         {/* Toolbar: filters + view mode + sort + athlete dropdown */}
-        <div className="mb-6 rounded-2xl p-3 sm:p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-          <div className="flex flex-wrap items-center gap-2">
-            {filterButtons.map(f => (
-              <button key={f.id} onClick={() => { setFilter(f.id); setVisibleCount(PAGE_SIZE) }}
-                className="px-3 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer whitespace-nowrap"
-                style={{
-                  background: filter === f.id ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                  color: filter === f.id ? '#FF5C1B' : 'var(--text-muted)',
-                  border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
-                }}>
-                {f.label}
-                <span className="ml-2 text-xs opacity-70">{f.count}</span>
-              </button>
-            ))}
-          </div>
+        <div className="mb-6 rounded-2xl p-3 sm:p-4 overflow-x-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <div className="flex items-center gap-2 min-w-max whitespace-nowrap">
+            <select
+              value={filter}
+              onChange={e => { setFilter(e.target.value as Filter); setVisibleCount(PAGE_SIZE) }}
+              className="px-3 py-2 rounded-xl text-sm cursor-pointer whitespace-nowrap"
+              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            >
+              {filterButtons.map(f => (
+                <option key={f.id} value={f.id}>
+                  {f.label} ({f.count})
+                </option>
+              ))}
+            </select>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
             <select
               value={athleteFilter}
               onChange={e => { setAthleteFilter(e.target.value); setVisibleCount(PAGE_SIZE) }}
@@ -284,7 +268,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
               <option value="signal">Najważniejsze najpierw</option>
             </select>
 
-            <div className="flex rounded-xl overflow-hidden sm:ml-auto" style={{ border: '1px solid var(--border)' }}>
+            <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
               <button
                 onClick={() => setViewMode('grouped')}
                 className="px-3 py-2 text-sm cursor-pointer transition-all whitespace-nowrap"
