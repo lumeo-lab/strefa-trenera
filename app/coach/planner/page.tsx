@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { PlannerClient } from './_components/PlannerClient'
-import type { PlannerAthleteRow, PlannerSessionRow } from './_components/types'
+import { getBusinessToday } from '@/lib/date'
+import { PlannerShell } from './_components/PlannerShell'
 
 export const metadata: Metadata = { title: 'Planer | Strefa Trenera' }
 
@@ -11,7 +11,10 @@ export default async function PlannerPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: athletes }, { data: sessions }] = await Promise.all([
+  const today = getBusinessToday()
+  const currentMonth = today.slice(0, 7)
+
+  const [{ data: athletes }, { data: sessions }, { data: feedbacks }] = await Promise.all([
     supabase
       .from('athletes')
       .select('id, name, avatar, status')
@@ -20,14 +23,25 @@ export default async function PlannerPage() {
       .order('name'),
     supabase
       .from('training_sessions')
-      .select('id, athlete_id, date, type, title, description, planned_distance, planned_duration, planned_pace, completed')
-      .eq('coach_id', user.id),
+      .select('*')
+      .eq('coach_id', user.id)
+      .order('date', { ascending: false })
+      .limit(500),
+    supabase
+      .from('feedbacks')
+      .select('*')
+      .eq('coach_id', user.id)
+      .order('date', { ascending: false })
+      .limit(500),
   ])
 
   return (
-    <PlannerClient
-      athletes={(athletes ?? []) as PlannerAthleteRow[]}
-      sessions={(sessions ?? []) as PlannerSessionRow[]}
+    <PlannerShell
+      athletes={athletes ?? []}
+      sessions={sessions ?? []}
+      feedbacks={feedbacks ?? []}
+      today={today}
+      currentMonth={currentMonth}
     />
   )
 }
