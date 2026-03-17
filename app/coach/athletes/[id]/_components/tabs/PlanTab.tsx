@@ -262,6 +262,36 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
       tone: 'success',
       text: `Dodano ${result?.count ?? 0} ${result?.count === 1 ? 'sesję' : result?.count && result.count < 5 ? 'sesje' : 'sesji'} z szablonu.`,
     })
+    try {
+      const params = new URLSearchParams({
+        athleteId,
+        from: range.from,
+        to: range.to,
+      })
+      const res = await fetch(`/api/planner?${params.toString()}`, { cache: 'no-store' })
+      const data = (await res.json().catch(() => null)) as {
+        error?: string
+        sessions?: CoachTrainingSessionRow[]
+        feedbacks?: CoachFeedbackRow[]
+      } | null
+
+      if (res.ok) {
+        const nextFeedbackByDate: FeedbackByDateMap = {}
+        const nextFeedbackBySession: FeedbackBySessionMap = {}
+        for (const fb of data?.feedbacks ?? []) {
+          if (fb.session_id && !nextFeedbackBySession[fb.session_id]) {
+            nextFeedbackBySession[fb.session_id] = fb
+          } else if (!fb.session_id && !nextFeedbackByDate[fb.date]) {
+            nextFeedbackByDate[fb.date] = fb
+          }
+        }
+        setVisibleSessions(data?.sessions ?? [])
+        setVisibleFeedbackBySession(nextFeedbackBySession)
+        setVisibleFeedbackByDate(nextFeedbackByDate)
+      }
+    } catch {
+      // fallback to router refresh below
+    }
     startTransition(() => router.refresh())
   }
 
