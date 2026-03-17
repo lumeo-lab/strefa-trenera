@@ -41,8 +41,6 @@ export default async function AnalyticsPage() {
 
   const allAthletes = athletes ?? []
   const allInvoices = (invoices ?? []) as AnalyticsInvoice[]
-  const activeAthletes = allAthletes.filter((athlete) => athlete.status !== 'inactive')
-  const activeAthletesCount = activeAthletes.length
 
   // ── KPIs ──────────────────────────────────────────────────────
   const paidInvoices = allInvoices.filter(i => i.status === 'paid')
@@ -51,7 +49,6 @@ export default async function AnalyticsPage() {
   const totalPaid = paidInvoices.reduce((s, i) => s + i.amount, 0)
   const pendingAmount = pendingInvoices.reduce((s, i) => s + i.amount, 0)
   const overdueAmount = overdueInvoices.reduce((s, i) => s + i.amount, 0)
-  const totalDue = pendingAmount + overdueAmount
 
   // Current vs previous month
   const prevYM = (() => {
@@ -61,7 +58,6 @@ export default async function AnalyticsPage() {
   const currentMonthPaid = paidInvoices.filter(i => i.date.startsWith(currentYM)).reduce((s, i) => s + i.amount, 0)
   const prevMonthPaid = paidInvoices.filter(i => i.date.startsWith(prevYM)).reduce((s, i) => s + i.amount, 0)
   const revenueDelta = currentMonthPaid - prevMonthPaid
-  const averagePaidPerActiveAthlete = activeAthletesCount > 0 ? currentMonthPaid / activeAthletesCount : 0
 
   // ── Revenue by month (full history) ───────────────────────────
   const revenueByMonth = new Map<string, { paid: number; pending: number; overdue: number; count: number }>()
@@ -84,6 +80,7 @@ export default async function AnalyticsPage() {
     const label = new Date(y, mo - 1, 1).toLocaleDateString('pl-PL', { month: 'short' })
     return { ym, label, ...revenueByMonth.get(ym)! }
   })
+  const hasPaidChartData = chartData.some((d) => d.paid > 0)
   const chartMaxPaid = Math.max(...chartData.map(d => d.paid), 1)
 
   // ── Monthly table (full history, newest first) ────────────────
@@ -127,31 +124,22 @@ export default async function AnalyticsPage() {
       <div className="p-6 max-w-5xl mx-auto space-y-6">
 
         {/* ── KPIs ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card className="p-5">
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Opłacone w tym miesiącu</div>
-            <div className="text-2xl font-bold mb-1">{formatCurrency(currentMonthPaid)}</div>
+            <div className="text-2xl font-bold mb-1" style={{ color: '#2ECC71' }}>{formatCurrency(currentMonthPaid)}</div>
             <div className="text-xs" style={{ color: revenueDelta >= 0 ? '#2ECC71' : '#E74C3C' }}>
               {revenueDelta === 0 ? 'Bez zmian vs poprzedni' : `${revenueDelta > 0 ? '+' : ''}${formatCurrency(revenueDelta)} vs poprzedni`}
             </div>
           </Card>
           <Card className="p-5">
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Opłacone łącznie</div>
-            <div className="text-2xl font-bold mb-1">{formatCurrency(totalPaid)}</div>
+            <div className="text-2xl font-bold mb-1" style={{ color: '#2ECC71' }}>{formatCurrency(totalPaid)}</div>
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{paidInvoices.length} faktur</div>
           </Card>
           <Card className="p-5">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Łącznie do odzyskania</div>
-            <div className="text-2xl font-bold mb-1" style={{ color: totalDue > 0 ? '#FF5C1B' : 'var(--text-primary)' }}>
-              {formatCurrency(totalDue)}
-            </div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              Oczekujące + po terminie
-            </div>
-          </Card>
-          <Card className="p-5">
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Oczekujące na płatność</div>
-            <div className="text-2xl font-bold mb-1" style={{ color: pendingAmount > 0 ? '#F1C40F' : 'var(--text-primary)' }}>
+            <div className="text-2xl font-bold mb-1" style={{ color: '#F1C40F' }}>
               {formatCurrency(pendingAmount)}
             </div>
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -167,20 +155,6 @@ export default async function AnalyticsPage() {
               {overdueAmount > 0 ? `${overdueInvoices.length} faktur` : 'Brak zaległości'}
             </div>
           </Card>
-          <Card className="p-5">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Aktywni zawodnicy</div>
-            <div className="text-2xl font-bold mb-1">{activeAthletesCount}</div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              Z wyłączeniem nieaktywnych
-            </div>
-          </Card>
-          <Card className="p-5">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Średnio opłacone na aktywnego zawodnika</div>
-            <div className="text-2xl font-bold mb-1">{formatCurrency(averagePaidPerActiveAthlete)}</div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              W bieżącym miesiącu
-            </div>
-          </Card>
         </div>
 
         {/* ── Revenue chart (last 12 months) ── */}
@@ -192,18 +166,19 @@ export default async function AnalyticsPage() {
             </div>
           </div>
           {chartData.length > 0 ? (
-            <div className="flex items-end gap-2 h-48">
+            hasPaidChartData ? (
+            <div className={`flex items-end gap-3 h-48 ${chartData.length === 1 ? 'justify-center' : ''}`}>
               {chartData.map((d, i) => {
                 const height = chartMaxPaid > 0 ? (d.paid / chartMaxPaid) * 100 : 0
                 const isLast = i === chartData.length - 1
                 const isCurrent = d.ym === currentYM
                 return (
-                  <div key={d.ym} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+                  <div key={d.ym} className={`flex flex-col items-center gap-1.5 min-w-0 ${chartData.length === 1 ? 'w-full max-w-[180px]' : 'flex-1'}`}>
                     <div className="text-xs font-semibold truncate w-full text-center" style={{ color: isCurrent ? '#FF5C1B' : 'var(--text-muted)', fontSize: '10px' }}>
                       {d.paid > 0 ? formatCurrency(d.paid) : '—'}
                     </div>
                     <div className="w-full rounded-t-lg transition-all" style={{
-                      height: `${Math.max(height, 2)}%`,
+                      height: `${Math.max(height, chartData.length === 1 ? 72 : 8)}%`,
                       background: isCurrent ? 'linear-gradient(180deg, #FF5C1B, #FF7A42)' : isLast ? 'var(--border-mid)' : 'var(--border)',
                       minHeight: '3px',
                     }} />
@@ -214,6 +189,11 @@ export default async function AnalyticsPage() {
                 )
               })}
             </div>
+            ) : (
+              <div className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>
+                Brak opłaconych faktur do pokazania na wykresie.
+              </div>
+            )
           ) : (
             <div className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>Brak danych</div>
           )}
