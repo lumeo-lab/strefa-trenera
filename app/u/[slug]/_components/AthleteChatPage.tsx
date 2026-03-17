@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { formatDateTime } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
-import { sendAthleteMessage } from '@/lib/actions/messages'
+import { markAthleteThreadRead, sendAthleteMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 import type { AthleteMessageRow } from '@/lib/athlete-data'
 
@@ -36,6 +36,19 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
+
+  useEffect(() => {
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+
+    const hasUnreadFromCoach = messages.some(msg => msg.sender_type === 'coach' && !msg.read)
+    if (!hasUnreadFromCoach) return
+
+    const timeout = window.setTimeout(() => {
+      void markAthleteThreadRead(athlete.slug)
+    }, 1200)
+
+    return () => window.clearTimeout(timeout)
+  }, [messages, athlete.slug])
 
   const coachInitials = coachName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Avatar } from '@/components/ui/Avatar'
@@ -25,6 +26,8 @@ type ThreadSummary = {
   unreadCount: number
 }
 
+type ThreadFilter = 'all' | 'unread' | 'reply_needed'
+
 export function ChatClient({ threadSummaries, coachId, coachName, initialAthleteId }: {
   threadSummaries: ThreadSummary[]
   coachId: string
@@ -34,11 +37,13 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   const router = useRouter()
   const [selectedAthleteId, setSelectedAthleteId] = useState(initialAthleteId ?? threadSummaries[0]?.athlete.id ?? '')
   const [threadMessages, setThreadMessages] = useState<MessageRow[]>([])
+  const [loadedAthleteId, setLoadedAthleteId] = useState('')
   const [loadingThread, setLoadingThread] = useState(false)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState(false)
   const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<ThreadFilter>('all')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -55,16 +60,16 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     try {
       const msgs = await loadThreadMessages(athleteId)
       setThreadMessages(msgs)
+      setLoadedAthleteId(athleteId)
     } finally {
       setLoadingThread(false)
     }
   }, [])
 
-  // Load messages + mark read on thread select
+  // Load messages when selected athlete changes
   useEffect(() => {
     if (!selectedAthleteId) return
     void loadMessages(selectedAthleteId)
-    void markCoachThreadRead(selectedAthleteId)
   }, [selectedAthleteId, loadMessages])
 
   // Poll: refresh sidebar summaries + current thread every 5s
@@ -76,12 +81,20 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     return () => clearInterval(interval)
   }, [router, selectedAthleteId, loadMessages])
 
-  // Mark as read when new unread messages appear in current thread (from polling)
+  // Mark athlete messages as read after the trainer has actively viewed the thread for a moment
   useEffect(() => {
     if (!selectedAthleteId) return
+    if (loadedAthleteId !== selectedAthleteId) return
     const hasUnreadFromAthlete = threadMessages.some(m => m.sender_type === 'athlete' && !m.read)
-    if (hasUnreadFromAthlete) void markCoachThreadRead(selectedAthleteId)
-  }, [threadMessages, selectedAthleteId])
+    if (!hasUnreadFromAthlete) return
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+
+    const timeout = window.setTimeout(() => {
+      void markCoachThreadRead(selectedAthleteId)
+    }, 1200)
+
+    return () => window.clearTimeout(timeout)
+  }, [loadedAthleteId, threadMessages, selectedAthleteId])
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -102,12 +115,22 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   }, [threadSummaries])
 
   const filteredThreads = useMemo(() => {
-    if (!search.trim()) return sortedThreads
+    const byFilter = sortedThreads.filter((thread) => {
+      if (filter === 'unread') return thread.unreadCount > 0
+      if (filter === 'reply_needed') return thread.lastMessage?.sender_type === 'athlete'
+      return true
+    })
+
+    if (!search.trim()) return byFilter
     const q = search.toLowerCase()
-    return sortedThreads.filter(t => t.athlete.name.toLowerCase().includes(q))
-  }, [sortedThreads, search])
+    return byFilter.filter(t => t.athlete.name.toLowerCase().includes(q))
+  }, [sortedThreads, search, filter])
 
   const totalUnread = useMemo(() => threadSummaries.reduce((s, t) => s + t.unreadCount, 0), [threadSummaries])
+  const replyNeededCount = useMemo(
+    () => threadSummaries.filter(t => t.lastMessage?.sender_type === 'athlete').length,
+    [threadSummaries]
+  )
   const selectedAthlete = threadSummaries.find(t => t.athlete.id === selectedAthleteId)?.athlete
 
   function selectAthlete(id: string) {
@@ -166,7 +189,7 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
         {/* ── Sidebar: thread list ── */}
         <div className="w-72 border-r flex flex-col shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
           {/* Search */}
-          <div className="px-3 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="px-3 py-3 border-b space-y-3" style={{ borderColor: 'var(--border)' }}>
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -174,6 +197,41 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
               className="w-full px-3 py-2 rounded-xl text-sm"
               style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             />
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                onClick={() => setFilter('all')}
+                className="px-3 py-2 rounded-xl text-sm text-left transition-colors"
+                style={{
+                  background: filter === 'all' ? 'rgba(255,92,27,0.12)' : 'var(--bg-elevated)',
+                  color: filter === 'all' ? '#FF5C1B' : 'var(--text-primary)',
+                  border: `1px solid ${filter === 'all' ? 'rgba(255,92,27,0.3)' : 'var(--border)'}`,
+                }}
+              >
+                Wszystkie rozmowy
+              </button>
+              <button
+                onClick={() => setFilter('unread')}
+                className="px-3 py-2 rounded-xl text-sm text-left transition-colors"
+                style={{
+                  background: filter === 'unread' ? 'rgba(255,92,27,0.12)' : 'var(--bg-elevated)',
+                  color: filter === 'unread' ? '#FF5C1B' : 'var(--text-primary)',
+                  border: `1px solid ${filter === 'unread' ? 'rgba(255,92,27,0.3)' : 'var(--border)'}`,
+                }}
+              >
+                Nieprzeczytane {totalUnread > 0 ? `(${totalUnread})` : ''}
+              </button>
+              <button
+                onClick={() => setFilter('reply_needed')}
+                className="px-3 py-2 rounded-xl text-sm text-left transition-colors"
+                style={{
+                  background: filter === 'reply_needed' ? 'rgba(255,92,27,0.12)' : 'var(--bg-elevated)',
+                  color: filter === 'reply_needed' ? '#FF5C1B' : 'var(--text-primary)',
+                  border: `1px solid ${filter === 'reply_needed' ? 'rgba(255,92,27,0.3)' : 'var(--border)'}`,
+                }}
+              >
+                Czekają na odpowiedź {replyNeededCount > 0 ? `(${replyNeededCount})` : ''}
+              </button>
+            </div>
           </div>
 
           {/* Thread list */}
@@ -240,6 +298,13 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
                     {selectedAthlete.package}{selectedAthlete.goal ? ` · ${selectedAthlete.goal}` : ''}
                   </div>
                 </div>
+                <Link
+                  href={`/coach/athletes/${selectedAthlete.id}`}
+                  className="px-3 py-2 rounded-xl text-xs font-medium transition-opacity"
+                  style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
+                >
+                  Otwórz profil
+                </Link>
               </>
             )}
           </div>

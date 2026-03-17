@@ -33,7 +33,7 @@ export async function sendAthleteMessage(slug: string, content: string) {
   firePush(athlete.coach_id, {
     title: `Wiadomość od ${athlete.name}`,
     body: trimmed.slice(0, 100),
-    url: '/coach/chat',
+    url: `/coach/chat?athlete=${athlete.id}`,
   })
 
   return { success: true }
@@ -113,5 +113,26 @@ export async function markCoachThreadRead(athleteId: string) {
   revalidatePath('/coach/chat')
   revalidatePath('/coach/athletes')
   revalidatePath(`/coach/athletes/${athleteId}`)
+  return { success: true }
+}
+
+export async function markAthleteThreadRead(slug: string) {
+  const athlete = await getAthleteFromSession(slug)
+  if (!athlete) return { error: AUTH_ERROR }
+
+  const { error } = await adminClient
+    .from('messages')
+    .update({ read: true })
+    .eq('coach_id', athlete.coach_id)
+    .eq('athlete_id', athlete.id)
+    .eq('sender_type', 'coach')
+    .eq('read', false)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/u/${slug}/chat`)
+  revalidatePath('/coach/chat')
+  revalidatePath('/coach/athletes')
+  revalidatePath(`/coach/athletes/${athlete.id}`)
   return { success: true }
 }
