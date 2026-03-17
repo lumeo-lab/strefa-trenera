@@ -34,8 +34,8 @@ function OverviewStats({ feedbacks, today }: { feedbacks: FeedbackWithJoins[]; t
   const stats = [
     { label: 'Dziś', value: todayCount, color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
     { label: 'Nieprzeczytane', value: unreadCount, color: '#FF5C1B', bg: 'rgba(255,92,27,0.1)' },
-    { label: 'Alarm', value: alarmCount, color: '#E74C3C', bg: 'rgba(231,76,60,0.1)' },
-    { label: 'Uwaga', value: warningCount, color: '#F1C40F', bg: 'rgba(241,196,15,0.1)' },
+    { label: 'Słabe samopoczucie', value: alarmCount, color: '#E74C3C', bg: 'rgba(231,76,60,0.1)' },
+    { label: 'Średnie samopoczucie', value: warningCount, color: '#F1C40F', bg: 'rgba(241,196,15,0.1)' },
     { label: 'Bez odpowiedzi', value: noReplyCount, color: '#F1C40F', bg: 'rgba(241,196,15,0.1)' },
   ]
 
@@ -184,8 +184,8 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
     { id: 'today', label: 'Dziś', count: initialFeedbacks.filter(f => f.date === today).length },
     { id: 'unread', label: 'Nieprzeczytane', count: unreadCount },
     { id: 'needs_reply', label: 'Bez odpowiedzi', count: initialFeedbacks.filter(f => !f.coach_reply).length },
-    { id: 'warning', label: 'Uwaga', count: initialFeedbacks.filter(f => f.signal === 'yellow').length },
-    { id: 'alarm', label: 'Alarm', count: initialFeedbacks.filter(f => f.signal === 'red').length },
+    { id: 'warning', label: 'Średnie samopoczucie', count: initialFeedbacks.filter(f => f.signal === 'yellow').length },
+    { id: 'alarm', label: 'Słabe samopoczucie', count: initialFeedbacks.filter(f => f.signal === 'red').length },
   ]
 
   // Paginated list for chronological view
@@ -234,73 +234,107 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
           </div>
         )}
 
+        <div className="mb-6 rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="text-sm font-semibold">Jak czytać poziomy ważności</div>
+              <div className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+                Słabe samopoczucie oznacza, że zawodnik zaznaczył słabe odczucia po treningu. Średnie samopoczucie oznacza, że trening nie był alarmowy, ale warto go sprawdzić.
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <div className="px-3 py-2 rounded-xl text-sm" style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.2)' }}>
+                Słabe samopoczucie = szybka reakcja
+              </div>
+              <div className="px-3 py-2 rounded-xl text-sm" style={{ background: 'rgba(241,196,15,0.1)', color: '#B7791F', border: '1px solid rgba(241,196,15,0.2)' }}>
+                Średnie samopoczucie = warto sprawdzić
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Toolbar: filters + view mode + sort + athlete dropdown */}
-        <div className="space-y-3 mb-6">
-          {/* Row 1: Quick filters */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {filterButtons.map(f => (
-              <button key={f.id} onClick={() => { setFilter(f.id); setVisibleCount(PAGE_SIZE) }}
-                className="px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer"
-                style={{
-                  background: filter === f.id ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                  color: filter === f.id ? '#FF5C1B' : 'var(--text-muted)',
-                  border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
-                }}>
-                {f.label}
-                <span className="ml-2 text-xs opacity-70">{f.count}</span>
-              </button>
-            ))}
+        <div className="space-y-4 mb-6 rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+              Szybkie filtry
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {filterButtons.map(f => (
+                <button key={f.id} onClick={() => { setFilter(f.id); setVisibleCount(PAGE_SIZE) }}
+                  className="px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer"
+                  style={{
+                    background: filter === f.id ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                    color: filter === f.id ? '#FF5C1B' : 'var(--text-muted)',
+                    border: filter === f.id ? '1px solid rgba(255,92,27,0.3)' : '1px solid var(--border)',
+                  }}>
+                  {f.label}
+                  <span className="ml-2 text-xs opacity-70">{f.count}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Row 2: Athlete filter + sort + view toggle */}
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Athlete dropdown */}
-            <select
-              value={athleteFilter}
-              onChange={e => { setAthleteFilter(e.target.value); setVisibleCount(PAGE_SIZE) }}
-              className="px-3 py-2 rounded-xl text-sm cursor-pointer"
-              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-            >
-              <option value="all">Wszyscy zawodnicy ({athletes.length})</option>
-              {athletes.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-
-            {/* Sort */}
-            <select
-              value={sortKey}
-              onChange={e => setSortKey(e.target.value as SortKey)}
-              className="px-3 py-2 rounded-xl text-sm cursor-pointer"
-              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-            >
-              <option value="date">Sortuj: najnowsze</option>
-              <option value="signal">Sortuj: alerty najpierw</option>
-            </select>
-
-            {/* View mode toggle */}
-            <div className="flex rounded-xl overflow-hidden ml-auto" style={{ border: '1px solid var(--border)' }}>
-              <button
-                onClick={() => setViewMode('grouped')}
-                className="px-3 py-2 text-sm cursor-pointer transition-all"
-                style={{
-                  background: viewMode === 'grouped' ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                  color: viewMode === 'grouped' ? '#FF5C1B' : 'var(--text-muted)',
-                }}
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,220px)_minmax(0,220px)] gap-3 items-end">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+                Zawodnik
+              </div>
+              <select
+                value={athleteFilter}
+                onChange={e => { setAthleteFilter(e.target.value); setVisibleCount(PAGE_SIZE) }}
+                className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
               >
-                Grupowane
-              </button>
-              <button
-                onClick={() => setViewMode('chronological')}
-                className="px-3 py-2 text-sm cursor-pointer transition-all"
-                style={{
-                  background: viewMode === 'chronological' ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                  color: viewMode === 'chronological' ? '#FF5C1B' : 'var(--text-muted)',
-                  borderLeft: '1px solid var(--border)',
-                }}
+                <option value="all">Wszyscy zawodnicy ({athletes.length})</option>
+                {athletes.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+                Kolejność
+              </div>
+              <select
+                value={sortKey}
+                onChange={e => setSortKey(e.target.value as SortKey)}
+                className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
               >
-                Chronologiczne
-              </button>
+                <option value="date">Najnowsze najpierw</option>
+                <option value="signal">Najważniejsze najpierw</option>
+              </select>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+                Układ listy
+              </div>
+              <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                <button
+                  onClick={() => setViewMode('grouped')}
+                  className="flex-1 px-3 py-2 text-sm cursor-pointer transition-all"
+                  style={{
+                    background: viewMode === 'grouped' ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                    color: viewMode === 'grouped' ? '#FF5C1B' : 'var(--text-muted)',
+                  }}
+                >
+                  Grupuj po zawodniku
+                </button>
+                <button
+                  onClick={() => setViewMode('chronological')}
+                  className="flex-1 px-3 py-2 text-sm cursor-pointer transition-all"
+                  style={{
+                    background: viewMode === 'chronological' ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                    color: viewMode === 'chronological' ? '#FF5C1B' : 'var(--text-muted)',
+                    borderLeft: '1px solid var(--border)',
+                  }}
+                >
+                  Pokaż po kolei
+                </button>
+              </div>
             </div>
           </div>
         </div>
