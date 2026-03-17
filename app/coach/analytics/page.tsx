@@ -148,10 +148,10 @@ export default async function AnalyticsPage() {
           </Card>
           <Card className="p-5">
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Przeterminowane</div>
-            <div className="text-2xl font-bold mb-1" style={{ color: overdueAmount > 0 ? '#E74C3C' : '#2ECC71' }}>
+            <div className="text-2xl font-bold mb-1" style={{ color: '#E74C3C' }}>
               {formatCurrency(overdueAmount)}
             </div>
-            <div className="text-xs" style={{ color: overdueAmount > 0 ? '#E74C3C' : '#2ECC71' }}>
+            <div className="text-xs" style={{ color: '#E74C3C' }}>
               {overdueAmount > 0 ? `${overdueInvoices.length} faktur` : 'Brak zaległości'}
             </div>
           </Card>
@@ -173,15 +173,17 @@ export default async function AnalyticsPage() {
                 const isLast = i === chartData.length - 1
                 const isCurrent = d.ym === currentYM
                 return (
-                  <div key={d.ym} className={`flex flex-col items-center gap-1.5 min-w-0 ${chartData.length === 1 ? 'w-full max-w-[180px]' : 'flex-1'}`}>
+                  <div key={d.ym} className={`flex h-full flex-col items-center gap-1.5 min-w-0 ${chartData.length === 1 ? 'w-full max-w-[180px]' : 'flex-1'}`}>
                     <div className="text-xs font-semibold truncate w-full text-center" style={{ color: isCurrent ? '#FF5C1B' : 'var(--text-muted)', fontSize: '10px' }}>
                       {d.paid > 0 ? formatCurrency(d.paid) : '—'}
                     </div>
-                    <div className="w-full rounded-t-lg transition-all" style={{
-                      height: `${Math.max(height, chartData.length === 1 ? 72 : 8)}%`,
-                      background: isCurrent ? 'linear-gradient(180deg, #FF5C1B, #FF7A42)' : isLast ? 'var(--border-mid)' : 'var(--border)',
-                      minHeight: '3px',
-                    }} />
+                    <div className="flex w-full flex-1 items-end">
+                      <div className="w-full rounded-t-lg transition-all" style={{
+                        height: `${Math.max(height, chartData.length === 1 ? 72 : 8)}%`,
+                        background: isCurrent ? 'linear-gradient(180deg, #FF5C1B, #FF7A42)' : isLast ? 'var(--border-mid)' : 'var(--border)',
+                        minHeight: '10px',
+                      }} />
+                    </div>
                     <div className="text-xs capitalize truncate w-full text-center" style={{ color: isCurrent ? '#FF5C1B' : 'var(--text-muted)', fontSize: '10px' }}>
                       {d.label}
                     </div>
