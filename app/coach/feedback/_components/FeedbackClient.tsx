@@ -63,6 +63,10 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
   const [markingReadId, setMarkingReadId] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  const [hintDismissed, setHintDismissed] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return !!localStorage.getItem('feedback-hint-dismissed')
+  })
 
   // Unique athletes for dropdown
   const athletes = useMemo(() => {
@@ -188,6 +192,11 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
   const paginatedFiltered = filtered.slice(0, visibleCount)
   const hasMore = visibleCount < filtered.length
 
+  function dismissHint() {
+    setHintDismissed(true)
+    localStorage.setItem('feedback-hint-dismissed', '1')
+  }
+
   function renderCardForFb(fb: FeedbackWithJoins, showAthleteName: boolean) {
     return (
       <FeedbackCard
@@ -230,13 +239,28 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
           </div>
         )}
 
+        {!hintDismissed && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm mb-4"
+            style={{ background: 'rgba(255,92,27,0.08)', border: '1px solid rgba(255,92,27,0.2)' }}>
+            <span className="text-lg shrink-0">💡</span>
+            <span style={{ color: 'var(--text-primary)' }}>
+              Feedbacki poszczególnych zawodników znajdziesz też w profilu zawodnika, w zakładce <span className="font-semibold" style={{ color: '#FF5C1B' }}>Feedback</span>.
+            </span>
+            <button
+              onClick={dismissHint}
+              className="shrink-0 text-lg leading-none cursor-pointer hover:opacity-70"
+              style={{ color: 'var(--text-muted)' }}
+            >×</button>
+          </div>
+        )}
+
         {/* Toolbar: filters + view mode + sort + athlete dropdown */}
-        <div className="mb-6 rounded-2xl p-3 sm:p-4 overflow-x-auto" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-          <div className="flex items-center gap-2 min-w-max whitespace-nowrap">
+        <div className="mb-6 rounded-2xl p-3 sm:p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[185px_minmax(240px,1fr)_150px_340px] gap-2 items-center">
             <select
               value={filter}
               onChange={e => { setFilter(e.target.value as Filter); setVisibleCount(PAGE_SIZE) }}
-              className="px-3 py-2 rounded-xl text-sm cursor-pointer whitespace-nowrap"
+              className="min-w-0 px-3 py-2 rounded-xl text-sm cursor-pointer"
               style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             >
               {filterButtons.map(f => (
@@ -249,7 +273,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
             <select
               value={athleteFilter}
               onChange={e => { setAthleteFilter(e.target.value); setVisibleCount(PAGE_SIZE) }}
-              className="px-3 py-2 rounded-xl text-sm cursor-pointer whitespace-nowrap"
+              className="min-w-0 px-3 py-2 rounded-xl text-sm cursor-pointer"
               style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             >
               <option value="all">Wszyscy zawodnicy ({athletes.length})</option>
@@ -261,17 +285,17 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
             <select
               value={sortKey}
               onChange={e => setSortKey(e.target.value as SortKey)}
-              className="px-3 py-2 rounded-xl text-sm cursor-pointer whitespace-nowrap"
+              className="min-w-0 px-3 py-2 rounded-xl text-sm cursor-pointer"
               style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             >
-              <option value="date">Najnowsze najpierw</option>
-              <option value="signal">Najważniejsze najpierw</option>
+              <option value="date">Najnowsze</option>
+              <option value="signal">Najważniejsze</option>
             </select>
 
-            <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+            <div className="flex rounded-xl overflow-hidden min-w-0" style={{ border: '1px solid var(--border)' }}>
               <button
                 onClick={() => setViewMode('grouped')}
-                className="px-3 py-2 text-sm cursor-pointer transition-all whitespace-nowrap"
+                className="flex-1 px-3 py-2 text-sm cursor-pointer transition-all whitespace-nowrap"
                 style={{
                   background: viewMode === 'grouped' ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
                   color: viewMode === 'grouped' ? '#FF5C1B' : 'var(--text-muted)',
@@ -281,24 +305,17 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
               </button>
               <button
                 onClick={() => setViewMode('chronological')}
-                className="px-3 py-2 text-sm cursor-pointer transition-all whitespace-nowrap"
+                className="flex-1 px-3 py-2 text-sm cursor-pointer transition-all whitespace-nowrap"
                 style={{
                   background: viewMode === 'chronological' ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
                   color: viewMode === 'chronological' ? '#FF5C1B' : 'var(--text-muted)',
                   borderLeft: '1px solid var(--border)',
                 }}
               >
-                Pokaż po kolei
+                Chronologicznie
               </button>
             </div>
           </div>
-        </div>
-
-        {/* Hint */}
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl mb-6 text-xs"
-          style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', color: 'var(--text-muted)' }}>
-          <span style={{ fontSize: '14px' }}>💡</span>
-          Feedbacki poszczególnych zawodników znajdziesz też w profilu zawodnika → zakładka „Feedback”
         </div>
 
         {/* Feed */}

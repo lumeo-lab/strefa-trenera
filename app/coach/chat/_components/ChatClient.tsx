@@ -26,7 +26,7 @@ type ThreadSummary = {
   unreadCount: number
 }
 
-type ThreadFilter = 'all' | 'unread' | 'reply_needed'
+type ThreadFilter = 'all' | 'unread'
 
 export function ChatClient({ threadSummaries, coachId, coachName, initialAthleteId }: {
   threadSummaries: ThreadSummary[]
@@ -115,11 +115,7 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   }, [threadSummaries])
 
   const filteredThreads = useMemo(() => {
-    const byFilter = sortedThreads.filter((thread) => {
-      if (filter === 'unread') return thread.unreadCount > 0
-      if (filter === 'reply_needed') return thread.lastMessage?.sender_type === 'athlete'
-      return true
-    })
+    const byFilter = sortedThreads.filter((thread) => filter === 'unread' ? thread.unreadCount > 0 : true)
 
     if (!search.trim()) return byFilter
     const q = search.toLowerCase()
@@ -127,10 +123,6 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   }, [sortedThreads, search, filter])
 
   const totalUnread = useMemo(() => threadSummaries.reduce((s, t) => s + t.unreadCount, 0), [threadSummaries])
-  const replyNeededCount = useMemo(
-    () => threadSummaries.filter(t => t.lastMessage?.sender_type === 'athlete').length,
-    [threadSummaries]
-  )
   const selectedAthlete = threadSummaries.find(t => t.athlete.id === selectedAthleteId)?.athlete
 
   function selectAthlete(id: string) {
@@ -181,15 +173,42 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   }
 
   return (
-    <div>
+    <div className="h-[calc(100dvh-64px)] overflow-hidden">
       <CoachTopbar title="Czat" subtitle={totalUnread > 0 ? `${totalUnread} nieprzeczytanych` : `${threadSummaries.length} zawodników`} />
 
-      <div className="flex" style={{ height: 'calc(100vh - 64px)' }}>
+      <div className="border-b px-4 py-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setFilter('all')}
+            className="px-3 py-2 rounded-xl text-sm transition-colors whitespace-nowrap"
+            style={{
+              background: filter === 'all' ? 'rgba(255,92,27,0.12)' : 'var(--bg-elevated)',
+              color: filter === 'all' ? '#FF5C1B' : 'var(--text-primary)',
+              border: `1px solid ${filter === 'all' ? 'rgba(255,92,27,0.3)' : 'var(--border)'}`,
+            }}
+          >
+            Wszystkie
+          </button>
+          <button
+            onClick={() => setFilter('unread')}
+            className="px-3 py-2 rounded-xl text-sm transition-colors whitespace-nowrap"
+            style={{
+              background: filter === 'unread' ? 'rgba(255,92,27,0.12)' : 'var(--bg-elevated)',
+              color: filter === 'unread' ? '#FF5C1B' : 'var(--text-primary)',
+              border: `1px solid ${filter === 'unread' ? 'rgba(255,92,27,0.3)' : 'var(--border)'}`,
+            }}
+          >
+            Nieprzeczytane{totalUnread > 0 ? ` (${totalUnread})` : ''}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex h-[calc(100dvh-121px)] overflow-hidden">
 
         {/* ── Sidebar: thread list ── */}
         <div className="w-72 border-r flex flex-col shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
           {/* Search */}
-          <div className="px-3 py-3 border-b space-y-3" style={{ borderColor: 'var(--border)' }}>
+          <div className="px-3 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -197,41 +216,6 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
               className="w-full px-3 py-2 rounded-xl text-sm"
               style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             />
-            <div className="grid grid-cols-1 gap-2">
-              <button
-                onClick={() => setFilter('all')}
-                className="px-3 py-2 rounded-xl text-sm text-left transition-colors"
-                style={{
-                  background: filter === 'all' ? 'rgba(255,92,27,0.12)' : 'var(--bg-elevated)',
-                  color: filter === 'all' ? '#FF5C1B' : 'var(--text-primary)',
-                  border: `1px solid ${filter === 'all' ? 'rgba(255,92,27,0.3)' : 'var(--border)'}`,
-                }}
-              >
-                Wszystkie rozmowy
-              </button>
-              <button
-                onClick={() => setFilter('unread')}
-                className="px-3 py-2 rounded-xl text-sm text-left transition-colors"
-                style={{
-                  background: filter === 'unread' ? 'rgba(255,92,27,0.12)' : 'var(--bg-elevated)',
-                  color: filter === 'unread' ? '#FF5C1B' : 'var(--text-primary)',
-                  border: `1px solid ${filter === 'unread' ? 'rgba(255,92,27,0.3)' : 'var(--border)'}`,
-                }}
-              >
-                Nieprzeczytane {totalUnread > 0 ? `(${totalUnread})` : ''}
-              </button>
-              <button
-                onClick={() => setFilter('reply_needed')}
-                className="px-3 py-2 rounded-xl text-sm text-left transition-colors"
-                style={{
-                  background: filter === 'reply_needed' ? 'rgba(255,92,27,0.12)' : 'var(--bg-elevated)',
-                  color: filter === 'reply_needed' ? '#FF5C1B' : 'var(--text-primary)',
-                  border: `1px solid ${filter === 'reply_needed' ? 'rgba(255,92,27,0.3)' : 'var(--border)'}`,
-                }}
-              >
-                Czekają na odpowiedź {replyNeededCount > 0 ? `(${replyNeededCount})` : ''}
-              </button>
-            </div>
           </div>
 
           {/* Thread list */}
