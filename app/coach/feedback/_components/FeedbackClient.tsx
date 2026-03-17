@@ -260,7 +260,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
             <select
               value={filter}
               onChange={e => { setFilter(e.target.value as Filter); setVisibleCount(PAGE_SIZE) }}
-              className="min-w-0 px-3 py-2 rounded-xl text-sm cursor-pointer"
+              className="min-w-0 px-3 py-2 pr-10 rounded-xl text-sm cursor-pointer appearance-none"
               style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             >
               {filterButtons.map(f => (
@@ -273,7 +273,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
             <select
               value={athleteFilter}
               onChange={e => { setAthleteFilter(e.target.value); setVisibleCount(PAGE_SIZE) }}
-              className="min-w-0 px-3 py-2 rounded-xl text-sm cursor-pointer"
+              className="min-w-0 px-3 py-2 pr-10 rounded-xl text-sm cursor-pointer appearance-none"
               style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             >
               <option value="all">Wszyscy zawodnicy ({athletes.length})</option>
@@ -285,36 +285,22 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
             <select
               value={sortKey}
               onChange={e => setSortKey(e.target.value as SortKey)}
-              className="min-w-0 px-3 py-2 rounded-xl text-sm cursor-pointer"
+              className="min-w-0 px-3 py-2 pr-10 rounded-xl text-sm cursor-pointer appearance-none"
               style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             >
               <option value="date">Najnowsze</option>
               <option value="signal">Najważniejsze</option>
             </select>
 
-            <div className="flex rounded-xl overflow-hidden min-w-0" style={{ border: '1px solid var(--border)' }}>
-              <button
-                onClick={() => setViewMode('grouped')}
-                className="flex-1 px-3 py-2 text-sm cursor-pointer transition-all whitespace-nowrap"
-                style={{
-                  background: viewMode === 'grouped' ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                  color: viewMode === 'grouped' ? '#FF5C1B' : 'var(--text-muted)',
-                }}
-              >
-                Grupuj po zawodniku
-              </button>
-              <button
-                onClick={() => setViewMode('chronological')}
-                className="flex-1 px-3 py-2 text-sm cursor-pointer transition-all whitespace-nowrap"
-                style={{
-                  background: viewMode === 'chronological' ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                  color: viewMode === 'chronological' ? '#FF5C1B' : 'var(--text-muted)',
-                  borderLeft: '1px solid var(--border)',
-                }}
-              >
-                Chronologicznie
-              </button>
-            </div>
+            <select
+              value={viewMode}
+              onChange={e => setViewMode(e.target.value as ViewMode)}
+              className="min-w-0 px-3 py-2 pr-10 rounded-xl text-sm cursor-pointer appearance-none"
+              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            >
+              <option value="grouped">Grupuj po zawodniku</option>
+              <option value="chronological">Chronologicznie</option>
+            </select>
           </div>
         </div>
 

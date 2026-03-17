@@ -173,42 +173,24 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   }
 
   return (
-    <div className="h-[calc(100dvh-64px)] overflow-hidden">
+    <div className="h-[calc(100dvh-64px)] overflow-hidden -mb-64">
       <CoachTopbar title="Czat" subtitle={totalUnread > 0 ? `${totalUnread} nieprzeczytanych` : `${threadSummaries.length} zawodników`} />
 
-      <div className="border-b px-4 py-3" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setFilter('all')}
-            className="px-3 py-2 rounded-xl text-sm transition-colors whitespace-nowrap"
-            style={{
-              background: filter === 'all' ? 'rgba(255,92,27,0.12)' : 'var(--bg-elevated)',
-              color: filter === 'all' ? '#FF5C1B' : 'var(--text-primary)',
-              border: `1px solid ${filter === 'all' ? 'rgba(255,92,27,0.3)' : 'var(--border)'}`,
-            }}
-          >
-            Wszystkie
-          </button>
-          <button
-            onClick={() => setFilter('unread')}
-            className="px-3 py-2 rounded-xl text-sm transition-colors whitespace-nowrap"
-            style={{
-              background: filter === 'unread' ? 'rgba(255,92,27,0.12)' : 'var(--bg-elevated)',
-              color: filter === 'unread' ? '#FF5C1B' : 'var(--text-primary)',
-              border: `1px solid ${filter === 'unread' ? 'rgba(255,92,27,0.3)' : 'var(--border)'}`,
-            }}
-          >
-            Nieprzeczytane{totalUnread > 0 ? ` (${totalUnread})` : ''}
-          </button>
-        </div>
-      </div>
-
-      <div className="flex h-[calc(100dvh-121px)] overflow-hidden">
+      <div className="flex h-[calc(100dvh-64px)] overflow-hidden">
 
         {/* ── Sidebar: thread list ── */}
         <div className="w-72 border-r flex flex-col shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
           {/* Search */}
-          <div className="px-3 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="px-3 py-3 border-b space-y-3" style={{ borderColor: 'var(--border)' }}>
+            <select
+              value={filter}
+              onChange={e => setFilter(e.target.value as ThreadFilter)}
+              className="w-full px-3 py-2 pr-10 rounded-xl text-sm cursor-pointer appearance-none"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            >
+              <option value="all">Wszystkie rozmowy</option>
+              <option value="unread">Nieprzeczytane{totalUnread > 0 ? ` (${totalUnread})` : ''}</option>
+            </select>
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
