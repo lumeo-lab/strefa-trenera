@@ -6,8 +6,8 @@ import { useState } from 'react'
 
 export type KpiId = 'athletes' | 'feedback' | 'revenue' | 'payments'
 export type SectionId =
-  | 'week_summary' | 'today_plan' | 'messages' | 'alerts' | 'no_sessions_week'
-  | 'feedback_list' | 'upcoming_races' | 'recent_athletes' | 'recent_invoices'
+  | 'today_actions' | 'week_summary' | 'today_plan' | 'messages' | 'alerts' | 'no_sessions_week'
+  | 'feedback_list' | 'upcoming_races' | 'recent_athletes' | 'overdue_invoices'
 
 export type Prefs = {
   kpi: { id: KpiId; visible: boolean }[]
@@ -26,41 +26,44 @@ export const DEFAULT_PREFS: Prefs = {
     { id: 'payments', visible: true },
   ],
   sections: [
+    { id: 'today_actions', visible: true },
     { id: 'week_summary', visible: true },
     { id: 'today_plan', visible: true },
+    { id: 'feedback_list', visible: true },
     { id: 'messages', visible: true },
     { id: 'alerts', visible: true },
-    { id: 'no_sessions_week', visible: false },
-    { id: 'feedback_list', visible: true },
+    { id: 'no_sessions_week', visible: true },
     { id: 'upcoming_races', visible: true },
     { id: 'recent_athletes', visible: false },
-    { id: 'recent_invoices', visible: false },
+    { id: 'overdue_invoices', visible: true },
   ],
 }
 
 export const SECTION_COL: Record<SectionId, 'full' | 'left' | 'right'> = {
+  today_actions: 'full',
   week_summary: 'full',
   today_plan: 'left', messages: 'left', alerts: 'left', no_sessions_week: 'left',
-  feedback_list: 'right', upcoming_races: 'right', recent_athletes: 'right', recent_invoices: 'right',
+  feedback_list: 'right', upcoming_races: 'right', recent_athletes: 'right', overdue_invoices: 'right',
 }
 
 export const KPI_META: Record<KpiId, { label: string; icon: string }> = {
-  athletes: { label: 'Aktywni zawodnicy',      icon: '👟' },
-  feedback: { label: 'Nieprzeczytany feedback', icon: '📥' },
-  revenue:  { label: 'Przychód miesięczny',     icon: '💰' },
-  payments: { label: 'Oczekujące płatności',    icon: '💳' },
+  athletes: { label: 'Aktywni zawodnicy', icon: '👟' },
+  feedback: { label: 'Feedback do przeczytania', icon: '📥' },
+  revenue: { label: 'Szacowany przychód w miesiącu', icon: '💰' },
+  payments: { label: 'Faktury do opłacenia', icon: '💳' },
 }
 
 export const SECTION_META: Record<SectionId, { label: string; icon: string; desc: string }> = {
-  week_summary:     { label: 'Podsumowanie tygodnia',     icon: '📊', desc: 'Pasek postępu bieżącego tygodnia' },
-  today_plan:       { label: 'Dziś w planie',             icon: '📅', desc: 'Sesje zaplanowane na dziś' },
-  messages:         { label: 'Ostatnie wiadomości',       icon: '💬', desc: 'Wiadomości od zawodników' },
-  alerts:           { label: 'Wymagają uwagi',            icon: '⚠️', desc: 'Zawodnicy z alertem lub ostrzeżeniem' },
-  no_sessions_week: { label: 'Bez planu w tygodniu',      icon: '🔴', desc: 'Zawodnicy bez sesji w tym tygodniu' },
-  feedback_list:    { label: 'Nieprzeczytany feedback',   icon: '📥', desc: 'Lista nieprzeczytanych feedbacków' },
-  upcoming_races:   { label: 'Nadchodzące zawody',        icon: '🏁', desc: 'Starty w ciągu 14 dni' },
+  today_actions:    { label: 'Najważniejsze na dziś', icon: '✅', desc: 'Szybka lista spraw do wykonania' },
+  week_summary:     { label: 'Podsumowanie tygodnia', icon: '📊', desc: 'Krótki przegląd bieżącego tygodnia' },
+  today_plan:       { label: 'Dziś w planie', icon: '📅', desc: 'Sesje zaplanowane na dziś' },
+  messages:         { label: 'Nieprzeczytane wiadomości', icon: '💬', desc: 'Wiadomości, które czekają na odpowiedź' },
+  alerts:           { label: 'Wymagają uwagi', icon: '⚠️', desc: 'Zawodnicy ze statusem uwagi lub alertu' },
+  no_sessions_week: { label: 'Bez planu do końca tygodnia', icon: '🗓️', desc: 'Zawodnicy bez zaplanowanej sesji od dziś do niedzieli' },
+  feedback_list:    { label: 'Feedback do przeczytania', icon: '📥', desc: 'Ostatnie wpisy, które czekają na reakcję' },
+  upcoming_races:   { label: 'Nadchodzące zawody', icon: '🏁', desc: 'Starty w ciągu najbliższych 14 dni' },
   recent_athletes:  { label: 'Ostatnio dodani zawodnicy', icon: '👤', desc: 'Nowi zawodnicy w systemie' },
-  recent_invoices:  { label: 'Ostatnie faktury',          icon: '🧾', desc: 'Ostatnio wystawione faktury' },
+  overdue_invoices: { label: 'Płatności po terminie', icon: '🧾', desc: 'Faktury, które wymagają pilnego działania' },
 }
 
 export const SETTINGS_GROUPS: { label: string; col: 'kpi' | 'full' | 'left' | 'right' }[] = [

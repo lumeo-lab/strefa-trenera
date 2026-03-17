@@ -14,22 +14,34 @@ export function WeekSummarySection({ weekStats }: {
 }) {
   if (weekStats.total === 0) return null
   return (
-    <Card className="px-5 py-3">
-      <div className="flex items-center gap-1.5 flex-wrap text-xs">
-        <span className="font-semibold" style={{ color: 'var(--text-muted)' }}>Ten tydzień:</span>
-        <span className="font-medium">{weekStats.total} {plural(weekStats.total, 'sesja', 'sesje', 'sesji')} w planie</span>
-        <span style={{ color: 'var(--border)' }}>·</span>
-        <span className="font-medium text-green-400">{weekStats.completed} ukończonych</span>
-        <span style={{ color: 'var(--border)' }}>·</span>
-        <span className="font-medium" style={{ color: weekStats.rate >= 70 ? '#2ECC71' : weekStats.rate >= 40 ? '#F1C40F' : '#E74C3C' }}>
-          {weekStats.rate}% realizacji
-        </span>
-        {weekStats.km > 0 && (
-          <>
-            <span style={{ color: 'var(--border)' }}>·</span>
-            <span className="font-medium">🏃 {weekStats.km.toFixed(0)} km</span>
-          </>
-        )}
+    <Card className="p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h3 className="font-semibold">Podsumowanie bieżącego tygodnia</h3>
+          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+            Szybki przegląd tego, ile treningów jest już zrealizowanych.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 min-w-0">
+          <div className="rounded-xl px-3 py-2" style={{ background: 'var(--bg-elevated)' }}>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Zaplanowane</div>
+            <div className="mt-1 text-sm font-semibold">{weekStats.total} {plural(weekStats.total, 'sesja', 'sesje', 'sesji')}</div>
+          </div>
+          <div className="rounded-xl px-3 py-2" style={{ background: 'var(--bg-elevated)' }}>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Wykonane</div>
+            <div className="mt-1 text-sm font-semibold text-green-400">{weekStats.completed}</div>
+          </div>
+          <div className="rounded-xl px-3 py-2" style={{ background: 'var(--bg-elevated)' }}>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Realizacja planu</div>
+            <div className="mt-1 text-sm font-semibold" style={{ color: weekStats.rate >= 70 ? '#2ECC71' : weekStats.rate >= 40 ? '#F1C40F' : '#E74C3C' }}>
+              {weekStats.rate}%
+            </div>
+          </div>
+          <div className="rounded-xl px-3 py-2" style={{ background: 'var(--bg-elevated)' }}>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Pokonane kilometry</div>
+            <div className="mt-1 text-sm font-semibold">{weekStats.km.toFixed(0)} km</div>
+          </div>
+        </div>
       </div>
     </Card>
   )
@@ -57,7 +69,11 @@ export function TodayPlanSection({ sessions, todayCompleted }: {
       {sessions.length === 0 ? (
         <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
           <div className="text-3xl mb-2">🌿</div>
-          <div className="text-sm">Brak zaplanowanych sesji na dziś</div>
+          <div className="text-sm">Na dziś nie ma zaplanowanych sesji.</div>
+          <Link href="/coach/planner" className="inline-flex mt-4 px-3 py-2 rounded-xl text-sm font-medium hover:opacity-80 transition-opacity"
+            style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>
+            Otwórz planer
+          </Link>
         </div>
       ) : (
         <div className="space-y-2">

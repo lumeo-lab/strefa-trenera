@@ -58,13 +58,14 @@ export type DashboardRaceRow = {
   athletes: { name: string; avatar: string } | null
 }
 
-/** invoices (recent) select: id, number, amount, status, date, athlete_id, athletes(name, avatar) */
+/** invoices select: id, number, amount, status, date, due_date, athlete_id, athletes(name, avatar) */
 export type DashboardInvoiceRow = {
   id: string
   number: string
   amount: number
   status: string
   date: string
+  due_date?: string | null
   athlete_id: string
   athletes: { name: string; avatar: string } | null
 }

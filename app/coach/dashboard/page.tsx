@@ -18,14 +18,14 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const today = new Date()
   const todayStr = getBusinessToday()
-  const todayLabel = today.toLocaleDateString('pl-PL', {
+  const todayDate = new Date(`${todayStr}T12:00:00`)
+  const todayLabel = todayDate.toLocaleDateString('pl-PL', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 
   // Week bounds Mon–Sun
-  const dow = getBusinessWeekday(today)
+  const dow = getBusinessWeekday(todayDate)
   const weekStart = addDaysToBusinessDate(todayStr, -(dow === 0 ? 6 : dow - 1))
   const weekEnd = addDaysToBusinessDate(weekStart, 6)
 
@@ -37,15 +37,16 @@ export default async function DashboardPage() {
     { data: athletes },
     { count: unreadFeedbackCount },
     { data: unreadFeedbacks },
-    { data: recentMessages },
+    { count: unreadMessagesCount },
+    { data: unreadMessages },
     { data: invoices },
     { data: todaySessions },
-    { data: weekSessions },
+    { data: weekSummarySessions },
+    { data: planningSessions },
     { data: upcomingRaces },
-    { data: recentInvoices },
+    { data: invoiceList },
   ] = await Promise.all([
     supabase.from('coaches').select('name').eq('id', user!.id).single(),
-    // added created_at for "recently added" section
     supabase.from('athletes')
       .select('id, name, avatar, status, package, package_price, created_at')
       .eq('coach_id', user!.id)
@@ -58,22 +59,32 @@ export default async function DashboardPage() {
       .order('created_at', { ascending: false })
       .limit(5),
     supabase.from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('coach_id', user!.id)
+      .eq('sender_type', 'athlete')
+      .eq('read', false),
+    supabase.from('messages')
       .select('id, athlete_id, content, created_at, athletes(name, avatar)')
       .eq('coach_id', user!.id)
       .eq('sender_type', 'athlete')
+      .eq('read', false)
       .order('created_at', { ascending: false })
-      .limit(4),
-    supabase.from('invoices').select('amount, status').eq('coach_id', user!.id),
+      .limit(5),
+    supabase.from('invoices').select('amount, status, due_date').eq('coach_id', user!.id),
     supabase.from('training_sessions')
       .select('id, type, title, planned_distance, completed, athlete_id, athletes(name, avatar)')
       .eq('coach_id', user!.id)
       .eq('date', todayStr)
       .order('created_at'),
-    // added athlete_id for "no sessions this week" section
     supabase.from('training_sessions')
       .select('athlete_id, completed, actual_distance')
       .eq('coach_id', user!.id)
       .gte('date', weekStart)
+      .lte('date', weekEnd),
+    supabase.from('training_sessions')
+      .select('athlete_id, completed, actual_distance')
+      .eq('coach_id', user!.id)
+      .gte('date', todayStr)
       .lte('date', weekEnd),
     supabase.from('athlete_races')
       .select('id, name, date, distance, athlete_id, athletes(name, avatar)')
@@ -83,12 +94,10 @@ export default async function DashboardPage() {
       .lte('date', twoWeeksStr)
       .order('date')
       .limit(4),
-    // new: recent invoices for optional section
     supabase.from('invoices')
-      .select('id, number, amount, status, date, athlete_id, athletes(name, avatar)')
+      .select('id, number, amount, status, date, due_date, athlete_id, athletes(name, avatar)')
       .eq('coach_id', user!.id)
-      .order('created_at', { ascending: false })
-      .limit(5),
+      .order('due_date', { ascending: true }),
   ])
 
   // Supabase client without generated types returns loose shapes for joins;
@@ -96,24 +105,51 @@ export default async function DashboardPage() {
   const allAthletes = (athletes ?? []) as DashboardAthleteRow[]
   const allInvoices = invoices ?? []
   const feedbacks = (unreadFeedbacks ?? []) as unknown as DashboardFeedbackRow[]
-  const messages = (recentMessages ?? []) as unknown as DashboardMessageRow[]
+  const messages = (unreadMessages ?? []) as unknown as DashboardMessageRow[]
   const sessions = (todaySessions ?? []) as unknown as DashboardSessionRow[]
-  const weekSess = (weekSessions ?? []) as DashboardWeekSessionRow[]
+  const weekSummary = (weekSummarySessions ?? []) as DashboardWeekSessionRow[]
+  const planningWindow = (planningSessions ?? []) as DashboardWeekSessionRow[]
   const races = (upcomingRaces ?? []) as unknown as DashboardRaceRow[]
+  const allInvoiceRows = (invoiceList ?? []) as unknown as DashboardInvoiceRow[]
+  const tomorrowStr = addDaysToBusinessDate(todayStr, 1)
+  const overdueItems = allInvoiceRows
+    .filter((invoice) =>
+      !!invoice.due_date &&
+      invoice.due_date < todayStr &&
+      invoice.status !== 'paid' &&
+      invoice.status !== 'cancelled'
+    )
+    .slice(0, 5)
 
   // KPI
   const activeCount = allAthletes.filter(a => a.status !== 'inactive').length
-  const mrr = allAthletes.filter(a => a.status !== 'inactive').reduce((s, a) => s + a.package_price, 0)
-  const pendingAmount = allInvoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0)
-  const overdueAmount = allInvoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0)
+  const estimatedMonthlyRevenue = allAthletes
+    .filter(a => a.status !== 'inactive')
+    .reduce((sum, athlete) => sum + athlete.package_price, 0)
+  const overdueInvoicesComputed = allInvoices.filter((invoice) =>
+    !!invoice.due_date &&
+    invoice.due_date < todayStr &&
+    invoice.status !== 'paid' &&
+    invoice.status !== 'cancelled'
+  )
+  const pendingInvoicesComputed = allInvoices.filter((invoice) =>
+    invoice.status === 'pending' &&
+    (!invoice.due_date || invoice.due_date >= todayStr)
+  )
+  const pendingAmount = pendingInvoicesComputed.reduce((sum, invoice) => sum + invoice.amount, 0)
+  const overdueAmount = overdueInvoicesComputed.reduce((sum, invoice) => sum + invoice.amount, 0)
+  const pendingCount = pendingInvoicesComputed.length
+  const overdueCount = overdueInvoicesComputed.length
   const alertAthletes = allAthletes.filter(a => a.status === 'alert' || a.status === 'warning')
   const coachName = (coachRow?.name ?? '').split(' ')[0] || 'Trenerze'
   const totalUnread = unreadFeedbackCount ?? 0
+  const totalUnreadMessages = unreadMessagesCount ?? 0
+  const raceSoonCount = races.filter(race => race.date === todayStr || race.date === tomorrowStr).length
 
   // Week summary
-  const weekTotal = weekSess.length
-  const weekCompleted = weekSess.filter(s => s.completed).length
-  const weekKm = weekSess
+  const weekTotal = weekSummary.length
+  const weekCompleted = weekSummary.filter(s => s.completed).length
+  const weekKm = weekSummary
     .filter(s => s.completed && s.actual_distance)
     .reduce((sum, s) => sum + (s.actual_distance || 0), 0)
   const weekRate = weekTotal > 0 ? Math.round((weekCompleted / weekTotal) * 100) : 0
@@ -121,19 +157,24 @@ export default async function DashboardPage() {
   return (
     <DashboardClient
       coachName={coachName}
+      todayIso={todayStr}
       todayLabel={todayLabel}
       allAthletes={allAthletes}
       feedbacks={feedbacks}
       messages={messages}
       sessions={sessions}
-      weekSessions={weekSess}
+      weekSessions={planningWindow}
       races={races}
-      recentInvoices={(recentInvoices ?? []) as unknown as DashboardInvoiceRow[]}
+      overdueInvoices={overdueItems}
       totalUnread={totalUnread}
-      mrr={mrr}
+      totalUnreadMessages={totalUnreadMessages}
+      estimatedMonthlyRevenue={estimatedMonthlyRevenue}
       activeCount={activeCount}
       pendingAmount={pendingAmount}
       overdueAmount={overdueAmount}
+      pendingCount={pendingCount}
+      overdueCount={overdueCount}
+      raceSoonCount={raceSoonCount}
       alertAthletes={alertAthletes}
       weekStats={{ total: weekTotal, completed: weekCompleted, km: weekKm, rate: weekRate }}
     />

@@ -17,13 +17,13 @@ export function MessagesSection({ messages }: {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold">Ostatnie wiadomości</h3>
+        <h3 className="font-semibold">Nieprzeczytane wiadomości od zawodników</h3>
         <Link href="/coach/chat" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Otwórz czat →</Link>
       </div>
       {messages.length === 0 ? (
         <div className="text-center py-6" style={{ color: 'var(--text-muted)' }}>
           <div className="text-2xl mb-2">💬</div>
-          <div className="text-sm">Brak nowych wiadomości</div>
+          <div className="text-sm">Brak nieprzeczytanych wiadomości.</div>
         </div>
       ) : (
         <div className="space-y-2">
@@ -56,13 +56,13 @@ export function FeedbackListSection({ feedbacks }: {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold">Nieprzeczytany feedback</h3>
+        <h3 className="font-semibold">Feedback czekający na przeczytanie</h3>
         <Link href="/coach/feedback" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Wszystkie →</Link>
       </div>
       {feedbacks.length === 0 ? (
         <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
           <div className="text-3xl mb-2">📥</div>
-          <div className="text-sm">Brak nieprzeczytanego feedbacku</div>
+          <div className="text-sm">Nie ma feedbacku, który czeka na przeczytanie.</div>
         </div>
       ) : (
         <div className="space-y-3">
@@ -70,7 +70,7 @@ export function FeedbackListSection({ feedbacks }: {
             const ath = f.athletes
             const sigColor = SIGNAL_COLOR[f.signal] ?? '#6B7280'
             return (
-              <Link key={f.id} href="/coach/feedback"
+              <Link key={f.id} href={`/coach/athletes/${f.athlete_id}`}
                 className="block p-3 rounded-xl hover:opacity-80 transition-opacity"
                 style={{ background: 'var(--bg-elevated)', borderLeft: `3px solid ${sigColor}` }}>
                 <div className="flex items-center justify-between mb-1">

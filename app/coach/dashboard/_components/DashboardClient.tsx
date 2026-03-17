@@ -13,10 +13,11 @@ import {
   SETTINGS_GROUPS, useDashboardPrefs,
 } from './useDashboardPrefs'
 
+import { TodayActionsSection } from './sections/ActionSections'
 import { TodayPlanSection, WeekSummarySection } from './sections/TodaySections'
 import { FeedbackListSection, MessagesSection } from './sections/CommunicationSections'
 import { AlertsSection, NoSessionsSection, RecentAthletesSection } from './sections/AthleteSections'
-import { RecentInvoicesSection, UpcomingRacesSection } from './sections/FinanceRaceSections'
+import { OverdueInvoicesSection, UpcomingRacesSection } from './sections/FinanceRaceSections'
 
 import type {
   DashboardAthleteRow,
@@ -63,6 +64,7 @@ function SettingsRow({ icon, label, desc, visible, onToggle, onUp, onDown, canUp
 
 interface Props {
   coachName: string
+  todayIso: string
   todayLabel: string
   allAthletes: DashboardAthleteRow[]
   feedbacks: DashboardFeedbackRow[]
@@ -70,12 +72,16 @@ interface Props {
   sessions: DashboardSessionRow[]
   weekSessions: DashboardWeekSessionRow[]
   races: DashboardRaceRow[]
-  recentInvoices: DashboardInvoiceRow[]
+  overdueInvoices: DashboardInvoiceRow[]
   totalUnread: number
-  mrr: number
+  totalUnreadMessages: number
+  estimatedMonthlyRevenue: number
   activeCount: number
   pendingAmount: number
   overdueAmount: number
+  pendingCount: number
+  overdueCount: number
+  raceSoonCount: number
   alertAthletes: DashboardAthleteRow[]
   weekStats: { total: number; completed: number; km: number; rate: number }
 }
@@ -83,9 +89,10 @@ interface Props {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function DashboardClient({
-  coachName, todayLabel, allAthletes, feedbacks, messages, sessions,
-  weekSessions, races, recentInvoices, totalUnread, mrr, activeCount,
-  pendingAmount, overdueAmount, alertAthletes, weekStats,
+  coachName, todayIso, todayLabel, allAthletes, feedbacks, messages, sessions,
+  weekSessions, races, overdueInvoices, totalUnread, totalUnreadMessages,
+  estimatedMonthlyRevenue, activeCount, pendingAmount, overdueAmount,
+  pendingCount, overdueCount, raceSoonCount, alertAthletes, weekStats,
 }: Props) {
 
   const {
@@ -127,7 +134,7 @@ export function DashboardClient({
             </div>
             <div className="text-2xl font-bold mb-1">{activeCount}</div>
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Aktywni zawodnicy</div>
-            <div className="text-xs font-medium" style={{ color: '#2ECC71' }}>{allAthletes.length} łącznie</div>
+            <div className="text-xs font-medium" style={{ color: '#2ECC71' }}>{allAthletes.length} wszystkich w bazie</div>
           </Card>
         </Link>
       )
@@ -136,7 +143,7 @@ export function DashboardClient({
           <Card className="p-5 hover:opacity-80 transition-opacity cursor-pointer">
             <div className="mb-3 text-2xl">📥</div>
             <div className="text-2xl font-bold mb-1">{totalUnread}</div>
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Nieprzeczytany feedback</div>
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Feedback do przeczytania</div>
             <div className="text-xs font-medium" style={{ color: totalUnread > 0 ? '#F1C40F' : '#2ECC71' }}>
               {totalUnread > 0 ? 'Wymaga uwagi' : 'Wszystko odczytane'}
             </div>
@@ -147,9 +154,9 @@ export function DashboardClient({
         <Link href="/coach/analytics">
           <Card className="p-5 hover:opacity-80 transition-opacity cursor-pointer">
             <div className="mb-3 text-2xl">💰</div>
-            <div className="text-2xl font-bold mb-1">{formatCurrency(mrr)}</div>
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Przychód miesięczny</div>
-            <div className="text-xs font-medium" style={{ color: '#FF5C1B' }}>{activeCount} × pakiet</div>
+            <div className="text-2xl font-bold mb-1">{formatCurrency(estimatedMonthlyRevenue)}</div>
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Szacowany przychód w miesiącu</div>
+            <div className="text-xs font-medium" style={{ color: '#FF5C1B' }}>Na podstawie aktywnych pakietów</div>
           </Card>
         </Link>
       )
@@ -159,15 +166,19 @@ export function DashboardClient({
             <div className="flex items-start justify-between mb-3">
               <span className="text-2xl">💳</span>
               {overdueAmount > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>Zaległość</span>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>Po terminie</span>
               )}
             </div>
             <div className="text-2xl font-bold mb-1" style={{ color: overdueAmount > 0 ? '#E74C3C' : 'inherit' }}>
               {formatCurrency(pendingAmount + overdueAmount)}
             </div>
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Oczekujące płatności</div>
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Faktury do opłacenia</div>
             <div className="text-xs font-medium" style={{ color: overdueAmount > 0 ? '#E74C3C' : pendingAmount > 0 ? '#F1C40F' : '#2ECC71' }}>
-              {overdueAmount > 0 ? `${formatCurrency(overdueAmount)} przeterminowane` : pendingAmount > 0 ? 'Do opłacenia' : 'Brak zaległości'}
+              {overdueAmount > 0
+                ? `${overdueCount} po terminie płatności`
+                : pendingAmount > 0
+                ? `${pendingCount} czekają na wpłatę`
+                : 'Brak zaległości'}
             </div>
           </Card>
         </Link>
@@ -179,15 +190,25 @@ export function DashboardClient({
 
   function renderSection(id: SectionId) {
     switch (id) {
+      case 'today_actions':     return (
+        <TodayActionsSection
+          unreadFeedbackCount={totalUnread}
+          unreadMessagesCount={totalUnreadMessages}
+          overdueInvoiceCount={overdueCount}
+          overdueAmount={overdueAmount}
+          noPlanCount={noSessionsAthletes.length}
+          raceSoonCount={raceSoonCount}
+        />
+      )
       case 'week_summary':      return <WeekSummarySection weekStats={weekStats} />
       case 'today_plan':        return <TodayPlanSection sessions={sessions} todayCompleted={todayCompleted} />
       case 'messages':          return <MessagesSection messages={messages} />
       case 'alerts':            return <AlertsSection alertAthletes={alertAthletes} />
       case 'no_sessions_week':  return <NoSessionsSection noSessionsAthletes={noSessionsAthletes} />
       case 'feedback_list':     return <FeedbackListSection feedbacks={feedbacks} />
-      case 'upcoming_races':    return <UpcomingRacesSection races={races} />
+      case 'upcoming_races':    return <UpcomingRacesSection races={races} todayIso={todayIso} />
       case 'recent_athletes':   return <RecentAthletesSection recentAthletesData={recentAthletesData} />
-      case 'recent_invoices':   return <RecentInvoicesSection recentInvoices={recentInvoices} />
+      case 'overdue_invoices':  return <OverdueInvoicesSection overdueInvoices={overdueInvoices} todayIso={todayIso} />
     }
   }
 
@@ -220,7 +241,7 @@ export function DashboardClient({
             style={{ background: 'rgba(255,92,27,0.08)', border: '1px solid rgba(255,92,27,0.2)' }}>
             <span className="text-lg shrink-0">💡</span>
             <span style={{ color: 'var(--text-primary)' }}>
-              Dashboard możesz dostosować do swoich potrzeb — ukrywać sekcje, zmieniać kolejność i dodawać nowe widgety klikając{' '}
+              Dashboard możesz dostosować do swoich potrzeb — ukrywać sekcje i zmieniać ich kolejność klikając{' '}
               <button onClick={() => setSettingsOpen(true)} className="font-semibold underline cursor-pointer" style={{ color: '#FF5C1B' }}>
                 ⚙️ Dostosuj widok
               </button>.
@@ -235,9 +256,9 @@ export function DashboardClient({
 
         {/* KPI row */}
         {visibleKpi.length > 0 && (
-          <div className="flex gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {visibleKpi.map(k => (
-              <div key={k.id} className="flex-1">{renderKpi(k.id)}</div>
+              <div key={k.id}>{renderKpi(k.id)}</div>
             ))}
           </div>
         )}
@@ -249,16 +270,16 @@ export function DashboardClient({
 
         {/* 2-col grid */}
         {(hasLeft || hasRight) && (
-          <div className={hasLeft && hasRight ? 'grid grid-cols-5 gap-6' : 'block'}>
+          <div className={hasLeft && hasRight ? 'grid grid-cols-1 xl:grid-cols-5 gap-6' : 'block'}>
             {hasLeft && (
-              <div className={hasRight ? 'col-span-3 space-y-5' : 'space-y-5'}>
+              <div className={hasRight ? 'xl:col-span-3 space-y-5' : 'space-y-5'}>
                 {leftSections.map(s => (
                   <div key={s.id}>{renderSection(s.id)}</div>
                 ))}
               </div>
             )}
             {hasRight && (
-              <div className={hasLeft ? 'col-span-2 space-y-5' : 'space-y-5'}>
+              <div className={hasLeft ? 'xl:col-span-2 space-y-5' : 'space-y-5'}>
                 {rightSections.map(s => (
                   <div key={s.id}>{renderSection(s.id)}</div>
                 ))}

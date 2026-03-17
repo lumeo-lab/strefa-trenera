@@ -48,14 +48,14 @@ export function NoSessionsSection({ noSessionsAthletes }: {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold">Bez planu w tygodniu</h3>
+        <h3 className="font-semibold">Bez planu do końca tygodnia</h3>
         <span className="text-xs px-2 py-0.5 rounded-lg" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
           {noSessionsAthletes.length}
         </span>
       </div>
       {noSessionsAthletes.length === 0 ? (
         <div className="text-center py-6 text-sm" style={{ color: 'var(--text-muted)' }}>
-          ✅ Wszyscy zawodnicy mają plan na ten tydzień
+          ✅ Wszyscy aktywni zawodnicy mają już plan od dziś do końca tygodnia.
         </div>
       ) : (
         <div className="space-y-2">
