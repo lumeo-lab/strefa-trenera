@@ -37,6 +37,9 @@ interface HistoryTabProps {
 export function HistoryTab({ sessions, feedbacks, feedbackBySession, feedbackByDate, today, currentMonth, allSessionTypes }: HistoryTabProps) {
   const [historyMonth, setHistoryMonth] = useState(currentMonth)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'missed' | 'planned'>('all')
+  const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'with-feedback'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | SessionType>('all')
 
   function toggleRow(sessionId: string) {
     setExpandedRows(prev => {
@@ -54,28 +57,95 @@ export function HistoryTab({ sessions, feedbacks, feedbackBySession, feedbackByD
     return allSessionTypes.find(t => t.key === type)?.label ?? sessionTypeLabel(type as SessionType)
   }
 
+  const previousMonth = shiftMonth(historyMonth, -1)
   const monthSessions = sessions.filter(s => s.date.slice(0, 7) === historyMonth).sort((a, b) => b.date.localeCompare(a.date))
+  const previousMonthSessions = sessions.filter(s => s.date.slice(0, 7) === previousMonth)
   const monthCompleted = monthSessions.filter(s => s.completed)
   const monthKm = monthCompleted.reduce((sum, s) => sum + (s.actual_distance || 0), 0)
   const monthFeedbacks = feedbacks.filter(f => f.date.slice(0, 7) === historyMonth)
+  const previousMonthCompleted = previousMonthSessions.filter(s => s.completed)
+  const previousMonthKm = previousMonthCompleted.reduce((sum, s) => sum + (s.actual_distance || 0), 0)
+  const previousCompletionRate = previousMonthSessions.length > 0
+    ? Math.round((previousMonthCompleted.length / previousMonthSessions.length) * 100)
+    : 0
   const completionRate = monthSessions.length > 0
     ? Math.round((monthCompleted.length / monthSessions.length) * 100)
     : 0
+  const filteredMonthSessions = monthSessions.filter((session) => {
+    if (statusFilter === 'completed' && !session.completed) return false
+    if (statusFilter === 'missed' && (session.completed || session.date >= today)) return false
+    if (statusFilter === 'planned' && (session.completed || session.date < today)) return false
+
+    const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
+    if (feedbackFilter === 'with-feedback' && !fb) return false
+
+    if (typeFilter !== 'all' && session.type !== typeFilter) return false
+    return true
+  })
+  const kmDelta = monthKm - previousMonthKm
+  const completionDelta = completionRate - previousCompletionRate
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Sesje', value: `${monthCompleted.length} / ${monthSessions.length}` },
-          { label: 'Łącznie km', value: monthKm > 0 ? `${monthKm.toFixed(0)} km` : '—' },
+          { label: 'Sesje', value: `${monthCompleted.length} / ${monthSessions.length}`, helper: previousMonthSessions.length > 0 ? `${monthCompleted.length - previousMonthCompleted.length >= 0 ? '+' : ''}${monthCompleted.length - previousMonthCompleted.length} vs poprzedni miesiąc` : '—' },
+          { label: 'Łącznie km', value: monthKm > 0 ? `${monthKm.toFixed(0)} km` : '—', helper: previousMonthSessions.length > 0 ? `${kmDelta >= 0 ? '+' : ''}${kmDelta.toFixed(0)} km vs poprzedni miesiąc` : '—' },
           { label: 'Feedbacków', value: monthFeedbacks.length },
-          { label: 'Ukończenie', value: monthSessions.length > 0 ? `${completionRate}%` : '—' },
+          { label: 'Ukończenie', value: monthSessions.length > 0 ? `${completionRate}%` : '—', helper: previousMonthSessions.length > 0 ? `${completionDelta >= 0 ? '+' : ''}${completionDelta}% vs poprzedni miesiąc` : '—' },
         ].map(stat => (
           <Card key={stat.label} className="p-4 text-center">
             <div className="text-xl font-bold mb-1">{stat.value}</div>
             <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{stat.label}</div>
+            {'helper' in stat && stat.helper && (
+              <div className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>{stat.helper}</div>
+            )}
           </Card>
         ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2 rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        {([
+          ['all', 'Wszystkie'],
+          ['completed', 'Wykonane'],
+          ['missed', 'Pominięte'],
+          ['planned', 'Planowane'],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            onClick={() => setStatusFilter(value)}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer"
+            style={{ background: statusFilter === value ? '#FF5C1B' : 'var(--bg-elevated)', color: statusFilter === value ? 'white' : 'var(--text-primary)' }}
+          >
+            {label}
+          </button>
+        ))}
+        {([
+          ['all', 'Cała historia'],
+          ['with-feedback', 'Tylko z feedbackiem'],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            onClick={() => setFeedbackFilter(value)}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer"
+            style={{ background: feedbackFilter === value ? '#FF5C1B' : 'var(--bg-elevated)', color: feedbackFilter === value ? 'white' : 'var(--text-primary)' }}
+          >
+            {label}
+          </button>
+        ))}
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as 'all' | SessionType)}
+          className="px-3 py-1.5 rounded-xl text-xs cursor-pointer"
+          style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+        >
+          <option value="all">Wszystkie typy</option>
+          {allSessionTypes.map((type) => (
+            <option key={type.key} value={type.key}>
+              {type.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Month navigation */}
@@ -110,18 +180,18 @@ export function HistoryTab({ sessions, feedbacks, feedbackBySession, feedbackByD
             </tr>
           </thead>
           <tbody>
-            {monthSessions.length === 0 && (
+            {filteredMonthSessions.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-4 py-12 text-center">
                   <div className="text-3xl mb-2">📅</div>
-                  <div className="text-sm font-medium mb-1">Brak sesji w tym miesiącu</div>
-                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Przejdź do zakładki Plan, aby zaplanować treningi</div>
+                  <div className="text-sm font-medium mb-1">Brak sesji pasujących do widoku</div>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Zmień filtry albo przejdź do innego miesiąca.</div>
                 </td>
               </tr>
             )}
             {(() => {
-              const pastMonthSessions = monthSessions.filter(s => s.date < today || s.completed)
-              const upcomingMonthSessions = monthSessions.filter(s => s.date >= today && !s.completed).reverse()
+              const pastMonthSessions = filteredMonthSessions.filter(s => s.date < today || s.completed)
+              const upcomingMonthSessions = filteredMonthSessions.filter(s => s.date >= today && !s.completed).reverse()
               const renderRow = (session: CoachTrainingSessionRow) => {
                 const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
                 const isExpanded = expandedRows.has(session.id)

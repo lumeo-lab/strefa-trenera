@@ -19,6 +19,9 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
   const [submitting, setSubmitting] = useState(false)
   const [markingReadId, setMarkingReadId] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'replied' | 'no-reply'>('all')
+  const [signalFilter, setSignalFilter] = useState<'all' | 'red' | 'yellow' | 'green'>('all')
+  const [kindFilter, setKindFilter] = useState<'all' | 'session' | 'daily' | 'voice'>('all')
 
   async function handleExpand(id: string) {
     setExpandedId(prev => prev === id ? null : id)
@@ -64,8 +67,91 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
     }
   }
 
+  const filteredFeedbacks = feedbacks.filter((fb) => {
+    if (readFilter === 'unread' && fb.read) return false
+    if (readFilter === 'replied' && !fb.coach_reply) return false
+    if (readFilter === 'no-reply' && fb.coach_reply) return false
+
+    if (signalFilter !== 'all' && fb.signal !== signalFilter) return false
+
+    if (kindFilter === 'session' && !fb.session_id) return false
+    if (kindFilter === 'daily' && fb.session_id) return false
+    if (kindFilter === 'voice' && !(fb.transcript ?? '').includes('[voice]')) return false
+
+    return true
+  })
+
+  const unreadCount = feedbacks.filter((fb) => !fb.read).length
+  const withoutReplyCount = feedbacks.filter((fb) => !fb.coach_reply).length
+  const redCount = feedbacks.filter((fb) => fb.signal === 'red').length
+  const lastReplyAt = feedbacks
+    .filter((fb) => fb.coach_reply)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]?.created_at ?? null
+
   return (
     <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Nieprzeczytane', value: unreadCount },
+          { label: 'Bez odpowiedzi', value: withoutReplyCount },
+          { label: 'Czerwone sygnały', value: redCount },
+          { label: 'Ostatnia odpowiedź', value: lastReplyAt ? new Date(lastReplyAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }) : '—' },
+        ].map((stat) => (
+          <div key={stat.label} className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="text-lg font-bold">{stat.value}</div>
+            <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2 rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        {([
+          ['all', 'Wszystkie'],
+          ['unread', 'Nieprzeczytane'],
+          ['replied', 'Z odpowiedzią'],
+          ['no-reply', 'Bez odpowiedzi'],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            onClick={() => setReadFilter(value)}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer"
+            style={{ background: readFilter === value ? '#FF5C1B' : 'var(--bg-elevated)', color: readFilter === value ? 'white' : 'var(--text-primary)' }}
+          >
+            {label}
+          </button>
+        ))}
+        {([
+          ['all', 'Wszystkie sygnały'],
+          ['red', 'Red'],
+          ['yellow', 'Yellow'],
+          ['green', 'Green'],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            onClick={() => setSignalFilter(value)}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer"
+            style={{ background: signalFilter === value ? '#FF5C1B' : 'var(--bg-elevated)', color: signalFilter === value ? 'white' : 'var(--text-primary)' }}
+          >
+            {label}
+          </button>
+        ))}
+        {([
+          ['all', 'Wszystkie typy'],
+          ['session', 'Do sesji'],
+          ['daily', 'Dzienne'],
+          ['voice', 'Głosowe'],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            onClick={() => setKindFilter(value)}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer"
+            style={{ background: kindFilter === value ? '#FF5C1B' : 'var(--bg-elevated)', color: kindFilter === value ? 'white' : 'var(--text-primary)' }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {statusMessage && (
         <div
           className="rounded-xl px-4 py-3 text-sm"
@@ -82,8 +168,12 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
         <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
           Brak feedbacków od zawodnika
         </div>
+      ) : filteredFeedbacks.length === 0 ? (
+        <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
+          Brak feedbacków pasujących do wybranych filtrów
+        </div>
       ) : (
-        feedbacks.map(fb => (
+        filteredFeedbacks.map(fb => (
           <FeedbackCard
             key={fb.id}
             fb={fb}
