@@ -1,6 +1,6 @@
 'use client'
 
-import { type CSSProperties, useState } from 'react'
+import { useState } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Tabs } from '@/components/ui/Tabs'
 import { Card } from '@/components/ui/Card'
@@ -146,11 +146,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     activeInjuries.length > 0 ? { tone: 'yellow' as const, label: `${activeInjuries.length} ${activeInjuries.length === 1 ? 'aktywna kontuzja' : activeInjuries.length < 5 ? 'aktywne kontuzje' : 'aktywnych kontuzji'}`, detail: activeInjuries.slice(0, 2).join(' · ') } : null,
     !accessInfo.hasActiveSession && !accessInfo.inviteUsedAt ? { tone: 'gray' as const, label: 'Dostęp jeszcze nieaktywny', detail: 'Zawodnik nie wszedł jeszcze do swojego panelu.' } : null,
   ].filter((item): item is { tone: 'red' | 'orange' | 'yellow' | 'gray'; label: string; detail: string } => !!item)
-  const toneStyles: Record<'red' | 'orange' | 'yellow' | 'gray', CSSProperties> = {
-    red: { background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.22)', color: '#FCA5A5' },
-    orange: { background: 'rgba(255,92,27,0.1)', border: '1px solid rgba(255,92,27,0.22)', color: '#FFB38F' },
-    yellow: { background: 'rgba(241,196,15,0.1)', border: '1px solid rgba(241,196,15,0.22)', color: '#FDE68A' },
-    gray: { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)' },
+  const attentionToneDots: Record<'red' | 'orange' | 'yellow' | 'gray', string> = {
+    red: '#E74C3C',
+    orange: '#FF5C1B',
+    yellow: '#F1C40F',
+    gray: '#8A92A8',
   }
 
   return (
@@ -190,14 +190,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   )}
                 </Link>
               </div>
-              <div className="flex items-center gap-4 text-sm flex-wrap" style={{ color: 'var(--text-muted)' }}>
-                {athlete.goal && <span>🎯 {athlete.goal}</span>}
-                {athlete.city && <span>📍 {athlete.city}</span>}
-                {athlete.age && <span>🎂 {athlete.age} lat</span>}
-                <span>📅 Od {formatDate(athlete.join_date, { month: 'long', year: 'numeric' })}</span>
-                {totalKm > 0 && <span>🏃 {totalKm.toFixed(0)} km łącznie</span>}
-              </div>
-              <div className="mt-2 flex items-center gap-2 flex-wrap text-xs" style={{ color: 'var(--text-muted)' }}>
+              <div className="mb-2 flex items-center gap-2 flex-wrap text-xs" style={{ color: 'var(--text-muted)' }}>
                 <span className="inline-flex items-center gap-1.5" style={{ color: accessTone }}>
                   <span className="w-2 h-2 rounded-full" style={{ background: accessTone }} />
                   {accessLabel}
@@ -212,13 +205,33 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     Link użyty: {formatDate(accessInfo.inviteUsedAt, { day: 'numeric', month: 'long', year: 'numeric' })}
                   </span>
                 )}
-                <button
-                  onClick={() => void copyInviteLink()}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer"
-                  style={{ background: linkCopied ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.1)', color: linkCopied ? '#2ECC71' : '#FF5C1B' }}
-                >
-                  {linkCopied ? '✓ Skopiowano link' : 'Kopiuj link'}
-                </button>
+              </div>
+              <div className="flex items-center gap-4 text-sm flex-wrap" style={{ color: 'var(--text-muted)' }}>
+                {athlete.goal && <span>🎯 {athlete.goal}</span>}
+                {athlete.city && <span>📍 {athlete.city}</span>}
+                {athlete.age && <span>🎂 {athlete.age} lat</span>}
+                <span>📅 Od {formatDate(athlete.join_date, { month: 'long', year: 'numeric' })}</span>
+                {totalKm > 0 && <span>🏃 {totalKm.toFixed(0)} km łącznie</span>}
+              </div>
+              <div className="mt-4 rounded-2xl px-4 py-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1" style={{ color: 'var(--text-muted)' }}>
+                  Link dla zawodnika
+                </div>
+                <div className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
+                  Wyślij zawodnikowi ten link. To stały adres dostępu do jego panelu.
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 px-3 py-2 rounded-xl text-xs font-mono truncate select-all" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                    {inviteUrl}
+                  </code>
+                  <button
+                    onClick={() => void copyInviteLink()}
+                    className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0"
+                    style={{ background: linkCopied ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.1)', color: linkCopied ? '#2ECC71' : '#FF5C1B' }}
+                  >
+                    {linkCopied ? '✓ Skopiowano' : '📋 Kopiuj link'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -251,11 +264,25 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           </div>
           {!attentionCollapsed && (
             attentionItems.length > 0 ? (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {attentionItems.map((item) => (
-                  <div key={`${item.label}-${item.detail}`} className="rounded-2xl px-4 py-3" style={toneStyles[item.tone]}>
-                    <div className="text-sm font-semibold">{item.label}</div>
-                    <div className="text-xs mt-1 opacity-90">{item.detail}</div>
+              <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                {attentionItems.map((item, index) => (
+                  <div
+                    key={`${item.label}-${item.detail}`}
+                    className="flex items-start justify-between gap-4 px-4 py-3"
+                    style={{
+                      background: index % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-elevated)',
+                      borderTop: index === 0 ? 'none' : '1px solid var(--border)',
+                    }}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: attentionToneDots[item.tone] }} />
+                        <div className="text-sm font-semibold">{item.label}</div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-right max-w-[45%]" style={{ color: 'var(--text-muted)' }}>
+                      {item.detail}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -283,7 +310,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         {activeTab === 'history' && (
           <HistoryTab
             sessions={initialSessions}
-            feedbacks={athleteFeedbacks}
             feedbackBySession={feedbackBySession}
             feedbackByDate={feedbackByDate}
             today={today}

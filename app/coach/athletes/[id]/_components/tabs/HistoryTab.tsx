@@ -1,13 +1,11 @@
 'use client'
 
 import { Fragment, useState } from 'react'
-import { Card } from '@/components/ui/Card'
 import { formatDate, sessionTypeLabel } from '@/lib/utils'
 import { SessionType } from '@/lib/types'
 import { FeedbackDetail } from '@/components/coach/FeedbackCard'
 import { SessionTypeDef } from '@/lib/session-type-defs'
 import type {
-  CoachFeedbackRow,
   CoachTrainingSessionRow,
   FeedbackByDateMap,
   FeedbackBySessionMap,
@@ -26,7 +24,6 @@ function monthLabel(m: string): string {
 
 interface HistoryTabProps {
   sessions: CoachTrainingSessionRow[]
-  feedbacks: CoachFeedbackRow[]
   feedbackBySession: FeedbackBySessionMap
   feedbackByDate: FeedbackByDateMap
   today: string
@@ -34,7 +31,7 @@ interface HistoryTabProps {
   allSessionTypes: SessionTypeDef[]
 }
 
-export function HistoryTab({ sessions, feedbacks, feedbackBySession, feedbackByDate, today, currentMonth, allSessionTypes }: HistoryTabProps) {
+export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today, currentMonth, allSessionTypes }: HistoryTabProps) {
   const [historyMonth, setHistoryMonth] = useState(currentMonth)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'missed' | 'planned'>('all')
@@ -57,20 +54,7 @@ export function HistoryTab({ sessions, feedbacks, feedbackBySession, feedbackByD
     return allSessionTypes.find(t => t.key === type)?.label ?? sessionTypeLabel(type as SessionType)
   }
 
-  const previousMonth = shiftMonth(historyMonth, -1)
   const monthSessions = sessions.filter(s => s.date.slice(0, 7) === historyMonth).sort((a, b) => b.date.localeCompare(a.date))
-  const previousMonthSessions = sessions.filter(s => s.date.slice(0, 7) === previousMonth)
-  const monthCompleted = monthSessions.filter(s => s.completed)
-  const monthKm = monthCompleted.reduce((sum, s) => sum + (s.actual_distance || 0), 0)
-  const monthFeedbacks = feedbacks.filter(f => f.date.slice(0, 7) === historyMonth)
-  const previousMonthCompleted = previousMonthSessions.filter(s => s.completed)
-  const previousMonthKm = previousMonthCompleted.reduce((sum, s) => sum + (s.actual_distance || 0), 0)
-  const previousCompletionRate = previousMonthSessions.length > 0
-    ? Math.round((previousMonthCompleted.length / previousMonthSessions.length) * 100)
-    : 0
-  const completionRate = monthSessions.length > 0
-    ? Math.round((monthCompleted.length / monthSessions.length) * 100)
-    : 0
   const filteredMonthSessions = monthSessions.filter((session) => {
     if (statusFilter === 'completed' && !session.completed) return false
     if (statusFilter === 'missed' && (session.completed || session.date >= today)) return false
@@ -82,70 +66,63 @@ export function HistoryTab({ sessions, feedbacks, feedbackBySession, feedbackByD
     if (typeFilter !== 'all' && session.type !== typeFilter) return false
     return true
   })
-  const kmDelta = monthKm - previousMonthKm
-  const completionDelta = completionRate - previousCompletionRate
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-4 gap-4">
-        {[
-          { label: 'Sesje', value: `${monthCompleted.length} / ${monthSessions.length}`, helper: previousMonthSessions.length > 0 ? `${monthCompleted.length - previousMonthCompleted.length >= 0 ? '+' : ''}${monthCompleted.length - previousMonthCompleted.length} vs poprzedni miesiąc` : '—' },
-          { label: 'Łącznie km', value: monthKm > 0 ? `${monthKm.toFixed(0)} km` : '—', helper: previousMonthSessions.length > 0 ? `${kmDelta >= 0 ? '+' : ''}${kmDelta.toFixed(0)} km vs poprzedni miesiąc` : '—' },
-          { label: 'Feedbacków', value: monthFeedbacks.length },
-          { label: 'Ukończenie', value: monthSessions.length > 0 ? `${completionRate}%` : '—', helper: previousMonthSessions.length > 0 ? `${completionDelta >= 0 ? '+' : ''}${completionDelta}% vs poprzedni miesiąc` : '—' },
-        ].map(stat => (
-          <Card key={stat.label} className="p-4 text-center">
-            <div className="text-xl font-bold mb-1">{stat.value}</div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{stat.label}</div>
-            {'helper' in stat && stat.helper && (
-              <div className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>{stat.helper}</div>
-            )}
-          </Card>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-2 rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-        {([
-          ['all', 'Wszystkie'],
-          ['completed', 'Wykonane'],
-          ['missed', 'Pominięte'],
-          ['planned', 'Planowane'],
-        ] as const).map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => setStatusFilter(value)}
-            className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer"
-            style={{ background: statusFilter === value ? '#FF5C1B' : 'var(--bg-elevated)', color: statusFilter === value ? 'white' : 'var(--text-primary)' }}
-          >
-            {label}
-          </button>
-        ))}
-        {([
-          ['all', 'Cała historia'],
-          ['with-feedback', 'Tylko z feedbackiem'],
-        ] as const).map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => setFeedbackFilter(value)}
-            className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer"
-            style={{ background: feedbackFilter === value ? '#FF5C1B' : 'var(--bg-elevated)', color: feedbackFilter === value ? 'white' : 'var(--text-primary)' }}
-          >
-            {label}
-          </button>
-        ))}
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as 'all' | SessionType)}
-          className="px-3 py-1.5 rounded-xl text-xs cursor-pointer"
-          style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-        >
-          <option value="all">Wszystkie typy</option>
-          {allSessionTypes.map((type) => (
-            <option key={type.key} value={type.key}>
-              {type.label}
-            </option>
-          ))}
-        </select>
+      <div className="rounded-2xl p-3 md:p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              Status sesji
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+              className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            >
+              <option value="all">Wszystkie sesje</option>
+              <option value="completed">Wykonane</option>
+              <option value="missed">Pominięte</option>
+              <option value="planned">Planowane</option>
+            </select>
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              Feedback
+            </div>
+            <select
+              value={feedbackFilter}
+              onChange={(e) => setFeedbackFilter(e.target.value as typeof feedbackFilter)}
+              className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            >
+              <option value="all">Cała historia</option>
+              <option value="with-feedback">Tylko z feedbackiem</option>
+            </select>
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              Typ sesji
+            </div>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as 'all' | SessionType)}
+              className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            >
+              <option value="all">Wszystkie typy</option>
+              {allSessionTypes.map((type) => (
+                <option key={type.key} value={type.key}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            {filteredMonthSessions.length} {filteredMonthSessions.length === 1 ? 'sesja' : filteredMonthSessions.length < 5 ? 'sesje' : 'sesji'}
+          </div>
+        </div>
       </div>
 
       {/* Month navigation */}

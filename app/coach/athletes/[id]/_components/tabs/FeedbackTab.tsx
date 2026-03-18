@@ -21,7 +21,6 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
   const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
   const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'replied' | 'no-reply'>('all')
   const [signalFilter, setSignalFilter] = useState<'all' | 'red' | 'yellow' | 'green'>('all')
-  const [kindFilter, setKindFilter] = useState<'all' | 'session' | 'daily' | 'voice'>('all')
 
   async function handleExpand(id: string) {
     setExpandedId(prev => prev === id ? null : id)
@@ -74,82 +73,49 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
 
     if (signalFilter !== 'all' && fb.signal !== signalFilter) return false
 
-    if (kindFilter === 'session' && !fb.session_id) return false
-    if (kindFilter === 'daily' && fb.session_id) return false
-    if (kindFilter === 'voice' && !(fb.transcript ?? '').includes('[voice]')) return false
-
     return true
   })
 
-  const unreadCount = feedbacks.filter((fb) => !fb.read).length
-  const withoutReplyCount = feedbacks.filter((fb) => !fb.coach_reply).length
-  const redCount = feedbacks.filter((fb) => fb.signal === 'red').length
-  const lastReplyAt = feedbacks
-    .filter((fb) => fb.coach_reply)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]?.created_at ?? null
-
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Nieprzeczytane', value: unreadCount },
-          { label: 'Bez odpowiedzi', value: withoutReplyCount },
-          { label: 'Czerwone sygnały', value: redCount },
-          { label: 'Ostatnia odpowiedź', value: lastReplyAt ? new Date(lastReplyAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }) : '—' },
-        ].map((stat) => (
-          <div key={stat.label} className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <div className="text-lg font-bold">{stat.value}</div>
-            <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{stat.label}</div>
+      <div className="rounded-2xl p-3 md:p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              Odpowiedzi i odczyt
+            </div>
+            <select
+              value={readFilter}
+              onChange={(e) => setReadFilter(e.target.value as typeof readFilter)}
+              className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            >
+              <option value="all">Wszystkie feedbacki</option>
+              <option value="unread">Nieprzeczytane</option>
+              <option value="replied">Z odpowiedzią</option>
+              <option value="no-reply">Bez odpowiedzi</option>
+            </select>
           </div>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-2 rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-        {([
-          ['all', 'Wszystkie'],
-          ['unread', 'Nieprzeczytane'],
-          ['replied', 'Z odpowiedzią'],
-          ['no-reply', 'Bez odpowiedzi'],
-        ] as const).map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => setReadFilter(value)}
-            className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer"
-            style={{ background: readFilter === value ? '#FF5C1B' : 'var(--bg-elevated)', color: readFilter === value ? 'white' : 'var(--text-primary)' }}
-          >
-            {label}
-          </button>
-        ))}
-        {([
-          ['all', 'Wszystkie sygnały'],
-          ['red', 'Red'],
-          ['yellow', 'Yellow'],
-          ['green', 'Green'],
-        ] as const).map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => setSignalFilter(value)}
-            className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer"
-            style={{ background: signalFilter === value ? '#FF5C1B' : 'var(--bg-elevated)', color: signalFilter === value ? 'white' : 'var(--text-primary)' }}
-          >
-            {label}
-          </button>
-        ))}
-        {([
-          ['all', 'Wszystkie typy'],
-          ['session', 'Do sesji'],
-          ['daily', 'Dzienne'],
-          ['voice', 'Głosowe'],
-        ] as const).map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => setKindFilter(value)}
-            className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer"
-            style={{ background: kindFilter === value ? '#FF5C1B' : 'var(--bg-elevated)', color: kindFilter === value ? 'white' : 'var(--text-primary)' }}
-          >
-            {label}
-          </button>
-        ))}
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              Sygnał
+            </div>
+            <select
+              value={signalFilter}
+              onChange={(e) => setSignalFilter(e.target.value as typeof signalFilter)}
+              className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            >
+              <option value="all">Wszystkie sygnały</option>
+              <option value="red">Czerwone</option>
+              <option value="yellow">Żółte</option>
+              <option value="green">Zielone</option>
+            </select>
+          </div>
+          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            {filteredFeedbacks.length} {filteredFeedbacks.length === 1 ? 'wynik' : filteredFeedbacks.length < 5 ? 'wyniki' : 'wyników'}
+          </div>
+        </div>
       </div>
 
       {statusMessage && (
