@@ -78,76 +78,76 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
   })
 
   const filterControlStyle = {
-    background: 'linear-gradient(180deg, var(--bg-elevated) 0%, rgba(255,92,27,0.04) 100%)',
+    background: 'var(--bg-card)',
     color: 'var(--text-primary)',
-    border: '1px solid rgba(255,92,27,0.2)',
-    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
+    border: '1px solid var(--border)',
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
-        <div className="grid gap-3 md:grid-cols-2 flex-1 min-w-[280px]">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: '#FFB38F' }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
-              Odpowiedzi i odczyt
+      <div className="max-w-4xl mx-auto space-y-4">
+        <div className="flex items-end justify-between gap-3 flex-wrap rounded-2xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
+          <div className="grid gap-3 md:grid-cols-2 flex-1 min-w-[280px]">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
+                Odpowiedzi i odczyt
+              </div>
+              <select
+                value={readFilter}
+                onChange={(e) => setReadFilter(e.target.value as typeof readFilter)}
+                className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+                style={filterControlStyle}
+              >
+                <option value="all">Wszystkie feedbacki</option>
+                <option value="unread">Nieprzeczytane</option>
+                <option value="replied">Z odpowiedzią</option>
+                <option value="no-reply">Bez odpowiedzi</option>
+              </select>
             </div>
-            <select
-              value={readFilter}
-              onChange={(e) => setReadFilter(e.target.value as typeof readFilter)}
-              className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
-              style={filterControlStyle}
-            >
-              <option value="all">Wszystkie feedbacki</option>
-              <option value="unread">Nieprzeczytane</option>
-              <option value="replied">Z odpowiedzią</option>
-              <option value="no-reply">Bez odpowiedzi</option>
-            </select>
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
+                Sygnał
+              </div>
+              <select
+                value={signalFilter}
+                onChange={(e) => setSignalFilter(e.target.value as typeof signalFilter)}
+                className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+                style={filterControlStyle}
+              >
+                <option value="all">Wszystkie sygnały</option>
+                <option value="red">Czerwone</option>
+                <option value="yellow">Żółte</option>
+                <option value="green">Zielone</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: '#FFB38F' }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
-              Sygnał
-            </div>
-            <select
-              value={signalFilter}
-              onChange={(e) => setSignalFilter(e.target.value as typeof signalFilter)}
-              className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
-              style={filterControlStyle}
-            >
-              <option value="all">Wszystkie sygnały</option>
-              <option value="red">Czerwone</option>
-              <option value="yellow">Żółte</option>
-              <option value="green">Zielone</option>
-            </select>
+          <div className="text-sm px-3 py-2 rounded-xl" style={{ background: 'rgba(255,92,27,0.08)', color: '#FFB38F', border: '1px solid rgba(255,92,27,0.14)' }}>
+            {filteredFeedbacks.length} {filteredFeedbacks.length === 1 ? 'wynik' : filteredFeedbacks.length < 5 ? 'wyniki' : 'wyników'}
           </div>
         </div>
-        <div className="text-sm px-3 py-2 rounded-xl" style={{ background: 'rgba(255,92,27,0.06)', color: '#FFB38F', border: '1px solid rgba(255,92,27,0.16)' }}>
-          {filteredFeedbacks.length} {filteredFeedbacks.length === 1 ? 'wynik' : filteredFeedbacks.length < 5 ? 'wyniki' : 'wyników'}
-        </div>
-      </div>
 
-      {statusMessage && (
-        <ProfileStatusNotice tone={statusMessage.tone} text={statusMessage.text} />
-      )}
-      {feedbacks.length === 0 ? (
-        <ProfileEmptyState
-          icon="💬"
-          title="Brak feedbacków od zawodnika"
-          description="Gdy zawodnik zacznie zostawiać odczucia do dni lub sesji, cała historia pojawi się właśnie tutaj."
-        />
-      ) : filteredFeedbacks.length === 0 ? (
-        <ProfileEmptyState
-          icon="🔎"
-          title="Brak feedbacków w tym widoku"
-          description="Zmień filtry, aby zobaczyć więcej wpisów albo wróć do pełnej historii feedbacku."
-        />
-      ) : (
-        <div className="space-y-3">
-          {filteredFeedbacks.map(fb => (
-            <div key={fb.id} className="max-w-4xl">
+        {statusMessage && (
+          <ProfileStatusNotice tone={statusMessage.tone} text={statusMessage.text} />
+        )}
+        {feedbacks.length === 0 ? (
+          <ProfileEmptyState
+            icon="💬"
+            title="Brak feedbacków od zawodnika"
+            description="Gdy zawodnik zacznie zostawiać odczucia do dni lub sesji, cała historia pojawi się właśnie tutaj."
+          />
+        ) : filteredFeedbacks.length === 0 ? (
+          <ProfileEmptyState
+            icon="🔎"
+            title="Brak feedbacków w tym widoku"
+            description="Zmień filtry, aby zobaczyć więcej wpisów albo wróć do pełnej historii feedbacku."
+          />
+        ) : (
+          <div className="space-y-3">
+            {filteredFeedbacks.map(fb => (
               <FeedbackCard
+                key={fb.id}
                 fb={fb}
                 isExpanded={expandedId === fb.id}
                 isReplying={replyingId === fb.id}
@@ -162,10 +162,10 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
                 onReplySubmit={() => handleReply(fb.id)}
                 onReplyCancel={() => setReplyingId(null)}
               />
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

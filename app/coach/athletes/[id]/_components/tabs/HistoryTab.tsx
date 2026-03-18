@@ -35,7 +35,6 @@ interface HistoryTabProps {
 export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today, currentMonth, allSessionTypes }: HistoryTabProps) {
   const [historyMonth, setHistoryMonth] = useState(currentMonth)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
-  const [upcomingOpen, setUpcomingOpen] = useState(true)
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'missed' | 'planned'>('all')
   const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'with-feedback'>('all')
   const [typeFilter, setTypeFilter] = useState<'all' | SessionType>('all')
@@ -70,18 +69,17 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
   })
 
   const filterControlStyle = {
-    background: 'linear-gradient(180deg, var(--bg-elevated) 0%, rgba(255,92,27,0.04) 100%)',
+    background: 'var(--bg-card)',
     color: 'var(--text-primary)',
-    border: '1px solid rgba(255,92,27,0.2)',
-    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
+    border: '1px solid var(--border)',
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
+      <div className="flex items-end justify-between gap-3 flex-wrap rounded-2xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
         <div className="grid gap-3 md:grid-cols-3 flex-1 min-w-[320px]">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: '#FFB38F' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
               Status sesji
             </div>
@@ -98,7 +96,7 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
             </select>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: '#FFB38F' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
               Feedback
             </div>
@@ -113,7 +111,7 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
             </select>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: '#FFB38F' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
               Typ sesji
             </div>
@@ -132,7 +130,7 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
             </select>
           </div>
         </div>
-        <div className="text-sm px-3 py-2 rounded-xl" style={{ background: 'rgba(255,92,27,0.06)', color: '#FFB38F', border: '1px solid rgba(255,92,27,0.16)' }}>
+        <div className="text-sm px-3 py-2 rounded-xl" style={{ background: 'rgba(255,92,27,0.08)', color: '#FFB38F', border: '1px solid rgba(255,92,27,0.14)' }}>
           {filteredMonthSessions.length} {filteredMonthSessions.length === 1 ? 'sesja' : filteredMonthSessions.length < 5 ? 'sesje' : 'sesji'}
         </div>
       </div>
@@ -181,8 +179,6 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
               </tr>
             )}
             {(() => {
-              const pastMonthSessions = filteredMonthSessions.filter(s => s.date < today || s.completed)
-              const upcomingMonthSessions = filteredMonthSessions.filter(s => s.date >= today && !s.completed).reverse()
               const renderRow = (session: CoachTrainingSessionRow) => {
                 const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
                 const isExpanded = expandedRows.has(session.id)
@@ -231,52 +227,7 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
                   </Fragment>
                 )
               }
-              return (
-                <>
-                  {pastMonthSessions.map(renderRow)}
-                  {upcomingMonthSessions.length > 0 && (
-                    <tr>
-                      <td
-                        colSpan={8}
-                        className="px-4 py-3"
-                        style={{
-                          background: 'linear-gradient(180deg, rgba(255,92,27,0.08) 0%, rgba(255,92,27,0.03) 100%)',
-                          borderTop: '1px solid rgba(255,92,27,0.16)',
-                          borderBottom: '1px solid rgba(255,92,27,0.12)',
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-4 flex-wrap">
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setUpcomingOpen((prev) => !prev)}
-                              className="flex items-center gap-2 cursor-pointer text-left"
-                            >
-                              <span className="text-sm">{upcomingOpen ? '▼' : '▶'}</span>
-                              <span className="text-sm">🗓️</span>
-                            </button>
-                            <div>
-                              <div className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: '#FFB38F' }}>
-                                Nadchodzące
-                              </div>
-                              <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                                Zaplanowane sesje, które jeszcze czekają na realizację.
-                              </div>
-                            </div>
-                          </div>
-                          <div
-                            className="text-xs px-2.5 py-1 rounded-full font-medium"
-                            style={{ background: 'rgba(255,92,27,0.12)', color: '#FFB38F', border: '1px solid rgba(255,92,27,0.16)' }}
-                          >
-                            {upcomingMonthSessions.length} {upcomingMonthSessions.length === 1 ? 'sesja' : upcomingMonthSessions.length < 5 ? 'sesje' : 'sesji'}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                  {upcomingOpen && upcomingMonthSessions.map(renderRow)}
-                </>
-              )
+              return filteredMonthSessions.map(renderRow)
             })()}
           </tbody>
         </table>
