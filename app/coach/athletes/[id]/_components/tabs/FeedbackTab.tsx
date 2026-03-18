@@ -78,8 +78,19 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl p-3 md:p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-        <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+      <div className="rounded-2xl p-3 md:p-4" style={{ background: 'linear-gradient(180deg, var(--bg-card) 0%, var(--bg-elevated) 100%)', border: '1px solid var(--border)' }}>
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <div>
+            <div className="text-sm font-semibold">Filtry feedbacku</div>
+            <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              Zawęź widok do rzeczy, które wymagają reakcji lub przeglądu.
+            </div>
+          </div>
+          <div className="text-sm px-3 py-1.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+            {filteredFeedbacks.length} {filteredFeedbacks.length === 1 ? 'wynik' : filteredFeedbacks.length < 5 ? 'wyniki' : 'wyników'}
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Odpowiedzi i odczyt
@@ -111,9 +122,6 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
               <option value="yellow">Żółte</option>
               <option value="green">Zielone</option>
             </select>
-          </div>
-          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {filteredFeedbacks.length} {filteredFeedbacks.length === 1 ? 'wynik' : filteredFeedbacks.length < 5 ? 'wyniki' : 'wyników'}
           </div>
         </div>
       </div>

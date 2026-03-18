@@ -144,6 +144,11 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
   const finishedRaces = localRaces
     .filter(r => r.status && r.status !== 'planned')
     .slice().sort((a, b) => b.date.localeCompare(a.date))
+  const nextRace = plannedRaces[0] ?? null
+  const latestFinishedRace = finishedRaces[0] ?? null
+  const daysToNextRace = nextRace
+    ? Math.ceil((new Date(nextRace.date).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24))
+    : null
 
   const RaceTable = ({ races: tableRaces, columns, renderRow }: {
     races: CoachRaceRow[]
@@ -186,6 +191,78 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
             {loadError}
           </div>
         )}
+        <Card className="p-5">
+          <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+            <div>
+              <h3 className="font-semibold">Podsumowanie startów</h3>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                Najbliższy planowany start i szybki kontekst sezonu zawodnika.
+              </p>
+            </div>
+            <button onClick={openNewRace}
+              className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+              style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+              + Dodaj start
+            </button>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(180px,0.8fr)_minmax(200px,1fr)]">
+            <div className="rounded-2xl px-4 py-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
+                Najbliższy start
+              </div>
+              {nextRace ? (
+                <>
+                  <div className="text-base font-semibold">{nextRace.name}</div>
+                  <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                    {formatDate(nextRace.date, { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {nextRace.distance ? ` • ${nextRace.distance}` : ''}
+                  </div>
+                  <div className="text-sm mt-2" style={{ color: '#FFB38F' }}>
+                    {daysToNextRace !== null && daysToNextRace > 0 ? `Do startu zostało ${daysToNextRace} ${daysToNextRace === 1 ? 'dzień' : 'dni'}.` : 'Start jest dziś albo termin już minął.'}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-base font-semibold">Brak zaplanowanego startu</div>
+                  <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                    Dodaj najbliższe zawody, aby trener miał pełniejszy kontekst przygotowań.
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="rounded-2xl px-4 py-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
+                Cel czasowy
+              </div>
+              <div className="text-base font-semibold font-mono">
+                {nextRace?.goal_time || '—'}
+              </div>
+              <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                {nextRace ? 'Cel dla najbliższego startu.' : 'Dodaj start, aby ustawić cel czasowy.'}
+              </div>
+            </div>
+
+            <div className="rounded-2xl px-4 py-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
+                Kontekst sezonu
+              </div>
+              <div className="text-sm font-semibold">
+                {plannedRaces.length} {plannedRaces.length === 1 ? 'planowany start' : plannedRaces.length < 5 ? 'planowane starty' : 'planowanych startów'}
+              </div>
+              <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                {finishedRaces.length} {finishedRaces.length === 1 ? 'start zamknięty wynikiem' : finishedRaces.length < 5 ? 'starty zamknięte wynikiem' : 'startów zamkniętych wynikiem'}
+              </div>
+              {latestFinishedRace && (
+                <div className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
+                  Ostatni zamknięty: <span style={{ color: 'var(--text-primary)' }}>{latestFinishedRace.name}</span>
+                  {latestFinishedRace.result ? ` • ${latestFinishedRace.result}` : ''}
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
         {/* Planowane */}
         <Card className="p-5">
           <div className={`flex items-center justify-between ${plannedOpen ? 'mb-4' : ''}`}>
@@ -200,11 +277,9 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
                 </span>
               )}
             </button>
-            <button onClick={openNewRace}
-              className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
-              style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-              + Dodaj start
-            </button>
+            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              {plannedRaces.length === 0 ? 'Dodaj pierwszy planowany start.' : 'Najbliższe zawody do monitorowania.'}
+            </div>
           </div>
           {plannedOpen && (loadingRaces ? (
             <div className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>

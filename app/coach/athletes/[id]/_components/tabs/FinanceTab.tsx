@@ -137,6 +137,14 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
     },
     { paid: 0, pending: 0, overdue: 0 }
   )
+  const latestInvoice = localInvoices
+    .slice()
+    .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
+  const nextDueInvoice = localInvoices
+    .filter((invoice) => invoice.status === 'pending' || invoice.status === 'overdue')
+    .slice()
+    .sort((a, b) => a.due_date.localeCompare(b.due_date))[0] ?? null
+  const withAttachmentCount = localInvoices.filter((invoice) => !!invoice.attachment_url).length
 
   return (
     <>
@@ -165,19 +173,54 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
             + Nowa faktura
           </button>
         </div>
-        <div className="grid grid-cols-4 gap-4">
-          {[
-            { label: 'Opłacono łącznie', value: formatCurrency(invoiceTotals.paid), color: 'text-green-400' },
-            { label: 'Oczekujące', value: formatCurrency(invoiceTotals.pending), color: 'text-yellow-400' },
-            { label: 'Przeterminowane', value: formatCurrency(invoiceTotals.overdue), color: 'text-red-400' },
-            { label: 'Do zapłaty', value: formatCurrency(invoiceTotals.pending + invoiceTotals.overdue), color: invoiceTotals.pending + invoiceTotals.overdue > 0 ? 'text-red-400' : 'text-green-400' },
-          ].map(kpi => (
-            <Card key={kpi.label} className="p-4 text-center">
-              <div className={`text-xl font-bold mb-1 ${kpi.color}`}>{kpi.value}</div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{kpi.label}</div>
-            </Card>
-          ))}
-        </div>
+        <Card className="p-5">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                Do zapłaty
+              </div>
+              <div className="text-lg font-semibold" style={{ color: invoiceTotals.pending + invoiceTotals.overdue > 0 ? '#FCA5A5' : 'var(--text-primary)' }}>
+                {formatCurrency(invoiceTotals.pending + invoiceTotals.overdue)}
+              </div>
+              <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                Oczekujące: {formatCurrency(invoiceTotals.pending)} • Przeterminowane: {formatCurrency(invoiceTotals.overdue)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                Ostatnia faktura
+              </div>
+              <div className="text-lg font-semibold">
+                {latestInvoice ? latestInvoice.number : '—'}
+              </div>
+              <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                {latestInvoice ? formatDate(latestInvoice.date, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Brak wystawionych faktur'}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                Najbliższy termin
+              </div>
+              <div className="text-lg font-semibold">
+                {nextDueInvoice ? formatDate(nextDueInvoice.due_date, { day: 'numeric', month: 'short' }) : '—'}
+              </div>
+              <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                {nextDueInvoice ? `${nextDueInvoice.number} • ${formatCurrency(nextDueInvoice.amount)}` : 'Brak otwartych płatności'}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                Dokumenty
+              </div>
+              <div className="text-lg font-semibold">
+                {withAttachmentCount}
+              </div>
+              <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                {withAttachmentCount === 1 ? 'faktura ma załącznik' : withAttachmentCount < 5 ? 'faktury mają załączniki' : 'faktur ma załączniki'}
+              </div>
+            </div>
+          </div>
+        </Card>
         <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
           <table className="w-full text-sm">
             <thead>

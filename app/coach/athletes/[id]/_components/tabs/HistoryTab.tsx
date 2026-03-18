@@ -69,8 +69,19 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl p-3 md:p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-        <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+      <div className="rounded-2xl p-3 md:p-4" style={{ background: 'linear-gradient(180deg, var(--bg-card) 0%, var(--bg-elevated) 100%)', border: '1px solid var(--border)' }}>
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <div>
+            <div className="text-sm font-semibold">Filtry historii</div>
+            <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              Uporządkuj widok sesji według statusu, feedbacku i typu treningu.
+            </div>
+          </div>
+          <div className="text-sm px-3 py-1.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+            {filteredMonthSessions.length} {filteredMonthSessions.length === 1 ? 'sesja' : filteredMonthSessions.length < 5 ? 'sesje' : 'sesji'}
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Status sesji
@@ -119,17 +130,14 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
               ))}
             </select>
           </div>
-          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {filteredMonthSessions.length} {filteredMonthSessions.length === 1 ? 'sesja' : filteredMonthSessions.length < 5 ? 'sesje' : 'sesji'}
-          </div>
         </div>
       </div>
 
       {/* Month navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between rounded-2xl px-3 py-2.5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
         <button onClick={() => setHistoryMonth(m => shiftMonth(m, -1))}
           className="px-3 py-1.5 rounded-xl text-sm cursor-pointer"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>←</button>
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>←</button>
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold capitalize" style={{ color: 'var(--text-primary)' }}>
             {monthLabel(historyMonth)}
@@ -137,14 +145,14 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
           {historyMonth !== currentMonth && (
             <button onClick={() => setHistoryMonth(currentMonth)}
               className="px-2.5 py-1 rounded-lg text-xs cursor-pointer"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
               Dziś
             </button>
           )}
         </div>
         <button onClick={() => setHistoryMonth(m => shiftMonth(m, 1))}
           className="px-3 py-1.5 rounded-xl text-sm cursor-pointer"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>→</button>
+          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>→</button>
       </div>
 
       <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
