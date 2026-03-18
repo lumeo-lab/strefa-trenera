@@ -16,8 +16,13 @@ export default async function CoachChatPage({ searchParams }: { searchParams: Pr
   const coachId = user?.id ?? ''
 
   // Load athletes + lightweight thread summaries (last message + unread count per athlete)
-  const [{ data: athletes }, { data: lastMessages }, { data: unreadCounts }] = await Promise.all([
-    supabase.from('athletes').select('id, name, avatar, goal, package, slug').eq('coach_id', coachId).order('name'),
+  const athletesResult = await supabase.from('athletes').select('id, name, avatar, goal, package, slug').eq('coach_id', coachId).is('archived_at', null).order('name')
+  const fallbackAthletesResult = athletesResult.error
+    ? await supabase.from('athletes').select('id, name, avatar, goal, package, slug').eq('coach_id', coachId).order('name')
+    : null
+  const athletes = athletesResult.error ? (fallbackAthletesResult?.data ?? []) : (athletesResult.data ?? [])
+
+  const [{ data: lastMessages }, { data: unreadCounts }] = await Promise.all([
     // Get the most recent message per athlete using a raw approach:
     // Fetch recent messages and let client dedupe per athlete
     supabase.from('messages')
@@ -46,7 +51,7 @@ export default async function CoachChatPage({ searchParams }: { searchParams: Pr
     unreadByAthlete.set(m.athlete_id, (unreadByAthlete.get(m.athlete_id) ?? 0) + 1)
   }
 
-  const threadSummaries = (athletes ?? []).map(a => ({
+  const threadSummaries = athletes.map(a => ({
     athlete: a,
     lastMessage: lastMessageByAthlete.get(a.id) ?? null,
     unreadCount: unreadByAthlete.get(a.id) ?? 0,

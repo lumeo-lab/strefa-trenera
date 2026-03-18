@@ -12,6 +12,18 @@ type Athlete = {
   status: string
 }
 
+function EmptyPanel({ title, description }: { title: string; description: string }) {
+  return (
+    <div
+      className="rounded-2xl px-5 py-8 text-center"
+      style={{ background: 'var(--bg-card)', border: '1px dashed var(--border)', color: 'var(--text-muted)' }}
+    >
+      <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{title}</div>
+      <div className="text-xs leading-6 max-w-xl mx-auto">{description}</div>
+    </div>
+  )
+}
+
 interface Props {
   athletes: Athlete[]
   sessions: CoachTrainingSessionRow[]
@@ -86,8 +98,11 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
     return (
       <div>
         <CoachTopbar title="Planer" subtitle="Plan treningowy" />
-        <div className="flex items-center justify-center h-64 text-sm" style={{ color: 'var(--text-muted)' }}>
-          Brak aktywnych zawodników. Dodaj zawodnika, aby korzystać z planera.
+        <div className="p-4 sm:p-6">
+          <EmptyPanel
+            title="Planer jest jeszcze pusty"
+            description="Dodaj aktywnego zawodnika, a tutaj pojawi się jego plan treningowy, sesje i feedback przypisany do dni."
+          />
         </div>
       </div>
     )
@@ -98,9 +113,10 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
       <div>
         <CoachTopbar title="Planer" subtitle="Ładowanie..." />
         <div className="p-4 sm:p-6">
-          <div className="rounded-2xl px-4 py-10 text-sm" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-            Przywracanie ostatniego widoku planera...
-          </div>
+          <EmptyPanel
+            title="Przywracanie ostatniego widoku"
+            description="Za chwilę wrócisz do ostatnio otwartego zawodnika i zapisanej konfiguracji planera."
+          />
         </div>
       </div>
     )

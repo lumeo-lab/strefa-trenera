@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
+import { adminClient } from '@/lib/supabase/admin'
 import { AthleteProfileClient } from './_components/AthleteProfileClient'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -13,6 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function AthleteProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
 
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -69,6 +71,17 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
       .eq('read', false),
   ])
 
+  const nowIso = new Date().toISOString()
+  const { data: activeSession } = await adminClient
+    .from('athlete_sessions')
+    .select('id, last_seen_at, created_at, expires_at')
+    .eq('athlete_id', id)
+    .is('revoked_at', null)
+    .gt('expires_at', nowIso)
+    .order('last_seen_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
   return (
     <AthleteProfileClient
       athlete={athlete}
@@ -78,6 +91,13 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
       packages={packages ?? []}
       races={races ?? []}
       unreadMessagesCount={unreadMessagesCount ?? 0}
+      appUrl={appUrl}
+      accessInfo={{
+        inviteUsedAt: athlete.invite_token_used_at ?? null,
+        hasActiveSession: !!activeSession,
+        lastSeenAt: activeSession?.last_seen_at ?? null,
+        sessionCreatedAt: activeSession?.created_at ?? null,
+      }}
     />
   )
 }

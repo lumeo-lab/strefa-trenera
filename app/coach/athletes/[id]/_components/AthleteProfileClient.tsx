@@ -37,9 +37,16 @@ interface Props {
   packages: CoachPackageRow[]
   races: CoachRaceRow[]
   unreadMessagesCount: number
+  appUrl: string
+  accessInfo: {
+    inviteUsedAt: string | null
+    hasActiveSession: boolean
+    lastSeenAt: string | null
+    sessionCreatedAt: string | null
+  }
 }
 
-export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces, unreadMessagesCount }: Props) {
+export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces, unreadMessagesCount, appUrl, accessInfo }: Props) {
   const [activeTab, setActiveTab] = useState('plan')
 
   // Feedback lookup
@@ -62,8 +69,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [regeneratingInvite, setRegeneratingInvite] = useState(false)
   const [inviteToken, setInviteToken] = useState<string>(athlete.invite_token)
   const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(athlete.invite_token_expires_at ?? null)
-  const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  const inviteUrl = `${origin}/u/${athlete.slug}?t=${inviteToken}`
+  const inviteBaseUrl = appUrl.replace(/\/$/, '')
+  const inviteUrl = `${inviteBaseUrl}/u/${athlete.slug}?t=${inviteToken}`
 
   const isInviteExpired = !inviteExpiresAt || new Date(inviteExpiresAt) <= new Date()
   const [inviteError, setInviteError] = useState<string | null>(null)
@@ -79,7 +86,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       setInviteToken(result.inviteToken)
       setInviteExpiresAt(result.inviteExpiresAt ?? null)
       setLinkCopied(false)
-      return `${origin}/u/${result.slug}?t=${result.inviteToken}`
+      return `${inviteBaseUrl}/u/${result.slug}?t=${result.inviteToken}`
     }
     setInviteError('Nie udało się wygenerować linku')
     return null
@@ -129,6 +136,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
   const completedSessions = initialSessions.filter(s => s.completed && s.actual_distance)
   const totalKm = completedSessions.reduce((sum, s) => sum + (s.actual_distance || 0), 0)
+  const accessTone = accessInfo.hasActiveSession ? '#2ECC71' : accessInfo.inviteUsedAt ? '#F1C40F' : '#6B7280'
+  const accessLabel = accessInfo.hasActiveSession
+    ? 'Dostęp aktywowany'
+    : accessInfo.inviteUsedAt
+      ? 'Link użyty, brak aktywnej sesji'
+      : 'Dostęp jeszcze nieaktywowany'
 
   return (
     <div>
@@ -150,6 +163,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-1">
                 <h2 className="text-xl font-bold">{athlete.name}</h2>
+                {athlete.archived_at && (
+                  <Badge variant="gray">Archiwum</Badge>
+                )}
                 <Badge variant="gray">
                   {athlete.package} — {formatCurrency(athlete.package_price)}/mies.
                 </Badge>
@@ -170,6 +186,22 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 {athlete.age && <span>🎂 {athlete.age} lat</span>}
                 <span>📅 Od {formatDate(athlete.join_date, { month: 'long', year: 'numeric' })}</span>
                 {totalKm > 0 && <span>🏃 {totalKm.toFixed(0)} km łącznie</span>}
+              </div>
+              <div className="mt-2 flex items-center gap-2 flex-wrap text-xs" style={{ color: 'var(--text-muted)' }}>
+                <span className="inline-flex items-center gap-1.5" style={{ color: accessTone }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: accessTone }} />
+                  {accessLabel}
+                </span>
+                {accessInfo.lastSeenAt && (
+                  <span>
+                    Ostatnia aktywność: {formatDate(accessInfo.lastSeenAt, { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                )}
+                {!accessInfo.lastSeenAt && accessInfo.inviteUsedAt && (
+                  <span>
+                    Link użyty: {formatDate(accessInfo.inviteUsedAt, { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                )}
               </div>
             </div>
           </div>

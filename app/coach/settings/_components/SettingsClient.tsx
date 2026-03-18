@@ -2,15 +2,19 @@
 
 import { useActionState, useEffect, useRef, useState } from 'react'
 import type React from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { restoreAthlete } from '@/lib/actions/athletes'
 import { updateCoachAvatar, updateCoachEmail, updateCoachName, updateCoachPassword } from '@/lib/actions/profile'
 import { PackagesClient } from '@/app/coach/packages/_components/PackagesClient'
-import { getInitials } from '@/lib/utils'
+import { formatDate, getInitials } from '@/lib/utils'
 import { INPUT_STYLE } from '@/lib/styles'
 
 type Package = { id: string; name: string; description: string | null; price: number }
+type ArchivedAthlete = { id: string; name: string; email: string | null; package: string; archived_at: string | null; join_date: string }
 
 interface Props {
   email: string
@@ -18,6 +22,7 @@ interface Props {
   plan: string
   avatar: string
   packages: Package[]
+  archivedAthletes: ArchivedAthlete[]
 }
 
 const inputStyle = INPUT_STYLE
@@ -39,8 +44,12 @@ function planLabel(plan: string) {
   return map[plan] ?? plan
 }
 
-export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
-  const [tab, setTab] = useState<'profile' | 'packages'>('profile')
+export function SettingsClient({ email, name, plan, avatar, packages, archivedAthletes }: Props) {
+  const router = useRouter()
+  const [tab, setTab] = useState<'profile' | 'packages' | 'archive'>('profile')
+  const [archiveQuery, setArchiveQuery] = useState('')
+  const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [archiveMessage, setArchiveMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
 
   const [nameState, nameAction, namePending] = useActionState(updateCoachName, null)
   const [emailState, emailAction, emailPending] = useActionState(updateCoachEmail, null)
@@ -97,11 +106,11 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
     <div>
       <CoachTopbar title="Ustawienia" subtitle="Profil i pakiety" />
 
-      <div className="p-6 max-w-2xl mx-auto">
+      <div className="p-6 max-w-4xl mx-auto">
 
         {/* Tab switcher */}
         <div className="flex gap-1 p-1 rounded-xl mb-6" style={{ background: 'var(--bg-elevated)' }}>
-          {(['profile', 'packages'] as const).map(t => (
+          {(['profile', 'packages', 'archive'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -111,10 +120,23 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
                 color: tab === t ? 'var(--text-primary)' : 'var(--text-muted)',
               }}
             >
-              {t === 'profile' ? '👤 Profil' : '📦 Pakiety i cennik'}
+              {t === 'profile' ? '👤 Profil' : t === 'packages' ? '📦 Pakiety i cennik' : '🗂 Archiwum zawodników'}
             </button>
           ))}
         </div>
+
+        {archiveMessage && (
+          <div
+            className="mb-6 rounded-2xl px-4 py-3 text-sm"
+            style={{
+              background: archiveMessage.tone === 'success' ? 'rgba(46,204,113,0.12)' : 'rgba(231,76,60,0.12)',
+              border: archiveMessage.tone === 'success' ? '1px solid rgba(46,204,113,0.24)' : '1px solid rgba(231,76,60,0.24)',
+              color: archiveMessage.tone === 'success' ? '#2ECC71' : '#E74C3C',
+            }}
+          >
+            {archiveMessage.text}
+          </div>
+        )}
 
         {/* Profile tab */}
         {tab === 'profile' && (
@@ -267,6 +289,100 @@ export function SettingsClient({ email, name, plan, avatar, packages }: Props) {
         {tab === 'packages' && (
           <PackagesClient packages={packages} />
         )}
+
+        {tab === 'archive' && (() => {
+          const filteredArchived = archivedAthletes.filter((athlete) => {
+            const q = archiveQuery.trim().toLowerCase()
+            if (!q) return true
+            return athlete.name.toLowerCase().includes(q) || (athlete.email ?? '').toLowerCase().includes(q) || athlete.package.toLowerCase().includes(q)
+          })
+
+          return (
+            <Card className="p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-5">
+                <div>
+                  <h3 className="font-semibold">Archiwum zawodników</h3>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                    Tutaj trafiają zawodnicy przeniesieni z aktywnej bazy. Nie są już widoczni w bieżącej pracy trenera.
+                  </p>
+                </div>
+                <input
+                  value={archiveQuery}
+                  onChange={(e) => setArchiveQuery(e.target.value)}
+                  placeholder="Szukaj w archiwum..."
+                  className="w-full sm:w-72 px-3 py-2.5 rounded-xl text-sm"
+                  style={inputStyle}
+                />
+              </div>
+
+              {filteredArchived.length === 0 ? (
+                <div className="rounded-2xl px-4 py-10 text-sm text-center" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                  {archivedAthletes.length === 0 ? 'Archiwum jest puste.' : 'Brak zawodników pasujących do wyszukiwania.'}
+                </div>
+              ) : (
+                <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
+                        <th className="text-left px-4 py-3" style={{ color: 'var(--text-muted)' }}>Zawodnik</th>
+                        <th className="text-left px-4 py-3" style={{ color: 'var(--text-muted)' }}>Pakiet</th>
+                        <th className="text-left px-4 py-3" style={{ color: 'var(--text-muted)' }}>Dołączył</th>
+                        <th className="text-left px-4 py-3" style={{ color: 'var(--text-muted)' }}>Zarchiwizowano</th>
+                        <th className="text-right px-4 py-3" style={{ color: 'var(--text-muted)' }}>Akcja</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredArchived.map((athlete, index) => (
+                        <tr key={athlete.id} style={{ borderBottom: index < filteredArchived.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                          <td className="px-4 py-3">
+                            <div className="font-medium">{athlete.name}</div>
+                            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{athlete.email || 'Brak emaila'}</div>
+                          </td>
+                          <td className="px-4 py-3">{athlete.package || '—'}</td>
+                          <td className="px-4 py-3">{athlete.join_date ? formatDate(athlete.join_date, { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+                          <td className="px-4 py-3">{athlete.archived_at ? formatDate(athlete.archived_at, { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Link
+                                href={`/coach/athletes/${athlete.id}`}
+                                className="px-3 py-2 rounded-xl text-sm"
+                                style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+                              >
+                                Profil
+                              </Link>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={restoringId === athlete.id}
+                                onClick={async () => {
+                                  setRestoringId(athlete.id)
+                                  setArchiveMessage(null)
+                                  try {
+                                    const result = await restoreAthlete(athlete.id)
+                                    if (result && 'error' in result) {
+                                      setArchiveMessage({ tone: 'error', text: result.error ?? 'Nie udało się przywrócić zawodnika.' })
+                                      return
+                                    }
+                                    setArchiveMessage({ tone: 'success', text: `Przywrócono zawodnika: ${athlete.name}.` })
+                                    router.refresh()
+                                  } finally {
+                                    setRestoringId(null)
+                                  }
+                                }}
+                              >
+                                {restoringId === athlete.id ? 'Przywracanie...' : 'Przywróć'}
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          )
+        })()}
 
       </div>
     </div>

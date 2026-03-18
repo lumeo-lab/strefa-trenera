@@ -42,6 +42,28 @@ export type Database = {
         }
         Update: Partial<Database['public']['Tables']['coach_session_types']['Insert']>
       }
+      coach_athlete_statuses: {
+        Row: {
+          id: string
+          coach_id: string
+          key: string
+          label: string
+          color: string | null
+          is_builtin: boolean
+          position: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          coach_id: string
+          key: string
+          label: string
+          color?: string | null
+          is_builtin?: boolean
+          position?: number
+        }
+        Update: Partial<Database['public']['Tables']['coach_athlete_statuses']['Insert']>
+      }
       coach_week_templates: {
         Row: {
           id: string
@@ -94,6 +116,8 @@ export type Database = {
         Row: {
           id: string
           coach_id: string
+          athlete_order: number
+          archived_at: string | null
           name: string
           avatar: string
           slug: string
@@ -119,6 +143,8 @@ export type Database = {
         Insert: {
           id?: string
           coach_id: string
+          athlete_order?: number
+          archived_at?: string | null
           name: string
           avatar?: string
           slug: string

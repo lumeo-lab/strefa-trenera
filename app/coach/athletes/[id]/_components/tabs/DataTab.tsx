@@ -4,7 +4,7 @@ import { startTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { updateAthlete } from '@/lib/actions/athletes'
+import { archiveAthlete, updateAthlete } from '@/lib/actions/athletes'
 import { INPUT_STYLE } from '@/lib/styles'
 import type { CoachAthleteRow, CoachPackageRow } from '../types'
 
@@ -59,6 +59,9 @@ export function DataTab({ athlete, packages }: DataTabProps) {
   const [injuriesSaving, setInjuriesSaving] = useState(false)
   const [injuriesSaved, setInjuriesSaved] = useState(false)
   const [injuryInput, setInjuryInput] = useState('')
+  const [archiveConfirm, setArchiveConfirm] = useState(false)
+  const [archiving, setArchiving] = useState(false)
+  const [archiveError, setArchiveError] = useState<string | null>(null)
 
   async function saveData() {
     if (dataSaving) return
@@ -398,6 +401,85 @@ export function DataTab({ athlete, packages }: DataTabProps) {
                 style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}
               >+ Dodaj</button>
             </div>
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="font-semibold">Archiwizacja zawodnika</h3>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+              Po przeniesieniu do archiwum zawodnik zniknie z aktywnej listy, planera, czatu i dashboardu trenera. Dane historyczne pozostaną dostępne w archiwum.
+            </p>
+          </div>
+          {athlete.archived_at && (
+            <span className="text-xs px-2 py-1 rounded-full shrink-0" style={{ background: 'rgba(107,114,128,0.14)', color: 'var(--text-muted)' }}>
+              Zarchiwizowany
+            </span>
+          )}
+        </div>
+
+        {archiveError && (
+          <div className="mt-4 text-sm rounded-xl px-3 py-2" style={{ background: 'rgba(231,76,60,0.12)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.2)' }}>
+            {archiveError}
+          </div>
+        )}
+
+        {!athlete.archived_at && (
+          <div className="mt-5 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+            {!archiveConfirm ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setArchiveConfirm(true)
+                  setArchiveError(null)
+                }}
+                className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                style={{ background: 'rgba(231,76,60,0.12)', color: '#E74C3C' }}
+              >
+                Przenieś do archiwum
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                  Potwierdź archiwizację. Zawodnik zniknie z aktywnej pracy trenera i trafi do `Ustawienia → Archiwum zawodników`.
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setArchiveConfirm(false)}
+                    className="px-3 py-2 rounded-xl text-sm cursor-pointer"
+                    style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                  >
+                    Anuluj
+                  </button>
+                  <button
+                    type="button"
+                    disabled={archiving}
+                    onClick={async () => {
+                      setArchiving(true)
+                      setArchiveError(null)
+                      try {
+                        const result = await archiveAthlete(athlete.id)
+                        if (result && 'error' in result) {
+                          setArchiveError(result.error ?? 'Nie udało się zarchiwizować zawodnika.')
+                          return
+                        }
+                        router.push('/coach/athletes')
+                        router.refresh()
+                      } finally {
+                        setArchiving(false)
+                      }
+                    }}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                    style={{ background: '#E74C3C', color: 'white' }}
+                  >
+                    {archiving ? 'Przenoszenie...' : 'Tak, przenieś do archiwum'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Card>

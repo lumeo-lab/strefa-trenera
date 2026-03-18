@@ -8,6 +8,17 @@ export default async function FeedbackPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const coachId = user?.id ?? ''
+  const { data: activeAthletes } = await supabase
+    .from('athletes')
+    .select('id')
+    .eq('coach_id', coachId)
+    .is('archived_at', null)
+
+  const activeAthleteIds = (activeAthletes ?? []).map((athlete) => athlete.id)
+
+  if (activeAthleteIds.length === 0) {
+    return <FeedbackClient feedbacks={[]} />
+  }
 
   const { data: feedbacks } = await supabase
     .from('feedbacks')
@@ -17,6 +28,7 @@ export default async function FeedbackPage() {
       training_sessions(id, title)
     `)
     .eq('coach_id', coachId)
+    .in('athlete_id', activeAthleteIds)
     .order('created_at', { ascending: false })
     .limit(200)
 

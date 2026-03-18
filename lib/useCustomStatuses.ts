@@ -1,32 +1,114 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { DEFAULT_STATUSES, StatusDef } from '@/lib/athlete-status-defs'
 
-export const DEFAULT_STATUSES = [
-  { key: 'ok',       label: 'OK',             color: '#2ECC71' },
-  { key: 'warning',  label: 'Pod obserwacją', color: '#F1C40F' },
-  { key: 'alert',    label: 'Kontuzja',       color: '#E74C3C' },
-  { key: 'inactive', label: 'Przerwa',        color: '#6B7280' },
-]
+const STORAGE_KEY = 'coach_statuses_v3'
+const EVENT_NAME = 'coach-athlete-statuses-updated'
 
-export type StatusDef = { key: string; label: string; color: string }
+function sanitizeStatus(status: Partial<StatusDef>, fallback: StatusDef): StatusDef {
+  return {
+    key: typeof status.key === 'string' && status.key.trim() ? status.key.trim().slice(0, 120) : fallback.key,
+    label: typeof status.label === 'string' && status.label.trim() ? status.label.trim().slice(0, 120) : fallback.label,
+    color: typeof status.color === 'string' && /^#([A-Fa-f0-9]{6})$/.test(status.color.trim()) ? status.color.trim() : fallback.color,
+  }
+}
 
-const STORAGE_KEY = 'coach_statuses_v2'
+function normalizeStatuses(input: unknown): StatusDef[] {
+  if (!Array.isArray(input) || input.length === 0) return DEFAULT_STATUSES.map((status) => ({ ...status }))
 
-export function useCustomStatuses() {
-  const [all, setAll] = useState<StatusDef[]>(() => {
-    if (typeof window === 'undefined') return DEFAULT_STATUSES
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) return JSON.parse(saved)
-    } catch { /* ignore */ }
-    return DEFAULT_STATUSES
+  const defaults = DEFAULT_STATUSES.map((status) => ({ ...status }))
+  const builtins = defaults.map((status) => {
+    const incoming = input.find((item) => item && typeof item === 'object' && 'key' in item && item.key === status.key)
+    return sanitizeStatus((incoming ?? {}) as Partial<StatusDef>, status)
   })
 
-  function saveAll(statuses: StatusDef[]) {
-    setAll(statuses)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(statuses))
+  const custom = input
+    .filter((item): item is Partial<StatusDef> => !!item && typeof item === 'object')
+    .map((item, index) => {
+      const fallback = { key: `custom_${index}`, label: 'Nowy status', color: '#3B82F6' }
+      return sanitizeStatus(item, fallback)
+    })
+    .filter((status) => !defaults.some((builtin) => builtin.key === status.key))
+
+  return [...builtins, ...custom]
+}
+
+export { DEFAULT_STATUSES }
+export type { StatusDef }
+
+export function useCustomStatuses(initialStatuses?: StatusDef[]) {
+  const [all, setAll] = useState<StatusDef[]>(() => normalizeStatuses(initialStatuses ?? DEFAULT_STATUSES))
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    setAll(normalizeStatuses(initialStatuses ?? DEFAULT_STATUSES))
+  }, [initialStatuses])
+
+  useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+
+    async function loadStatuses() {
+      setLoading(true)
+      try {
+        const res = await fetch('/api/athlete-statuses', { signal: controller.signal, cache: 'no-store' })
+        const data = await res.json().catch(() => null)
+        if (!res.ok) throw new Error(data?.error || 'Nie udało się pobrać statusów.')
+        if (cancelled) return
+        const normalized = normalizeStatuses(data?.items)
+        setAll(normalized)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized))
+      } catch {
+        if (controller.signal.aborted || cancelled) return
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY)
+          if (saved) setAll(normalizeStatuses(JSON.parse(saved)))
+        } catch {
+          setAll(normalizeStatuses(initialStatuses ?? DEFAULT_STATUSES))
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadStatuses()
+
+    function syncFromEvent() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) setAll(normalizeStatuses(JSON.parse(saved)))
+      } catch {
+        setAll(normalizeStatuses(initialStatuses ?? DEFAULT_STATUSES))
+      }
+    }
+
+    window.addEventListener(EVENT_NAME, syncFromEvent)
+    return () => {
+      cancelled = true
+      controller.abort()
+      window.removeEventListener(EVENT_NAME, syncFromEvent)
+    }
+  }, [initialStatuses])
+
+  async function saveAll(statuses: StatusDef[]) {
+    const normalized = normalizeStatuses(statuses)
+    const builtins = normalized.filter((status) => DEFAULT_STATUSES.some((builtin) => builtin.key === status.key))
+    const custom = normalized.filter((status) => !DEFAULT_STATUSES.some((builtin) => builtin.key === status.key))
+
+    const res = await fetch('/api/athlete-statuses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ builtins, custom }),
+    })
+
+    const data = await res.json().catch(() => null)
+    if (!res.ok) throw new Error(data?.error || 'Nie udało się zapisać statusów.')
+
+    setAll(normalized)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized))
+    window.dispatchEvent(new Event(EVENT_NAME))
   }
 
-  return { all, saveAll }
+  return { all, saveAll, loading }
 }

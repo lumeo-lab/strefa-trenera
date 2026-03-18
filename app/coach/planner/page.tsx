@@ -20,16 +20,26 @@ export default async function PlannerPage({
   const params = (await searchParams) ?? {}
   const requestedAthleteId = typeof params.athlete === 'string' ? params.athlete : ''
 
-  const { data: athletes } = await supabase
+  const athletesResult = await supabase
     .from('athletes')
     .select('id, name, avatar, status')
     .eq('coach_id', user.id)
-    .neq('status', 'inactive')
+    .is('archived_at', null)
     .order('name')
+
+  const fallbackAthletesResult = athletesResult.error
+    ? await supabase
+      .from('athletes')
+      .select('id, name, avatar, status')
+      .eq('coach_id', user.id)
+      .order('name')
+    : null
+
+  const athletes = athletesResult.error ? (fallbackAthletesResult?.data ?? []) : (athletesResult.data ?? [])
 
   return (
     <PlannerShell
-      athletes={athletes ?? []}
+      athletes={athletes}
       sessions={[]}
       feedbacks={[]}
       today={today}

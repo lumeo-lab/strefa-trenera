@@ -158,6 +158,18 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
     return visibleFeedbackByDate[dateStr] ?? null
   }
 
+  function mergeSessionsIntoVisible(nextSessions: CoachTrainingSessionRow[]) {
+    setVisibleSessions((current) => {
+      const merged = [...current]
+      for (const session of nextSessions) {
+        if (!merged.some((item) => item.id === session.id)) {
+          merged.push(session)
+        }
+      }
+      return merged.sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at))
+    })
+  }
+
   async function handleMoveSession(sessionId: string, targetDate: string) {
     const session = visibleSessions.find((item) => item.id === sessionId)
     if (!session || session.date === targetDate) {
@@ -195,6 +207,9 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
       tone: 'success',
       text: `Skopiowano ${result?.count ?? 0} ${result?.count === 1 ? 'sesję' : result?.count && result.count < 5 ? 'sesje' : 'sesji'} na kolejny tydzień.`,
     })
+    if (result && 'sessions' in result && Array.isArray(result.sessions) && result.sessions.length > 0) {
+      mergeSessionsIntoVisible(result.sessions)
+    }
     setCopyWeekConfirm(false)
     setCopyingWeek(false)
     startTransition(() => router.refresh())
@@ -258,40 +273,13 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
     }
     setTemplatesOpen(false)
     setTemplateActionLoading(false)
+    if (result && 'sessions' in result && Array.isArray(result.sessions) && result.sessions.length > 0) {
+      mergeSessionsIntoVisible(result.sessions)
+    }
     setStatusMessage({
       tone: 'success',
       text: `Dodano ${result?.count ?? 0} ${result?.count === 1 ? 'sesję' : result?.count && result.count < 5 ? 'sesje' : 'sesji'} z szablonu.`,
     })
-    try {
-      const params = new URLSearchParams({
-        athleteId,
-        from: range.from,
-        to: range.to,
-      })
-      const res = await fetch(`/api/planner?${params.toString()}`, { cache: 'no-store' })
-      const data = (await res.json().catch(() => null)) as {
-        error?: string
-        sessions?: CoachTrainingSessionRow[]
-        feedbacks?: CoachFeedbackRow[]
-      } | null
-
-      if (res.ok) {
-        const nextFeedbackByDate: FeedbackByDateMap = {}
-        const nextFeedbackBySession: FeedbackBySessionMap = {}
-        for (const fb of data?.feedbacks ?? []) {
-          if (fb.session_id && !nextFeedbackBySession[fb.session_id]) {
-            nextFeedbackBySession[fb.session_id] = fb
-          } else if (!fb.session_id && !nextFeedbackByDate[fb.date]) {
-            nextFeedbackByDate[fb.date] = fb
-          }
-        }
-        setVisibleSessions(data?.sessions ?? [])
-        setVisibleFeedbackBySession(nextFeedbackBySession)
-        setVisibleFeedbackByDate(nextFeedbackByDate)
-      }
-    } catch {
-      // fallback to router refresh below
-    }
     startTransition(() => router.refresh())
   }
 
@@ -366,10 +354,16 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
   }, [persistenceKey, stateReady, planView, density, showFeedback, weekOffset, selectedMonth, selectedDay])
 
   useEffect(() => {
+    const hasIncomingPlannerData =
+      sessions.length > 0 ||
+      Object.keys(feedbackBySession).length > 0 ||
+      Object.keys(feedbackByDate).length > 0
+
+    if (persistenceKey && !hasIncomingPlannerData) return
     setVisibleSessions(sessions)
     setVisibleFeedbackBySession(feedbackBySession)
     setVisibleFeedbackByDate(feedbackByDate)
-  }, [sessions, feedbackBySession, feedbackByDate, athleteId])
+  }, [sessions, feedbackBySession, feedbackByDate, athleteId, persistenceKey])
 
   useEffect(() => {
     let cancelled = false

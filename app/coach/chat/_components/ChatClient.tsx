@@ -28,6 +28,18 @@ type ThreadSummary = {
 
 type ThreadFilter = 'all' | 'unread'
 
+function EmptyPanel({ title, description }: { title: string; description: string }) {
+  return (
+    <div
+      className="rounded-2xl px-5 py-8 text-center"
+      style={{ background: 'var(--bg-card)', border: '1px dashed var(--border)', color: 'var(--text-muted)' }}
+    >
+      <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{title}</div>
+      <div className="text-xs leading-6 max-w-sm mx-auto">{description}</div>
+    </div>
+  )
+}
+
 function SelectField({
   value,
   onChange,
@@ -195,8 +207,11 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     return (
       <div>
         <CoachTopbar title="Czat" subtitle="Rozmowy z zawodnikami" />
-        <div className="flex items-center justify-center h-64 text-sm" style={{ color: 'var(--text-muted)' }}>
-          Brak zawodników. Dodaj zawodnika, aby rozpocząć czat.
+        <div className="p-4 sm:p-6">
+          <EmptyPanel
+            title="Nie ma jeszcze rozmów do pokazania"
+            description="Czat pojawi się tutaj, gdy dodasz zawodnika i rozpocznie się pierwsza wiadomość po jednej ze stron."
+          />
         </div>
       </div>
     )
@@ -228,8 +243,11 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
           {/* Thread list */}
           <div className="overflow-y-auto flex-1">
             {filteredThreads.length === 0 && (
-              <div className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>
-                Brak wyników
+              <div className="p-3">
+                <EmptyPanel
+                  title="Nic nie pasuje do tego widoku"
+                  description="Spróbuj wyczyścić wyszukiwanie albo przełączyć filtr rozmów, żeby znów zobaczyć zawodników."
+                />
               </div>
             )}
             {filteredThreads.map(({ athlete, lastMessage, unreadCount }) => {
@@ -319,11 +337,15 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
               </div>
             )}
             {!loadingThread && threadMessages.length === 0 && (
-              <div className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
-                Brak wiadomości. Napisz pierwszą!
-              </div>
+              <EmptyPanel
+                title="Ta rozmowa jest jeszcze pusta"
+                description="Wyślij pierwszą wiadomość, a wątek zacznie się budować tutaj w czasie rzeczywistym."
+              />
             )}
-            {threadMessages.map(msg => {
+            {!loadingThread && threadMessages.length === 0 && (
+              <div ref={bottomRef} />
+            )}
+            {threadMessages.length > 0 && threadMessages.map(msg => {
               const isCoach = msg.sender_type === 'coach'
               return (
                 <div key={msg.id} className={`flex gap-3 ${isCoach ? 'flex-row-reverse' : ''}`}>
@@ -342,7 +364,7 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
                 </div>
               )
             })}
-            <div ref={bottomRef} />
+            {threadMessages.length > 0 && <div ref={bottomRef} />}
           </div>
 
           {/* Input */}

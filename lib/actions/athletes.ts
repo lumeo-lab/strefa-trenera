@@ -75,8 +75,17 @@ export async function createAthlete(_: unknown, formData: FormData) {
     }
   }
 
+  const { data: lastAthlete } = await supabase
+    .from('athletes')
+    .select('athlete_order')
+    .eq('coach_id', user.id)
+    .order('athlete_order', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
   const { data, error } = await supabase.from('athletes').insert({
     coach_id: user.id,
+    athlete_order: (lastAthlete?.athlete_order ?? -1) + 1,
     name,
     avatar,
     slug,
@@ -95,7 +104,7 @@ export async function createAthlete(_: unknown, formData: FormData) {
   if (error) return { error: error.message }
 
   revalidatePath('/coach/athletes')
-  return { success: true, athleteId: data.id, slug: data.slug }
+  return { success: true, athleteId: data.id, slug: data.slug, name }
 }
 
 export async function updateAthlete(_: unknown, formData: FormData) {
@@ -127,6 +136,117 @@ export async function updateAthlete(_: unknown, formData: FormData) {
   return { success: true }
 }
 
+export async function saveAthleteOrder(athleteIds: string[]) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: AUTH_ERROR }
+
+  const uniqueIds = Array.from(new Set(athleteIds.filter((id) => typeof id === 'string' && id.length > 0)))
+  if (uniqueIds.length === 0) return { error: 'Brak zawodników do zapisania.' }
+
+  const { data: ownedAthletes, error: fetchError } = await supabase
+    .from('athletes')
+    .select('id, athlete_order')
+    .eq('coach_id', user.id)
+    .is('archived_at', null)
+    .order('athlete_order', { ascending: true })
+    .order('name', { ascending: true })
+
+  let activeAthletes = ownedAthletes
+  if (fetchError) {
+    const fallback = await supabase
+      .from('athletes')
+      .select('id, athlete_order')
+      .eq('coach_id', user.id)
+      .order('athlete_order', { ascending: true })
+      .order('name', { ascending: true })
+    if (fallback.error) return { error: fallback.error.message }
+    activeAthletes = fallback.data
+  }
+
+  const activeIds = (activeAthletes ?? []).map((athlete) => athlete.id)
+  if (!uniqueIds.every((id) => activeIds.includes(id))) {
+    return { error: 'Nie udało się zweryfikować kolejności zawodników.' }
+  }
+
+  const finalOrder = [...uniqueIds, ...activeIds.filter((id) => !uniqueIds.includes(id))]
+
+  const updates = finalOrder.map((id, index) =>
+    supabase
+      .from('athletes')
+      .update({ athlete_order: index })
+      .eq('coach_id', user.id)
+      .eq('id', id),
+  )
+
+  const results = await Promise.all(updates)
+  const failed = results.find((result) => result.error)
+  if (failed?.error) return { error: failed.error.message }
+
+  revalidatePath('/coach/athletes')
+  return { success: true }
+}
+
+export async function archiveAthlete(athleteId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: AUTH_ERROR }
+
+  const { error } = await supabase
+    .from('athletes')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', athleteId)
+    .eq('coach_id', user.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/coach/athletes')
+  revalidatePath('/coach/settings')
+  revalidatePath(`/coach/athletes/${athleteId}`)
+  revalidatePath('/coach/dashboard')
+  revalidatePath('/coach/planner')
+  revalidatePath('/coach/chat')
+  revalidatePath('/coach/feedback')
+  revalidatePath('/coach/invoices')
+  return { success: true }
+}
+
+export async function restoreAthlete(athleteId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: AUTH_ERROR }
+
+  const { data: lastAthlete } = await supabase
+    .from('athletes')
+    .select('athlete_order')
+    .eq('coach_id', user.id)
+    .is('archived_at', null)
+    .order('athlete_order', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const { error } = await supabase
+    .from('athletes')
+    .update({
+      archived_at: null,
+      athlete_order: (lastAthlete?.athlete_order ?? -1) + 1,
+    })
+    .eq('id', athleteId)
+    .eq('coach_id', user.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/coach/athletes')
+  revalidatePath('/coach/settings')
+  revalidatePath(`/coach/athletes/${athleteId}`)
+  revalidatePath('/coach/dashboard')
+  revalidatePath('/coach/planner')
+  revalidatePath('/coach/chat')
+  revalidatePath('/coach/feedback')
+  revalidatePath('/coach/invoices')
+  return { success: true }
+}
+
 export async function deleteAthlete(id: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -151,14 +271,13 @@ export async function regenerateAthleteInviteLink(athleteId: string) {
 
   const inviteToken = generateSecureToken(24)
   const inviteExpiresAt = addSecondsToNow(ATHLETE_INVITE_TTL_SECONDS)
-  const nowIso = new Date().toISOString()
 
   const { data, error } = await supabase
     .from('athletes')
     .update({
       invite_token: inviteToken,
       invite_token_expires_at: inviteExpiresAt,
-      invite_token_used_at: nowIso,
+      invite_token_used_at: null,
     })
     .eq('id', athleteId)
     .eq('coach_id', user.id)

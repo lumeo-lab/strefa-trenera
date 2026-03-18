@@ -13,6 +13,15 @@ export default async function SettingsPage() {
     supabase.from('packages').select('id, name, description, price').eq('coach_id', user!.id).order('name'),
   ])
 
+  const archivedResult = await supabase
+    .from('athletes')
+    .select('id, name, email, package, archived_at, join_date')
+    .eq('coach_id', user!.id)
+    .not('archived_at', 'is', null)
+    .order('archived_at', { ascending: false })
+
+  const archivedAthletes = archivedResult.error ? [] : (archivedResult.data ?? [])
+
   return (
     <SettingsClient
       email={user!.email ?? ''}
@@ -20,6 +29,7 @@ export default async function SettingsPage() {
       plan={coach?.plan ?? 'starter'}
       avatar={coach?.avatar ?? ''}
       packages={packages ?? []}
+      archivedAthletes={archivedAthletes ?? []}
     />
   )
 }

@@ -53,7 +53,15 @@ function overdueMeta(dueDate: string | null, today: string) {
   return `${diff} ${diff === 1 ? 'dzień' : 'dni'} po terminie`
 }
 
-export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJoins[]; athletes: AthleteOption[] }) {
+export function InvoicesClient({
+  invoices,
+  athletes,
+  initialAthleteId = '',
+}: {
+  invoices: InvoiceWithJoins[]
+  athletes: AthleteOption[]
+  initialAthleteId?: string
+}) {
   const router = useRouter()
   const today = getBusinessToday()
   const filtersContainerRef = useRef<HTMLDivElement>(null)
@@ -61,7 +69,7 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
 
   // ── Filter & sort ────────────────────────────────────────────────
   const [filter, setFilter] = useState<Filter>('all')
-  const [athleteFilter, setAthleteFilter] = useState<string>('all')
+  const [athleteFilter, setAthleteFilter] = useState<string>(initialAthleteId || 'all')
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
@@ -76,6 +84,9 @@ export function InvoicesClient({ invoices, athletes }: { invoices: InvoiceWithJo
   // ── Local invoice state (optimistic status updates) ───────────────
   const [localInvoices, setLocalInvoices] = useState(invoices)
   useEffect(() => setLocalInvoices(invoices), [invoices])
+  useEffect(() => {
+    setAthleteFilter(initialAthleteId || 'all')
+  }, [initialAthleteId])
   const [statusChangingId, setStatusChangingId] = useState<string | null>(null)
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)

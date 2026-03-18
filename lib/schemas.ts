@@ -58,7 +58,10 @@ export const updateAthleteSchema = z.object({
   height: nullableInt(100, 250).optional(),
   weight: nullableNumber(30, 300).optional(),
   package_price: z.preprocess((value) => value === '' ? undefined : value, z.coerce.number().min(0, 'Cena nie może być ujemna').optional()),
-  status: z.preprocess((value) => typeof value === 'string' ? value.trim() : value, z.enum(['ok', 'warning', 'alert', 'inactive']).optional()),
+  status: z.preprocess(
+    (value) => typeof value === 'string' ? value.trim().slice(0, 120) : value,
+    z.string().min(1, 'Status jest wymagany').max(120).optional()
+  ),
 })
 
 // ── Session ─────────────────────────────────────────────────────────────────

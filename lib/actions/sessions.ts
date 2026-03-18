@@ -163,12 +163,15 @@ export async function duplicateWeekSessions(athleteId: string, from: string, to:
     completed: false,
   }))
 
-  const { error: insertError } = await supabase.from('training_sessions').insert(rows)
+  const { data: insertedRows, error: insertError } = await supabase
+    .from('training_sessions')
+    .insert(rows)
+    .select('*')
   if (insertError) return { error: insertError.message }
 
   revalidatePath(`/coach/athletes/${athleteId}`)
   revalidatePath('/coach/planner')
-  return { success: true, count: rows.length }
+  return { success: true, count: rows.length, sessions: insertedRows ?? [] }
 }
 
 export async function moveSessionDate(id: string, athleteId: string, date: string) {
