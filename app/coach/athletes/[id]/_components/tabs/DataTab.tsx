@@ -14,9 +14,35 @@ const DEFAULT_PB_DISTANCES = ['5 km', '10 km', 'Półmaraton', 'Maraton']
 interface DataTabProps {
   athlete: CoachAthleteRow
   packages: CoachPackageRow[]
+  accessInfo: {
+    inviteUsedAt: string | null
+    hasActiveSession: boolean
+    lastSeenAt: string | null
+    sessionCreatedAt: string | null
+  }
+  inviteUrl: string
+  inviteExpiresAt: string | null
+  isInviteExpired: boolean
+  inviteError: string | null
+  linkCopied: boolean
+  regeneratingInvite: boolean
+  onCopyInviteLink: () => Promise<void>
+  onRegenerateInvite: () => Promise<void>
 }
 
-export function DataTab({ athlete, packages }: DataTabProps) {
+export function DataTab({
+  athlete,
+  packages,
+  accessInfo,
+  inviteUrl,
+  inviteExpiresAt,
+  isInviteExpired,
+  inviteError,
+  linkCopied,
+  regeneratingInvite,
+  onCopyInviteLink,
+  onRegenerateInvite,
+}: DataTabProps) {
   const router = useRouter()
 
   // ── Data edit state ──
@@ -37,6 +63,7 @@ export function DataTab({ athlete, packages }: DataTabProps) {
   })
   const [dataSaving, setDataSaving] = useState(false)
   const [dataSaved, setDataSaved] = useState(false)
+  const [dataError, setDataError] = useState<string | null>(null)
 
   // ── Personal bests state ──
   const savedDistances = Object.keys(athlete.personal_bests ?? {})
@@ -52,64 +79,99 @@ export function DataTab({ athlete, packages }: DataTabProps) {
   )
   const [pbSaving, setPbSaving] = useState(false)
   const [pbSaved, setPbSaved] = useState(false)
+  const [pbError, setPbError] = useState<string | null>(null)
 
   // ── Injuries state ──
   const [localInjuries, setLocalInjuries] = useState<string[]>((athlete.injuries as string[] | null) ?? [])
   const [injuriesEditing, setInjuriesEditing] = useState(false)
   const [injuriesSaving, setInjuriesSaving] = useState(false)
   const [injuriesSaved, setInjuriesSaved] = useState(false)
+  const [injuriesError, setInjuriesError] = useState<string | null>(null)
   const [injuryInput, setInjuryInput] = useState('')
   const [archiveConfirm, setArchiveConfirm] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [archiveError, setArchiveError] = useState<string | null>(null)
+  const accessTone = accessInfo.hasActiveSession ? '#2ECC71' : accessInfo.inviteUsedAt ? '#F1C40F' : '#6B7280'
+  const accessLabel = accessInfo.hasActiveSession
+    ? 'Dostęp aktywowany'
+    : accessInfo.inviteUsedAt
+      ? 'Link użyty, brak aktywnej sesji'
+      : 'Dostęp jeszcze nieaktywowany'
 
   async function saveData() {
     if (dataSaving) return
     setDataSaving(true)
+    setDataError(null)
+    setDataSaved(false)
     const fd = new FormData()
     fd.set('id', athlete.id)
     Object.entries(dataEdit).forEach(([k, v]) => fd.set(k, v))
-    await updateAthlete(null, fd)
-    setDataSaving(false)
-    setDataSaved(true)
-    setDataEditing(false)
-    setTimeout(() => setDataSaved(false), 2000)
-    startTransition(() => router.refresh())
+    try {
+      const result = await updateAthlete(null, fd)
+      if (result && 'error' in result) {
+        setDataError(result.error ?? 'Nie udało się zapisać danych zawodnika.')
+        return
+      }
+      setDataSaved(true)
+      setDataEditing(false)
+      setTimeout(() => setDataSaved(false), 2000)
+      startTransition(() => router.refresh())
+    } finally {
+      setDataSaving(false)
+    }
   }
 
   async function savePb() {
     if (pbSaving) return
     setPbSaving(true)
+    setPbError(null)
+    setPbSaved(false)
     const fd = new FormData()
     fd.set('id', athlete.id)
     const personalBests = Object.fromEntries(Object.entries(pbEdit).filter(([, v]) => v.trim()))
     fd.set('personal_bests', JSON.stringify(personalBests))
-    await updateAthlete(null, fd)
-    setPbSaving(false)
-    setPbSaved(true)
-    setPbEditing(false)
-    setTimeout(() => setPbSaved(false), 2000)
-    startTransition(() => router.refresh())
+    try {
+      const result = await updateAthlete(null, fd)
+      if (result && 'error' in result) {
+        setPbError(result.error ?? 'Nie udało się zapisać rekordów życiowych.')
+        return
+      }
+      setPbSaved(true)
+      setPbEditing(false)
+      setTimeout(() => setPbSaved(false), 2000)
+      startTransition(() => router.refresh())
+    } finally {
+      setPbSaving(false)
+    }
   }
 
   async function saveInjuries() {
     if (injuriesSaving) return
     setInjuriesSaving(true)
+    setInjuriesError(null)
+    setInjuriesSaved(false)
     const fd = new FormData()
     fd.set('id', athlete.id)
     fd.set('injuries', JSON.stringify(localInjuries))
-    await updateAthlete(null, fd)
-    setInjuriesSaving(false)
-    setInjuriesSaved(true)
-    setInjuriesEditing(false)
-    setTimeout(() => setInjuriesSaved(false), 2000)
-    startTransition(() => router.refresh())
+    try {
+      const result = await updateAthlete(null, fd)
+      if (result && 'error' in result) {
+        setInjuriesError(result.error ?? 'Nie udało się zapisać historii kontuzji.')
+        return
+      }
+      setInjuriesSaved(true)
+      setInjuriesEditing(false)
+      setTimeout(() => setInjuriesSaved(false), 2000)
+      startTransition(() => router.refresh())
+    } finally {
+      setInjuriesSaving(false)
+    }
   }
 
   return (
     <div className="grid grid-cols-2 gap-6">
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-4">
+	      <Card className="p-5">
+	        <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Dane zawodnika</h3>
           {!dataEditing ? (
             <button
@@ -154,9 +216,14 @@ export function DataTab({ athlete, packages }: DataTabProps) {
               </button>
             </div>
           )}
-        </div>
+	        </div>
+          {dataError && (
+            <div className="mb-4 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.25)', color: '#E74C3C' }}>
+              {dataError}
+            </div>
+          )}
 
-        {!dataEditing ? (
+	        {!dataEditing ? (
           <div className="space-y-3 text-sm">
             {([
               ['Imię i nazwisko', dataEdit.name],
@@ -243,7 +310,92 @@ export function DataTab({ athlete, packages }: DataTabProps) {
 
       <div className="space-y-6">
       <Card className="p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h3 className="font-semibold">Dostęp zawodnika</h3>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+              Zarządzanie aktywacją panelu, linkiem dostępu i szybkimi akcjami onboardingowymi.
+            </p>
+          </div>
+          <span className="text-xs px-2 py-1 rounded-full shrink-0" style={{ background: `${accessTone}22`, color: accessTone }}>
+            {accessLabel}
+          </span>
+        </div>
+
+        <div className="space-y-3 text-sm">
+          <div className="flex justify-between gap-4">
+            <span style={{ color: 'var(--text-muted)' }}>Ostatnia aktywność</span>
+            <span className="font-medium text-right">
+              {accessInfo.lastSeenAt ? formatDate(accessInfo.lastSeenAt, { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span style={{ color: 'var(--text-muted)' }}>Link użyty</span>
+            <span className="font-medium text-right">
+              {accessInfo.inviteUsedAt ? formatDate(accessInfo.inviteUsedAt, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Jeszcze nie'}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span style={{ color: 'var(--text-muted)' }}>Ważność linku</span>
+            <span className="font-medium text-right" style={{ color: isInviteExpired ? '#E74C3C' : 'var(--text-primary)' }}>
+              {inviteExpiresAt ? (isInviteExpired ? 'Wygasł' : formatDate(inviteExpiresAt, { day: 'numeric', month: 'long', year: 'numeric' })) : '—'}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+          <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Link zaproszenia</div>
+          {inviteExpiresAt && (
+            <div className="text-xs mb-2" style={{ color: isInviteExpired ? '#E74C3C' : 'var(--text-muted)' }}>
+              {isInviteExpired
+                ? 'Link wygasł — skopiowanie lub wygenerowanie nowego linku odświeży dostęp.'
+                : `Ważny do ${formatDate(inviteExpiresAt, { day: 'numeric', month: 'long', year: 'numeric' })}`}
+            </div>
+          )}
+          {inviteError && (
+            <div className="text-xs mb-2" style={{ color: '#E74C3C' }}>{inviteError}</div>
+          )}
+          <code className="block w-full px-3 py-2 rounded-xl text-xs font-mono select-all overflow-x-auto" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+            {inviteUrl}
+          </code>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              onClick={() => void onCopyInviteLink()}
+              className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0"
+              style={{ background: linkCopied ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.1)', color: linkCopied ? '#2ECC71' : '#FF5C1B' }}
+            >
+              {linkCopied ? '✓ Skopiowano' : '📋 Kopiuj'}
+            </button>
+            <button
+              onClick={() => void onRegenerateInvite()}
+              disabled={regeneratingInvite}
+              className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0 disabled:opacity-60"
+              style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text-primary)' }}
+            >
+              {regeneratingInvite ? 'Generuję…' : 'Nowy link'}
+            </button>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`Cześć! Oto Twój panel treningowy: ${inviteUrl}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0"
+              style={{ background: 'rgba(37,211,102,0.1)', color: '#25D366' }}
+            >
+              WhatsApp
+            </a>
+            <a
+              href={`mailto:${athlete.email || ''}?subject=${encodeURIComponent('Twój panel treningowy')}&body=${encodeURIComponent(`Cześć ${athlete.name}!\n\nTutaj znajdziesz swój panel treningowy:\n${inviteUrl}`)}`}
+              className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0"
+              style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8' }}
+            >
+              Email
+            </a>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-5">
+	        <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Rekordy życiowe</h3>
           {!pbEditing ? (
             <button
@@ -261,14 +413,19 @@ export function DataTab({ athlete, packages }: DataTabProps) {
               }}
                 className="px-3 py-2 rounded-xl text-sm cursor-pointer"
                 style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Anuluj</button>
-              <button onClick={savePb} disabled={pbSaving}
-                className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
-                style={{ background: pbSaved ? 'rgba(46,204,113,0.15)' : '#FF5C1B', color: pbSaved ? '#2ECC71' : 'white' }}>
-                {pbSaved ? '✓ Zapisano' : pbSaving ? 'Zapisywanie...' : 'Zapisz'}
-              </button>
+	              <button onClick={savePb} disabled={pbSaving}
+	                className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+	                style={{ background: pbSaved ? 'rgba(46,204,113,0.15)' : '#FF5C1B', color: pbSaved ? '#2ECC71' : 'white' }}>
+	                {pbSaved ? '✓ Zapisano' : pbSaving ? 'Zapisywanie...' : 'Zapisz'}
+	              </button>
+		        </div>
+	          )}
+	        </div>
+          {pbError && (
+            <div className="mb-4 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.25)', color: '#E74C3C' }}>
+              {pbError}
             </div>
           )}
-        </div>
 
         {!pbEditing ? (
           <div className="space-y-3 text-sm">
@@ -319,8 +476,8 @@ export function DataTab({ athlete, packages }: DataTabProps) {
 
       </Card>
 
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-4">
+	      <Card className="p-5">
+	        <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Kontuzje / historia</h3>
           {!injuriesEditing ? (
             <button
@@ -339,17 +496,22 @@ export function DataTab({ athlete, packages }: DataTabProps) {
                 className="px-3 py-2 rounded-xl text-sm cursor-pointer"
                 style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
               >Anuluj</button>
-              <button
-                onClick={saveInjuries}
-                disabled={injuriesSaving}
+	              <button
+	                onClick={saveInjuries}
+	                disabled={injuriesSaving}
                 className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
                 style={{ background: injuriesSaved ? 'rgba(46,204,113,0.15)' : '#FF5C1B', color: injuriesSaved ? '#2ECC71' : 'white' }}
-              >
-                {injuriesSaved ? '✓ Zapisano' : injuriesSaving ? 'Zapisywanie...' : 'Zapisz'}
-              </button>
+	              >
+	                {injuriesSaved ? '✓ Zapisano' : injuriesSaving ? 'Zapisywanie...' : 'Zapisz'}
+	              </button>
+		        </div>
+	          )}
+	        </div>
+          {injuriesError && (
+            <div className="mb-4 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.25)', color: '#E74C3C' }}>
+              {injuriesError}
             </div>
           )}
-        </div>
 
         {!injuriesEditing ? (
           localInjuries.length > 0 ? (

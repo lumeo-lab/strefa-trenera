@@ -17,12 +17,13 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
 
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) notFound()
 
   const { data: athlete } = await supabase
     .from('athletes')
     .select('*')
     .eq('id', id)
-    .eq('coach_id', user!.id)
+    .eq('coach_id', user.id)
     .single()
 
   if (!athlete) notFound()
@@ -30,45 +31,47 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
   const [
     { data: sessions },
     { data: feedbacks },
-    { data: invoices },
     { data: packages },
-    { data: races },
     { count: unreadMessagesCount },
+    { count: unpaidInvoicesCount },
+    { data: nextRace },
   ] = await Promise.all([
     supabase
       .from('training_sessions')
       .select('*')
       .eq('athlete_id', id)
       .order('date', { ascending: false })
-      .limit(200),
+      .order('created_at', { ascending: false }),
     supabase
       .from('feedbacks')
       .select('*')
       .eq('athlete_id', id)
       .order('date', { ascending: false })
-      .limit(200),
-    supabase
-      .from('invoices')
-      .select('*')
-      .eq('athlete_id', id)
-      .order('date', { ascending: false })
-      .limit(100),
+      .order('created_at', { ascending: false }),
     supabase
       .from('packages')
       .select('id, name, description, price')
-      .eq('coach_id', user!.id)
+      .eq('coach_id', user.id)
       .order('name'),
-    supabase
-      .from('athlete_races')
-      .select('*')
-      .eq('athlete_id', id)
-      .order('date', { ascending: true }),
     supabase
       .from('messages')
       .select('id', { count: 'exact', head: true })
       .eq('athlete_id', id)
       .eq('sender_type', 'athlete')
       .eq('read', false),
+    supabase
+      .from('invoices')
+      .select('id', { count: 'exact', head: true })
+      .eq('athlete_id', id)
+      .in('status', ['pending', 'overdue']),
+    supabase
+      .from('athlete_races')
+      .select('id, name, date, distance')
+      .eq('athlete_id', id)
+      .gte('date', new Date().toISOString().slice(0, 10))
+      .order('date', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   const nowIso = new Date().toISOString()
@@ -87,9 +90,9 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
       athlete={athlete}
       sessions={sessions ?? []}
       feedbacks={feedbacks ?? []}
-      invoices={invoices ?? []}
+      invoices={[]}
       packages={packages ?? []}
-      races={races ?? []}
+      races={[]}
       unreadMessagesCount={unreadMessagesCount ?? 0}
       appUrl={appUrl}
       accessInfo={{
@@ -97,6 +100,16 @@ export default async function AthleteProfilePage({ params }: { params: Promise<{
         hasActiveSession: !!activeSession,
         lastSeenAt: activeSession?.last_seen_at ?? null,
         sessionCreatedAt: activeSession?.created_at ?? null,
+      }}
+      summaryInfo={{
+        unpaidInvoicesCount: unpaidInvoicesCount ?? 0,
+        nextRace: nextRace
+          ? {
+              name: nextRace.name,
+              date: nextRace.date,
+              distance: nextRace.distance,
+            }
+          : null,
       }}
     />
   )

@@ -18,15 +18,29 @@ export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
   const [coachNotes, setCoachNotes] = useState(initialNotes)
   const [editing, setEditing] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function saveNotes() {
+    if (saving) return false
+    setSaving(true)
+    setError(null)
     const fd = new FormData()
     fd.set('id', athleteId)
     fd.set('coach_notes', coachNotes)
-    await updateAthlete(null, fd)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-    startTransition(() => router.refresh())
+    try {
+      const result = await updateAthlete(null, fd)
+      if (result && 'error' in result) {
+        setError(result.error ?? 'Nie udało się zapisać notatek.')
+        return false
+      }
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      startTransition(() => router.refresh())
+      return true
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -45,13 +59,22 @@ export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
               className="px-3 py-2 rounded-xl text-sm cursor-pointer"
               style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Anuluj</button>
             <button
-              onClick={async () => { await saveNotes(); setEditing(false) }}
+              onClick={async () => {
+                const ok = await saveNotes()
+                if (ok) setEditing(false)
+              }}
+              disabled={saving}
               className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
               style={{ background: saved ? 'rgba(46,204,113,0.15)' : '#FF5C1B', color: saved ? '#2ECC71' : 'white' }}
-            >{saved ? '✓ Zapisano' : 'Zapisz'}</button>
+            >{saved ? '✓ Zapisano' : saving ? 'Zapisywanie...' : 'Zapisz'}</button>
           </div>
         )}
       </div>
+      {error && (
+        <div className="mb-4 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.25)', color: '#E74C3C' }}>
+          {error}
+        </div>
+      )}
       {!editing ? (
         <div className="text-sm whitespace-pre-wrap min-h-16" style={{ color: coachNotes ? 'var(--text-primary)' : 'var(--text-muted)', lineHeight: 1.7 }}>
           {coachNotes || 'Brak notatek. Kliknij Edytuj, aby dodać.'}

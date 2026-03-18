@@ -1,6 +1,6 @@
 'use client'
 
-import React, { startTransition, useState } from 'react'
+import React, { startTransition, useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
@@ -42,6 +42,9 @@ interface RacesTabProps {
 
 export function RacesTab({ athleteId, races, today }: RacesTabProps) {
   const router = useRouter()
+  const [localRaces, setLocalRaces] = useState(races)
+  const [loadingRaces, setLoadingRaces] = useState(races.length === 0)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [raceModalOpen, setRaceModalOpen] = useState(false)
   const [editingRaceId, setEditingRaceId] = useState<string | null>(null)
   const [raceDraft, setRaceDraft] = useState<RaceDraft>({ name: '', date: '', distance: '', goalTime: '', result: '', status: 'planned', notes: '' })
@@ -50,6 +53,28 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
   const [noteModalText, setNoteModalText] = useState<string | null>(null)
   const [plannedOpen, setPlannedOpen] = useState(true)
   const [finishedOpen, setFinishedOpen] = useState(true)
+  const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+
+  const loadRaces = useCallback(async () => {
+    setLoadingRaces(true)
+    setLoadError(null)
+    try {
+      const res = await fetch(`/api/coach/athletes/${athleteId}/sections?section=races`, { cache: 'no-store' })
+      const data = await res.json().catch(() => null) as { items?: CoachRaceRow[]; error?: string } | null
+      if (!res.ok) {
+        throw new Error(data?.error || 'Nie udało się pobrać startów.')
+      }
+      setLocalRaces(data?.items ?? [])
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Nie udało się pobrać startów.')
+    } finally {
+      setLoadingRaces(false)
+    }
+  }, [athleteId])
+
+  useEffect(() => {
+    void loadRaces()
+  }, [loadRaces])
 
   function openNewRace() {
     setRaceDraft({ name: '', date: '', distance: '', goalTime: '', result: '', status: 'planned', notes: '' })
@@ -66,6 +91,7 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
   async function saveRace() {
     if (!raceDraft.name.trim() || !raceDraft.date || raceSaving) return
     setRaceSaving(true)
+    setStatusMessage(null)
     try {
       const fd = new FormData()
       fd.set('athlete_id', athleteId)
@@ -76,13 +102,22 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
       fd.set('result', raceDraft.result)
       fd.set('status', raceDraft.status)
       fd.set('notes', raceDraft.notes)
+      let result
       if (editingRaceId) {
         fd.set('id', editingRaceId)
-        await updateRace(null, fd)
+        result = await updateRace(null, fd)
       } else {
-        await createRace(null, fd)
+        result = await createRace(null, fd)
       }
+
+      if (result && 'error' in result) {
+        setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się zapisać startu.' })
+        return
+      }
+
+      setStatusMessage({ tone: 'success', text: editingRaceId ? 'Zmiany startu zostały zapisane.' : 'Start został dodany.' })
       setRaceModalOpen(false)
+      await loadRaces()
       startTransition(() => router.refresh())
     } finally {
       setRaceSaving(false)
@@ -90,16 +125,23 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
   }
 
   async function handleDeleteRace(id: string) {
-    await deleteRace(id, athleteId)
+    setStatusMessage(null)
+    const result = await deleteRace(id, athleteId)
+    if (result && 'error' in result) {
+      setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się usunąć startu.' })
+      return
+    }
+    setStatusMessage({ tone: 'success', text: 'Start został usunięty.' })
     setConfirmDeleteRaceId(null)
     setRaceModalOpen(false)
+    await loadRaces()
     startTransition(() => router.refresh())
   }
 
-  const plannedRaces = races
+  const plannedRaces = localRaces
     .filter(r => !r.status || r.status === 'planned')
     .slice().sort((a, b) => a.date.localeCompare(b.date))
-  const finishedRaces = races
+  const finishedRaces = localRaces
     .filter(r => r.status && r.status !== 'planned')
     .slice().sort((a, b) => b.date.localeCompare(a.date))
 
@@ -127,6 +169,23 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
   return (
     <>
       <div className="space-y-4">
+        {statusMessage && (
+          <div
+            className="rounded-xl px-4 py-3 text-sm"
+            style={{
+              background: statusMessage.tone === 'success' ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)',
+              border: `1px solid ${statusMessage.tone === 'success' ? 'rgba(46,204,113,0.25)' : 'rgba(231,76,60,0.25)'}`,
+              color: statusMessage.tone === 'success' ? '#2ECC71' : '#E74C3C',
+            }}
+          >
+            {statusMessage.text}
+          </div>
+        )}
+        {loadError && (
+          <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.25)', color: '#E74C3C' }}>
+            {loadError}
+          </div>
+        )}
         {/* Planowane */}
         <Card className="p-5">
           <div className={`flex items-center justify-between ${plannedOpen ? 'mb-4' : ''}`}>
@@ -147,7 +206,11 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
               + Dodaj start
             </button>
           </div>
-          {plannedOpen && (plannedRaces.length === 0 ? (
+          {plannedOpen && (loadingRaces ? (
+            <div className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>
+              Ładowanie startów...
+            </div>
+          ) : plannedRaces.length === 0 ? (
             <div className="text-center py-8">
               <div className="text-3xl mb-2">🏁</div>
               <div className="text-sm font-medium mb-1">Brak zaplanowanych startów</div>
@@ -203,7 +266,11 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
               </span>
             )}
           </button>
-          {finishedOpen && (finishedRaces.length === 0 ? (
+          {finishedOpen && (loadingRaces ? (
+            <div className="text-center py-6 text-sm" style={{ color: 'var(--text-muted)' }}>
+              Ładowanie startów...
+            </div>
+          ) : finishedRaces.length === 0 ? (
             <div className="text-center py-6">
               <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
                 Brak ukończonych startów — po zawodach zmień status startu na ukończony, DNS lub DNF.

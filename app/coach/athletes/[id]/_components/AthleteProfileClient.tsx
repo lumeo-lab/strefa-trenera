@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { type CSSProperties, useState } from 'react'
 import { regenerateAthleteInviteLink } from '@/lib/actions/athletes'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Tabs } from '@/components/ui/Tabs'
@@ -44,9 +44,17 @@ interface Props {
     lastSeenAt: string | null
     sessionCreatedAt: string | null
   }
+  summaryInfo: {
+    unpaidInvoicesCount: number
+    nextRace: {
+      name: string
+      date: string
+      distance: string | null
+    } | null
+  }
 }
 
-export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces, unreadMessagesCount, appUrl, accessInfo }: Props) {
+export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces, unreadMessagesCount, appUrl, accessInfo, summaryInfo }: Props) {
   const [activeTab, setActiveTab] = useState('plan')
 
   // Feedback lookup
@@ -142,6 +150,30 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     : accessInfo.inviteUsedAt
       ? 'Link użyty, brak aktywnej sesji'
       : 'Dostęp jeszcze nieaktywowany'
+  const nextSession = initialSessions
+    .filter((session) => !session.completed && session.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at))[0] ?? null
+  const activeInjuries = Array.isArray(athlete.injuries) ? athlete.injuries.filter(Boolean) : []
+  const daysToRace = summaryInfo.nextRace
+    ? Math.ceil((new Date(summaryInfo.nextRace.date).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24))
+    : null
+  const attentionItems = [
+    !nextSession ? { tone: 'red' as const, label: 'Brak najbliższej sesji', detail: 'Warto uzupełnić plan zawodnika.' } : null,
+    unreadMessagesCount > 0 ? { tone: 'orange' as const, label: `${unreadMessagesCount} ${unreadMessagesCount === 1 ? 'nieprzeczytana wiadomość' : unreadMessagesCount < 5 ? 'nieprzeczytane wiadomości' : 'nieprzeczytanych wiadomości'}`, detail: 'Na czacie czeka odpowiedź zawodnika.' } : null,
+    unreadFeedbackCount > 0 ? { tone: 'yellow' as const, label: `${unreadFeedbackCount} ${unreadFeedbackCount === 1 ? 'nieprzeczytany feedback' : unreadFeedbackCount < 5 ? 'nieprzeczytane feedbacki' : 'nieprzeczytanych feedbacków'}`, detail: 'Warto sprawdzić ostatnie odczucia zawodnika.' } : null,
+    summaryInfo.unpaidInvoicesCount > 0 ? { tone: 'red' as const, label: `${summaryInfo.unpaidInvoicesCount} ${summaryInfo.unpaidInvoicesCount === 1 ? 'otwarta płatność' : summaryInfo.unpaidInvoicesCount < 5 ? 'otwarte płatności' : 'otwartych płatności'}`, detail: 'Są faktury oczekujące lub przeterminowane.' } : null,
+    summaryInfo.nextRace && daysToRace !== null && daysToRace <= 21
+      ? { tone: 'orange' as const, label: daysToRace <= 0 ? 'Start już dziś lub zaległy wynik' : `Start za ${daysToRace} ${daysToRace === 1 ? 'dzień' : 'dni'}`, detail: summaryInfo.nextRace.name }
+      : null,
+    activeInjuries.length > 0 ? { tone: 'yellow' as const, label: `${activeInjuries.length} ${activeInjuries.length === 1 ? 'aktywna kontuzja' : activeInjuries.length < 5 ? 'aktywne kontuzje' : 'aktywnych kontuzji'}`, detail: activeInjuries.slice(0, 2).join(' · ') } : null,
+    !accessInfo.hasActiveSession && !accessInfo.inviteUsedAt ? { tone: 'gray' as const, label: 'Dostęp jeszcze nieaktywny', detail: 'Zawodnik nie wszedł jeszcze do swojego panelu.' } : null,
+  ].filter((item): item is { tone: 'red' | 'orange' | 'yellow' | 'gray'; label: string; detail: string } => !!item)
+  const toneStyles: Record<'red' | 'orange' | 'yellow' | 'gray', CSSProperties> = {
+    red: { background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.22)', color: '#FCA5A5' },
+    orange: { background: 'rgba(255,92,27,0.1)', border: '1px solid rgba(255,92,27,0.22)', color: '#FFB38F' },
+    yellow: { background: 'rgba(241,196,15,0.1)', border: '1px solid rgba(241,196,15,0.22)', color: '#FDE68A' },
+    gray: { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)' },
+  }
 
   return (
     <div>
@@ -202,60 +234,47 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     Link użyty: {formatDate(accessInfo.inviteUsedAt, { day: 'numeric', month: 'long', year: 'numeric' })}
                   </span>
                 )}
+                <button
+                  onClick={copyInviteLink}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer"
+                  style={{ background: linkCopied ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.1)', color: linkCopied ? '#2ECC71' : '#FF5C1B' }}
+                >
+                  {linkCopied ? '✓ Skopiowano link' : 'Kopiuj link'}
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Invite link */}
-          <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-            <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>🔗 Link zaproszenia dla zawodnika</div>
-            {inviteExpiresAt && (
-              <div className="text-xs mb-2" style={{ color: isInviteExpired ? '#E74C3C' : 'var(--text-muted)' }}>
-                {isInviteExpired
-                  ? 'Link wygasł — kliknij „Kopiuj" lub „Nowy link" aby wygenerować nowy'
-                  : `Ważny do ${formatDate(inviteExpiresAt, { day: 'numeric', month: 'long', year: 'numeric' })}`}
+        </Card>
+
+        <Card className="p-5 mb-6">
+          <div className="flex items-start justify-between gap-4 mb-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
+                Do ogarnięcia dziś
               </div>
-            )}
-            {inviteError && (
-              <div className="text-xs mb-2" style={{ color: '#E74C3C' }}>{inviteError}</div>
-            )}
-            <div className="flex items-center gap-2">
-              <code className="flex-1 px-3 py-2 rounded-xl text-xs font-mono truncate select-all" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                {inviteUrl}
-              </code>
-              <button
-                onClick={copyInviteLink}
-                className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0"
-                style={{ background: linkCopied ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.1)', color: linkCopied ? '#2ECC71' : '#FF5C1B' }}
-              >
-                {linkCopied ? '✓ Skopiowano' : '📋 Kopiuj'}
-              </button>
-              <button
-                onClick={handleRegenerateInvite}
-                disabled={regeneratingInvite}
-                className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0 disabled:opacity-60"
-                style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text-primary)' }}
-              >
-                {regeneratingInvite ? 'Generuję…' : 'Nowy link'}
-              </button>
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Cześć! Oto Twój panel treningowy: ${inviteUrl}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0"
-                style={{ background: 'rgba(37,211,102,0.1)', color: '#25D366' }}
-              >
-                WhatsApp
-              </a>
-              <a
-                href={`mailto:${athlete.email || ''}?subject=${encodeURIComponent('Twój panel treningowy')}&body=${encodeURIComponent(`Cześć ${athlete.name}!\n\nTutaj znajdziesz swój panel treningowy:\n${inviteUrl}`)}`}
-                className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0"
-                style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8' }}
-              >
-                Email
-              </a>
+              <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                Najważniejsze sygnały wymagające uwagi trenera.
+              </div>
             </div>
+            {attentionItems.length === 0 && (
+              <Badge variant="green">Na dziś bez pilnych tematów</Badge>
+            )}
           </div>
+          {attentionItems.length > 0 ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {attentionItems.map((item) => (
+                <div key={`${item.label}-${item.detail}`} className="rounded-2xl px-4 py-3" style={toneStyles[item.tone]}>
+                  <div className="text-sm font-semibold">{item.label}</div>
+                  <div className="text-xs mt-1 opacity-90">{item.detail}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl px-4 py-4 text-sm" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.16)', color: '#A7F3D0' }}>
+              Profil wygląda spokojnie: plan jest uzupełniony, nie ma nowych zaległości ani pilnych sygnałów.
+            </div>
+          )}
         </Card>
 
         <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} className="mb-6" />
@@ -296,7 +315,19 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         )}
 
         {activeTab === 'data' && (
-          <DataTab athlete={athlete} packages={packages} />
+          <DataTab
+            athlete={athlete}
+            packages={packages}
+            accessInfo={accessInfo}
+            inviteUrl={inviteUrl}
+            inviteExpiresAt={inviteExpiresAt}
+            isInviteExpired={isInviteExpired}
+            inviteError={inviteError}
+            linkCopied={linkCopied}
+            regeneratingInvite={regeneratingInvite}
+            onCopyInviteLink={copyInviteLink}
+            onRegenerateInvite={handleRegenerateInvite}
+          />
         )}
 
         {activeTab === 'finance' && (
