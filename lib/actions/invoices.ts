@@ -92,7 +92,7 @@ export async function updateInvoice(id: string, data: {
   amount?: number
   due_date?: string
   status?: string
-}) {
+}, athleteId?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
@@ -109,6 +109,7 @@ export async function updateInvoice(id: string, data: {
   if (error) return { error: error.message }
 
   revalidatePath('/coach/invoices')
+  if (athleteId) revalidatePath(`/coach/athletes/${athleteId}`)
   return { success: true }
 }
 

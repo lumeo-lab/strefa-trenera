@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { FeedbackCard } from '@/components/coach/FeedbackCard'
 import { markFeedbackRead, replyFeedback } from '@/lib/actions/feedback'
 import type { CoachFeedbackRow } from '../types'
+import { ProfileEmptyState, ProfileStatusNotice } from '../ProfileStates'
 
 interface FeedbackTabProps {
   athleteId: string
@@ -78,21 +79,11 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl p-3 md:p-4" style={{ background: 'linear-gradient(180deg, var(--bg-card) 0%, var(--bg-elevated) 100%)', border: '1px solid var(--border)' }}>
-        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <div className="grid gap-3 md:grid-cols-2 flex-1 min-w-[280px]">
           <div>
-            <div className="text-sm font-semibold">Filtry feedbacku</div>
-            <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              Zawęź widok do rzeczy, które wymagają reakcji lub przeglądu.
-            </div>
-          </div>
-          <div className="text-sm px-3 py-1.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-            {filteredFeedbacks.length} {filteredFeedbacks.length === 1 ? 'wynik' : filteredFeedbacks.length < 5 ? 'wyniki' : 'wyników'}
-          </div>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
               Odpowiedzi i odczyt
             </div>
             <select
@@ -108,7 +99,8 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
             </select>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
               Sygnał
             </div>
             <select
@@ -124,28 +116,26 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
             </select>
           </div>
         </div>
+        <div className="text-sm px-3 py-2 rounded-xl" style={{ background: 'rgba(255,92,27,0.06)', color: '#FFB38F', border: '1px solid rgba(255,92,27,0.16)' }}>
+          {filteredFeedbacks.length} {filteredFeedbacks.length === 1 ? 'wynik' : filteredFeedbacks.length < 5 ? 'wyniki' : 'wyników'}
+        </div>
       </div>
 
       {statusMessage && (
-        <div
-          className="rounded-xl px-4 py-3 text-sm"
-          style={{
-            background: statusMessage.tone === 'success' ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)',
-            border: `1px solid ${statusMessage.tone === 'success' ? 'rgba(46,204,113,0.25)' : 'rgba(231,76,60,0.25)'}`,
-            color: statusMessage.tone === 'success' ? '#2ECC71' : '#E74C3C',
-          }}
-        >
-          {statusMessage.text}
-        </div>
+        <ProfileStatusNotice tone={statusMessage.tone} text={statusMessage.text} />
       )}
       {feedbacks.length === 0 ? (
-        <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
-          Brak feedbacków od zawodnika
-        </div>
+        <ProfileEmptyState
+          icon="💬"
+          title="Brak feedbacków od zawodnika"
+          description="Gdy zawodnik zacznie zostawiać odczucia do dni lub sesji, cała historia pojawi się właśnie tutaj."
+        />
       ) : filteredFeedbacks.length === 0 ? (
-        <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
-          Brak feedbacków pasujących do wybranych filtrów
-        </div>
+        <ProfileEmptyState
+          icon="🔎"
+          title="Brak feedbacków w tym widoku"
+          description="Zmień filtry, aby zobaczyć więcej wpisów albo wróć do pełnej historii feedbacku."
+        />
       ) : (
         filteredFeedbacks.map(fb => (
           <FeedbackCard

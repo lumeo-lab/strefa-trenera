@@ -6,6 +6,7 @@ import { Tabs } from '@/components/ui/Tabs'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
+import { Modal } from '@/components/ui/Modal'
 import { getBusinessToday } from '@/lib/date'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
@@ -17,6 +18,7 @@ import { DataTab } from './tabs/DataTab'
 import { HistoryTab } from './tabs/HistoryTab'
 import { PlanTab } from './tabs/PlanTab'
 import { useCustomSessionTypes } from '@/lib/useCustomSessionTypes'
+import { getActiveAthleteInjuries, parseAthleteInjuryHistory } from '@/lib/athlete-injuries'
 import type {
   CoachAthleteRow,
   CoachFeedbackRow,
@@ -56,6 +58,7 @@ interface Props {
 export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces, unreadMessagesCount, appUrl, accessInfo, summaryInfo }: Props) {
   const [activeTab, setActiveTab] = useState('plan')
   const [linkPanelOpen, setLinkPanelOpen] = useState(false)
+  const [attentionModalOpen, setAttentionModalOpen] = useState(false)
 
   // Feedback lookup
   const feedbackBySession: FeedbackBySessionMap = Object.fromEntries(
@@ -78,15 +81,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const inviteBaseUrl = appUrl.replace(/\/$/, '')
   const inviteUrl = `${inviteBaseUrl}/u/${athlete.slug}?t=${inviteToken}`
   const [inviteError, setInviteError] = useState<string | null>(null)
-  const attentionStorageKey = `athlete-profile-attention-collapsed:${athlete.id}`
-  const [attentionCollapsed, setAttentionCollapsed] = useState(() => {
-    try {
-      if (typeof window === 'undefined') return false
-      return window.localStorage.getItem(attentionStorageKey) === '1'
-    } catch {
-      return false
-    }
-  })
 
   async function copyInviteLink() {
     setInviteError(null)
@@ -97,16 +91,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     } catch {
       setInviteError('Nie udało się skopiować — skopiuj ręcznie z pola powyżej')
     }
-  }
-
-  function toggleAttentionCollapsed() {
-    setAttentionCollapsed((prev) => {
-      const next = !prev
-      try {
-        localStorage.setItem(attentionStorageKey, next ? '1' : '0')
-      } catch {}
-      return next
-    })
   }
 
   const unreadFeedbackCount = athleteFeedbacks.filter(f => !f.read).length
@@ -132,7 +116,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const nextSession = initialSessions
     .filter((session) => !session.completed && session.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at))[0] ?? null
-  const activeInjuries = Array.isArray(athlete.injuries) ? athlete.injuries.filter(Boolean) : []
+  const activeInjuries = getActiveAthleteInjuries(parseAthleteInjuryHistory(athlete.injury_history, athlete.injuries))
   const daysToRace = summaryInfo.nextRace
     ? Math.ceil((new Date(summaryInfo.nextRace.date).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24))
     : null
@@ -144,7 +128,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     summaryInfo.nextRace && daysToRace !== null && daysToRace <= 21
       ? { tone: 'orange' as const, label: daysToRace <= 0 ? 'Start już dziś lub zaległy wynik' : `Start za ${daysToRace} ${daysToRace === 1 ? 'dzień' : 'dni'}`, detail: summaryInfo.nextRace.name }
       : null,
-    activeInjuries.length > 0 ? { tone: 'yellow' as const, label: `${activeInjuries.length} ${activeInjuries.length === 1 ? 'aktywna kontuzja' : activeInjuries.length < 5 ? 'aktywne kontuzje' : 'aktywnych kontuzji'}`, detail: activeInjuries.slice(0, 2).join(' · ') } : null,
+    activeInjuries.length > 0 ? { tone: 'yellow' as const, label: `${activeInjuries.length} ${activeInjuries.length === 1 ? 'aktywna kontuzja' : activeInjuries.length < 5 ? 'aktywne kontuzje' : 'aktywnych kontuzji'}`, detail: activeInjuries.slice(0, 2).map((injury) => injury.name).join(' · ') } : null,
     !accessInfo.hasActiveSession && !accessInfo.inviteUsedAt ? { tone: 'gray' as const, label: 'Dostęp jeszcze nieaktywny', detail: 'Zawodnik nie wszedł jeszcze do swojego panelu.' } : null,
   ].filter((item): item is { tone: 'red' | 'orange' | 'yellow' | 'gray'; label: string; detail: string } => !!item)
   const attentionToneDots: Record<'red' | 'orange' | 'yellow' | 'gray', string> = {
@@ -190,6 +174,14 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     </span>
                   )}
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => setAttentionModalOpen(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium shrink-0 cursor-pointer"
+                  style={{ background: attentionItems.length > 0 ? 'rgba(255,92,27,0.1)' : 'var(--bg-elevated)', color: attentionItems.length > 0 ? '#FF5C1B' : 'var(--text-primary)', border: attentionItems.length > 0 ? '1px solid rgba(255,92,27,0.16)' : '1px solid var(--border)' }}
+                >
+                  Sygnały ({attentionItems.length})
+                </button>
               </div>
               <div className="mb-2 flex items-center gap-2 flex-wrap text-xs" style={{ color: 'var(--text-muted)' }}>
                 <span className="inline-flex items-center gap-1.5" style={{ color: accessTone }}>
@@ -219,7 +211,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   <div>
                     <div className="text-sm font-semibold">Link dla zawodnika</div>
                     <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                      To stały link dostępu. Możesz go skopiować albo rozwinąć podgląd przed wysłaniem.
+                      Wyślij zawodnikowi ten link. To jego prywatny adres dostępu do profilu.
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -243,7 +235,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 {linkPanelOpen && (
                   <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
                     <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
-                      Wyślij zawodnikowi dokładnie ten adres.
+                      To jest link dostępu do prywatnego profilu zawodnika.
                     </div>
                     <code className="block w-full px-3 py-2 rounded-xl text-xs font-mono select-all break-all" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
                       {inviteUrl}
@@ -254,62 +246,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             </div>
           </div>
 
-        </Card>
-
-        <Card className="p-5 mb-6">
-          <div className="flex items-start justify-between gap-4 mb-3">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
-                Sygnały i status
-              </div>
-              <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                Najważniejsze informacje i sygnały dotyczące bieżącej sytuacji zawodnika.
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {attentionItems.length === 0 && (
-                <Badge variant="green">Bez pilnych tematów</Badge>
-              )}
-              <button
-                type="button"
-                onClick={toggleAttentionCollapsed}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer"
-                style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-              >
-                {attentionCollapsed ? 'Rozwiń sekcję' : 'Zwiń sekcję'}
-              </button>
-            </div>
-          </div>
-          {!attentionCollapsed && (
-            attentionItems.length > 0 ? (
-              <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                {attentionItems.map((item, index) => (
-                  <div
-                    key={`${item.label}-${item.detail}`}
-                    className="flex items-start justify-between gap-4 px-4 py-3"
-                    style={{
-                      background: index % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-elevated)',
-                      borderTop: index === 0 ? 'none' : '1px solid var(--border)',
-                    }}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: attentionToneDots[item.tone] }} />
-                        <div className="text-sm font-semibold">{item.label}</div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-right max-w-[45%]" style={{ color: 'var(--text-muted)' }}>
-                      {item.detail}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-2xl px-4 py-4 text-sm" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.16)', color: '#A7F3D0' }}>
-                Profil wygląda spokojnie: plan jest uzupełniony, nie ma nowych zaległości ani pilnych sygnałów.
-              </div>
-            )
-          )}
         </Card>
 
         <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} className="mb-6" />
@@ -364,6 +300,28 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           <FinanceTab athleteId={athlete.id} athletePackage={athlete.package} invoices={athleteInvoices} />
         )}
       </div>
+
+      <Modal open={attentionModalOpen} onClose={() => setAttentionModalOpen(false)} title="Sygnały i status" size="md">
+        {attentionItems.length > 0 ? (
+          <div className="space-y-3">
+            {attentionItems.map((item) => (
+              <div key={`${item.label}-${item.detail}`} className="rounded-xl px-4 py-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: attentionToneDots[item.tone] }} />
+                  <div className="text-sm font-semibold">{item.label}</div>
+                </div>
+                <div className="text-xs pl-4" style={{ color: 'var(--text-muted)' }}>
+                  {item.detail}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl px-4 py-4 text-sm" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.16)', color: '#A7F3D0' }}>
+            Profil wygląda spokojnie: plan jest uzupełniony, nie ma nowych zaległości ani pilnych sygnałów.
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

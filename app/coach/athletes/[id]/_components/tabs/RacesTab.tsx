@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/utils'
 import { createRace, deleteRace, updateRace } from '@/lib/actions/races'
 import { INPUT_STYLE } from '@/lib/styles'
 import type { CoachRaceRow } from '../types'
+import { ProfileEmptyState, ProfileStatusNotice } from '../ProfileStates'
 
 const inputStyle = INPUT_STYLE
 
@@ -175,21 +176,23 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
     <>
       <div className="space-y-4">
         {statusMessage && (
-          <div
-            className="rounded-xl px-4 py-3 text-sm"
-            style={{
-              background: statusMessage.tone === 'success' ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)',
-              border: `1px solid ${statusMessage.tone === 'success' ? 'rgba(46,204,113,0.25)' : 'rgba(231,76,60,0.25)'}`,
-              color: statusMessage.tone === 'success' ? '#2ECC71' : '#E74C3C',
-            }}
-          >
-            {statusMessage.text}
-          </div>
+          <ProfileStatusNotice tone={statusMessage.tone} text={statusMessage.text} />
         )}
         {loadError && (
-          <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.25)', color: '#E74C3C' }}>
-            {loadError}
-          </div>
+          <ProfileStatusNotice
+            tone="error"
+            text={loadError}
+            action={
+              <button
+                type="button"
+                onClick={() => void loadRaces()}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer"
+                style={{ background: 'rgba(231,76,60,0.12)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.2)' }}
+              >
+                Spróbuj ponownie
+              </button>
+            }
+          />
         )}
         <Card className="p-5">
           <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
@@ -282,28 +285,31 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
             </div>
           </div>
           {plannedOpen && (loadingRaces ? (
-            <div className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>
-              Ładowanie startów...
-            </div>
+            <ProfileEmptyState
+              icon="⏳"
+              title="Ładowanie startów"
+              description="Pobieram planowane zawody i historię startów tego zawodnika."
+            />
           ) : plannedRaces.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-3xl mb-2">🏁</div>
-              <div className="text-sm font-medium mb-1">Brak zaplanowanych startów</div>
-              <div className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-                Dodaj nadchodzące zawody, aby śledzić cele i przygotowania zawodnika
-              </div>
-              <button onClick={openNewRace}
-                className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
-                style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-                + Dodaj pierwszy start
-              </button>
-            </div>
+            <ProfileEmptyState
+              icon="🏁"
+              title="Brak zaplanowanych startów"
+              description="Dodaj nadchodzące zawody, aby śledzić cele i przygotowania zawodnika."
+              action={
+                <button onClick={openNewRace}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                  style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+                  + Dodaj pierwszy start
+                </button>
+              }
+            />
           ) : (
             <RaceTable
               races={plannedRaces}
-              columns={['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Notatki', '']}
+              columns={['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Status', 'Notatki', '']}
               renderRow={(race, i) => {
                 const isPastDate = race.date < today
+                const st = RACE_STATUS_INFO[(race.status as RaceStatus) || 'planned'] ?? RACE_STATUS_INFO.planned
                 return (
                   <tr key={race.id} style={{ borderBottom: i < plannedRaces.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -315,6 +321,11 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
                     <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
                     <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
+                    <td className="px-4 py-3 text-xs">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: `${st.color}22`, color: st.color }}>
+                        {st.label}
+                      </span>
+                    </td>
                     <RaceNoteCell notes={race.notes} onOpen={() => setNoteModalText(race.notes ?? '')} />
                     <td className="px-4 py-3 text-right">
                       <button onClick={() => openEditRace(race)}
@@ -342,15 +353,17 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
             )}
           </button>
           {finishedOpen && (loadingRaces ? (
-            <div className="text-center py-6 text-sm" style={{ color: 'var(--text-muted)' }}>
-              Ładowanie startów...
-            </div>
+            <ProfileEmptyState
+              icon="⏳"
+              title="Ładowanie historii startów"
+              description="Pobieram zakończone zawody i wyniki zawodnika."
+            />
           ) : finishedRaces.length === 0 ? (
-            <div className="text-center py-6">
-              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                Brak ukończonych startów — po zawodach zmień status startu na ukończony, DNS lub DNF.
-              </div>
-            </div>
+            <ProfileEmptyState
+              icon="📋"
+              title="Brak zamkniętych startów"
+              description="Po zawodach zmień status startu na ukończony, DNS albo DNF, aby historia była kompletna."
+            />
           ) : (
             <RaceTable
               races={finishedRaces}

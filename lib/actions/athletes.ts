@@ -122,6 +122,8 @@ export async function updateAthlete(_: unknown, formData: FormData) {
   if (pbParsed !== undefined) updates.personal_bests = pbParsed
   const injuriesParsed = safeJsonField(formData.get('injuries'))
   if (injuriesParsed !== undefined) updates.injuries = injuriesParsed
+  const injuryHistoryParsed = safeJsonField(formData.get('injury_history'))
+  if (injuryHistoryParsed !== undefined) updates.injury_history = injuryHistoryParsed
 
   const { error } = await supabase
     .from('athletes')

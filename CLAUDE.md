@@ -70,6 +70,20 @@ Client Components call actions via `useActionState` or `startTransition(() => ro
 - `lib/styles.ts` — INPUT_STYLE, LABEL_STYLE (shared across form components)
 - `lib/utils.ts` — formatting, relative date labels, color maps, presentation helpers
 - `lib/athlete-data.ts` — typed athlete-facing reads grouped in one module
+- `lib/athlete-status-defs.ts` — canonical athlete status definitions (built-ins + defaults)
+
+### Feature-backed Supabase migrations
+
+The codebase now relies on a few feature-definition tables that must exist in Supabase for the full coach UI to work correctly:
+
+- `supabase/migrations/010_session_type_defs.sql` — editable coach session types and colors
+- `supabase/migrations/011_week_templates.sql` — coach week templates for planner
+- `supabase/migrations/012_athlete_status_defs.sql` — editable coach athlete statuses
+- `supabase/migrations/013_athlete_list_order_and_metrics.sql` — persistent athlete list order plus `coach_athlete_list_metrics()` RPC used by the athletes list
+- `supabase/migrations/014_athlete_archive.sql` — athlete archiving via `archived_at`
+- `supabase/migrations/015_athlete_injury_history.sql` — structured `injury_history` JSONB for active/closed injuries with dates
+
+If these migrations are missing in an environment, the related UI may still render but save flows will fail or silently fall back.
 
 ### Component decomposition pattern
 
@@ -85,7 +99,29 @@ _components/
 
 ### Athlete invite flow
 
-Coach creates athlete → invite token generated with expiry → URL `/u/[slug]?t=[token]` → `/api/athlete/verify` validates token, rotates it, revokes old athlete sessions, sets httpOnly cookie → athlete accesses `/u/[slug]/*`.
+Coach creates athlete → stable invite token is generated → URL `/u/[slug]?t=[token]` is treated as the athlete's permanent access link → `/api/athlete/verify` validates token and sets/reuses `athlete_session` cookie → athlete accesses `/u/[slug]/*`.
+
+Important:
+- invite links are intentionally stable and reusable
+- do not reintroduce invite expiry / rotation / “generate new link” UX unless explicitly requested
+- coach-facing UI should frame this as “send athlete their private access link”
+
+### Coach athlete profile
+
+`/coach/athletes/[id]` is now treated as the primary athlete dossier for the coach:
+
+- header shows core identity, access status, quick chat, permanent invite-link actions, and a modal-driven `Sygnały` summary
+- `DataTab` is structured into `Dane osobowe`, `Współpraca`, `Sport i zdrowie`, and a full-width `Konto i administracja`
+- `Sport i zdrowie` uses `injury_history` as the source of truth; active injuries are those without `ended_at`
+- `RacesTab` and `FinanceTab` lazy-load their heavy data through `/api/coach/athletes/[id]/sections`
+- `FeedbackTab`, `HistoryTab`, `RacesTab`, `FinanceTab`, and `NotesTab` share common empty/error UI via `ProfileStates.tsx`
+
+### Athlete list / archive behavior
+
+- `/coach/athletes` shows active athletes only
+- archive is managed from the athlete profile (`Dane`) and browsed in coach settings
+- athlete ordering is persisted per coach in the database (`athlete_order`), not just in `localStorage`
+- table preferences remain client-side, but must stay hydration-safe and account-aware when possible
 
 ### File upload rules
 
@@ -100,10 +136,14 @@ Coach creates athlete → invite token generated with expiry → URL `/u/[slug]?
 
 - Polish language for UI text, English for code/comments
 - CSS variables (`var(--bg-card)`, `var(--text-muted)`) for theming — defined in `globals.css`
-- Session type styling via CSS classes: `.session-easy`, `.session-interval`, etc.
+- Session type presentation is no longer purely static CSS-class based; coach-editable session type names/colors are loaded from Supabase and merged with built-ins
 - Error messages use constants from `lib/constants.ts` (`AUTH_ERROR`, `FIELDS_ERROR`)
 - Prefer specific row/DTO types from `lib/supabase/database.types.ts` or local feature `types.ts` files; do not reintroduce generic `DbRow`
-- localStorage hooks use `useState` lazy initializers (not `useEffect`) to satisfy React 19 compiler rules
+- Client-side persisted preferences must be hydration-safe: prefer SSR-stable defaults on first render, then sync from `localStorage` in `useEffect`
 - Components defined inside render are not allowed (React compiler rule) — extract to module level
 - `app/layout.tsx` is network-independent; do not reintroduce `next/font/google` unless external font fetching is explicitly acceptable
 - For business dates, prefer helpers from `lib/date.ts`; avoid new uses of raw UTC date slicing for application logic
+- Planner state is intentionally persisted per browser (selected athlete/view/week-month/feedback visibility), but the first render must remain SSR-safe
+- When changing links or derived URLs shown in Client Components, prefer passing a stable server-derived app URL into the component instead of building it from `window.location`
+- For athlete injury editing, keep active injuries and historical injuries in one structured model; ending an injury must remove it from “active” logic without losing history
+- When adding coach-only summary UI (signals, hints, filters), prefer compact presentation and modals/drawers over large persistent boxes if the information is secondary

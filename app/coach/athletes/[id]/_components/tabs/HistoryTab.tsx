@@ -5,6 +5,7 @@ import { formatDate, sessionTypeLabel } from '@/lib/utils'
 import { SessionType } from '@/lib/types'
 import { FeedbackDetail } from '@/components/coach/FeedbackCard'
 import { SessionTypeDef } from '@/lib/session-type-defs'
+import { ProfileEmptyState } from '../ProfileStates'
 import type {
   CoachTrainingSessionRow,
   FeedbackByDateMap,
@@ -69,21 +70,11 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl p-3 md:p-4" style={{ background: 'linear-gradient(180deg, var(--bg-card) 0%, var(--bg-elevated) 100%)', border: '1px solid var(--border)' }}>
-        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <div className="grid gap-3 md:grid-cols-3 flex-1 min-w-[320px]">
           <div>
-            <div className="text-sm font-semibold">Filtry historii</div>
-            <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              Uporządkuj widok sesji według statusu, feedbacku i typu treningu.
-            </div>
-          </div>
-          <div className="text-sm px-3 py-1.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-            {filteredMonthSessions.length} {filteredMonthSessions.length === 1 ? 'sesja' : filteredMonthSessions.length < 5 ? 'sesje' : 'sesji'}
-          </div>
-        </div>
-        <div className="grid gap-3 md:grid-cols-3">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
               Status sesji
             </div>
             <select
@@ -99,7 +90,8 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
             </select>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
               Feedback
             </div>
             <select
@@ -113,7 +105,8 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
             </select>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
               Typ sesji
             </div>
             <select
@@ -130,6 +123,9 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
               ))}
             </select>
           </div>
+        </div>
+        <div className="text-sm px-3 py-2 rounded-xl" style={{ background: 'rgba(255,92,27,0.06)', color: '#FFB38F', border: '1px solid rgba(255,92,27,0.16)' }}>
+          {filteredMonthSessions.length} {filteredMonthSessions.length === 1 ? 'sesja' : filteredMonthSessions.length < 5 ? 'sesje' : 'sesji'}
         </div>
       </div>
 
@@ -168,9 +164,11 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
             {filteredMonthSessions.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-4 py-12 text-center">
-                  <div className="text-3xl mb-2">📅</div>
-                  <div className="text-sm font-medium mb-1">Brak sesji pasujących do widoku</div>
-                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Zmień filtry albo przejdź do innego miesiąca.</div>
+                  <ProfileEmptyState
+                    icon="📅"
+                    title="Brak sesji w tym widoku"
+                    description="Zmień filtry albo przejdź do innego miesiąca, aby zobaczyć historię treningów zawodnika."
+                  />
                 </td>
               </tr>
             )}

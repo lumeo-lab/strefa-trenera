@@ -137,6 +137,12 @@ export type Database = {
           join_date: string
           personal_bests: Record<string, string>
           injuries: string[]
+          injury_history: {
+            id: string
+            name: string
+            started_at: string | null
+            ended_at: string | null
+          }[]
           coach_notes: string
           created_at: string
         }
@@ -164,6 +170,12 @@ export type Database = {
           join_date?: string
           personal_bests?: Record<string, string>
           injuries?: string[]
+          injury_history?: {
+            id: string
+            name: string
+            started_at: string | null
+            ended_at: string | null
+          }[]
           coach_notes?: string
         }
         Update: Partial<Database['public']['Tables']['athletes']['Insert']>

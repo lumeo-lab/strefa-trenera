@@ -2,15 +2,15 @@
 
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { InvoiceStatus } from '@/lib/types'
-import { createInvoice, getInvoiceAttachmentUrl, updateInvoiceStatus } from '@/lib/actions/invoices'
+import { createInvoice, getInvoiceAttachmentUrl, updateInvoice, updateInvoiceStatus } from '@/lib/actions/invoices'
 import { InvoiceStatusDropdown } from '@/components/ui/InvoiceStatusDropdown'
 import { INPUT_STYLE } from '@/lib/styles'
 import type { CoachInvoiceRow } from '../types'
+import { ProfileEmptyState, ProfileStatusNotice } from '../ProfileStates'
 
 const inputStyle = INPUT_STYLE
 
@@ -26,6 +26,7 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
   const [loadingInvoices, setLoadingInvoices] = useState(athleteInvoices.length === 0)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null)
   const [invoiceDraft, setInvoiceDraft] = useState({ description: '', amount: '', dueDate: '' })
   const [invoiceSaving, setInvoiceSaving] = useState(false)
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
@@ -57,9 +58,30 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
 
   function closeInvoiceModal() {
     setInvoiceModalOpen(false)
+    setEditingInvoiceId(null)
     setInvoiceDraft({ description: '', amount: '', dueDate: '' })
     setInvoiceError(null)
     if (invoiceFileRef.current) invoiceFileRef.current.value = ''
+  }
+
+  function openCreateInvoice() {
+    setEditingInvoiceId(null)
+    setInvoiceDraft({ description: '', amount: '', dueDate: '' })
+    setInvoiceError(null)
+    if (invoiceFileRef.current) invoiceFileRef.current.value = ''
+    setInvoiceModalOpen(true)
+  }
+
+  function openEditInvoice(invoice: CoachInvoiceRow) {
+    setEditingInvoiceId(invoice.id)
+    setInvoiceDraft({
+      description: invoice.description ?? '',
+      amount: String(invoice.amount),
+      dueDate: invoice.due_date ?? '',
+    })
+    setInvoiceError(null)
+    if (invoiceFileRef.current) invoiceFileRef.current.value = ''
+    setInvoiceModalOpen(true)
   }
 
   async function changeInvoiceStatus(invId: string, next: InvoiceStatus) {
@@ -106,20 +128,33 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
     setInvoiceError(null)
     setStatusMessage(null)
     try {
-      const fd = new FormData()
-      fd.set('athlete_id', athleteId)
-      fd.set('description', invoiceDraft.description)
-      fd.set('amount', invoiceDraft.amount)
-      if (invoiceDraft.dueDate) fd.set('due_date', invoiceDraft.dueDate)
-      if (athletePackage) fd.set('package', athletePackage)
-      const file = invoiceFileRef.current?.files?.[0]
-      if (file) fd.set('attachment', file)
-      const result = await createInvoice(null, fd)
-      if (result && 'error' in result) {
-        setInvoiceError(result.error ?? 'Nie udało się utworzyć faktury')
-        return
+      if (editingInvoiceId) {
+        const result = await updateInvoice(editingInvoiceId, {
+          description: invoiceDraft.description,
+          amount: Number(invoiceDraft.amount),
+          due_date: invoiceDraft.dueDate,
+        }, athleteId)
+        if (result && 'error' in result) {
+          setInvoiceError(result.error ?? 'Nie udało się zaktualizować faktury')
+          return
+        }
+        setStatusMessage({ tone: 'success', text: 'Faktura została zaktualizowana.' })
+      } else {
+        const fd = new FormData()
+        fd.set('athlete_id', athleteId)
+        fd.set('description', invoiceDraft.description)
+        fd.set('amount', invoiceDraft.amount)
+        if (invoiceDraft.dueDate) fd.set('due_date', invoiceDraft.dueDate)
+        if (athletePackage) fd.set('package', athletePackage)
+        const file = invoiceFileRef.current?.files?.[0]
+        if (file) fd.set('attachment', file)
+        const result = await createInvoice(null, fd)
+        if (result && 'error' in result) {
+          setInvoiceError(result.error ?? 'Nie udało się utworzyć faktury')
+          return
+        }
+        setStatusMessage({ tone: 'success', text: 'Faktura została utworzona.' })
       }
-      setStatusMessage({ tone: 'success', text: 'Faktura została utworzona.' })
       closeInvoiceModal()
       await loadInvoices()
       startTransition(() => router.refresh())
@@ -128,111 +163,55 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
     }
   }
 
-  const invoiceTotals = localInvoices.reduce(
-    (acc, inv) => {
-      if (inv.status === 'paid') acc.paid += inv.amount
-      else if (inv.status === 'pending') acc.pending += inv.amount
-      else if (inv.status === 'overdue') acc.overdue += inv.amount
-      return acc
-    },
-    { paid: 0, pending: 0, overdue: 0 }
-  )
-  const latestInvoice = localInvoices
-    .slice()
-    .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
-  const nextDueInvoice = localInvoices
-    .filter((invoice) => invoice.status === 'pending' || invoice.status === 'overdue')
-    .slice()
-    .sort((a, b) => a.due_date.localeCompare(b.due_date))[0] ?? null
-  const withAttachmentCount = localInvoices.filter((invoice) => !!invoice.attachment_url).length
-
   return (
     <>
       <div className="space-y-4">
         {statusMessage && (
-          <div
-            className="rounded-xl px-4 py-3 text-sm"
-            style={{
-              background: statusMessage.tone === 'success' ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)',
-              border: `1px solid ${statusMessage.tone === 'success' ? 'rgba(46,204,113,0.25)' : 'rgba(231,76,60,0.25)'}`,
-              color: statusMessage.tone === 'success' ? '#2ECC71' : '#E74C3C',
-            }}
-          >
-            {statusMessage.text}
-          </div>
+          <ProfileStatusNotice tone={statusMessage.tone} text={statusMessage.text} />
         )}
         {loadError && (
-          <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.25)', color: '#E74C3C' }}>
-            {loadError}
-          </div>
+          <ProfileStatusNotice
+            tone="error"
+            text={loadError}
+            action={
+              <button
+                type="button"
+                onClick={() => void loadInvoices()}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer"
+                style={{ background: 'rgba(231,76,60,0.12)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.2)' }}
+              >
+                Spróbuj ponownie
+              </button>
+            }
+          />
         )}
         <div className="flex justify-end">
-          <button onClick={() => setInvoiceModalOpen(true)}
+          <button onClick={openCreateInvoice}
             className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
             style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
             + Nowa faktura
           </button>
         </div>
-        <Card className="p-5">
-          <div className="grid gap-4 md:grid-cols-4">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
-                Do zapłaty
-              </div>
-              <div className="text-lg font-semibold" style={{ color: invoiceTotals.pending + invoiceTotals.overdue > 0 ? '#FCA5A5' : 'var(--text-primary)' }}>
-                {formatCurrency(invoiceTotals.pending + invoiceTotals.overdue)}
-              </div>
-              <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                Oczekujące: {formatCurrency(invoiceTotals.pending)} • Przeterminowane: {formatCurrency(invoiceTotals.overdue)}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
-                Ostatnia faktura
-              </div>
-              <div className="text-lg font-semibold">
-                {latestInvoice ? latestInvoice.number : '—'}
-              </div>
-              <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                {latestInvoice ? formatDate(latestInvoice.date, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Brak wystawionych faktur'}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
-                Najbliższy termin
-              </div>
-              <div className="text-lg font-semibold">
-                {nextDueInvoice ? formatDate(nextDueInvoice.due_date, { day: 'numeric', month: 'short' }) : '—'}
-              </div>
-              <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                {nextDueInvoice ? `${nextDueInvoice.number} • ${formatCurrency(nextDueInvoice.amount)}` : 'Brak otwartych płatności'}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5" style={{ color: 'var(--text-muted)' }}>
-                Dokumenty
-              </div>
-              <div className="text-lg font-semibold">
-                {withAttachmentCount}
-              </div>
-              <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                {withAttachmentCount === 1 ? 'faktura ma załącznik' : withAttachmentCount < 5 ? 'faktury mają załączniki' : 'faktur ma załączniki'}
-              </div>
-            </div>
-          </div>
-        </Card>
         <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
-                {['Nr faktury', 'Opis', 'Data', 'Termin', 'Kwota', 'Plik', 'Status'].map(h => (
+                {['Nr faktury', 'Opis', 'Data', 'Termin', 'Kwota', 'Plik', 'Status', ''].map(h => (
                   <th key={h} className="text-left px-4 py-3 font-medium text-xs" style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loadingInvoices && (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Ładowanie faktur...</td></tr>
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center">
+                    <ProfileEmptyState
+                      icon="⏳"
+                      title="Ładowanie faktur"
+                      description="Pobieram historię rozliczeń i załączniki dla tego zawodnika."
+                    />
+                  </td>
+                </tr>
               )}
               {localInvoices.map((inv, i) => (
                 <tr key={inv.id} style={{ borderBottom: i < localInvoices.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
@@ -263,16 +242,26 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
                       loading={statusChangingId === inv.id}
                     />
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => openEditInvoice(inv)}
+                      className="text-xs px-2.5 py-1 rounded-lg cursor-pointer"
+                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                    >
+                      ✏️
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!loadingInvoices && localInvoices.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center">
-                    <div className="text-3xl mb-2">🧾</div>
-                    <div className="text-sm font-medium mb-1">Brak faktur dla tego zawodnika</div>
-                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      Wystaw pierwszą fakturę, aby śledzić płatności i terminy.
-                    </div>
+                  <td colSpan={8} className="px-4 py-10 text-center">
+                    <ProfileEmptyState
+                      icon="🧾"
+                      title="Brak faktur dla tego zawodnika"
+                      description="Wystaw pierwszą fakturę, aby śledzić płatności, terminy i dokumenty w jednym miejscu."
+                    />
                   </td>
                 </tr>
               )}
@@ -285,10 +274,10 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
       <Modal
         open={invoiceModalOpen}
         onClose={closeInvoiceModal}
-        title="Nowa faktura"
+        title={editingInvoiceId ? 'Edytuj fakturę' : 'Nowa faktura'}
         footer={
           <Button className="w-full" onClick={saveInvoice} disabled={!invoiceDraft.amount || invoiceSaving}>
-            {invoiceSaving ? 'Zapisywanie...' : 'Wystaw fakturę'}
+            {invoiceSaving ? 'Zapisywanie...' : editingInvoiceId ? 'Zapisz zmiany' : 'Wystaw fakturę'}
           </Button>
         }
       >
@@ -319,9 +308,15 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
               ref={invoiceFileRef}
               type="file"
               accept=".pdf,.jpg,.jpeg,.png"
+              disabled={!!editingInvoiceId}
               className="w-full text-xs cursor-pointer"
               style={{ color: 'var(--text-muted)' }}
             />
+            {editingInvoiceId && (
+              <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                Edycja istniejącej faktury nie zmienia załącznika. W razie potrzeby dodaj nową fakturę z poprawnym plikiem.
+              </div>
+            )}
           </div>
           <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
             Pakiet: <span style={{ color: 'var(--text-primary)' }}>{athletePackage || '—'}</span>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { INPUT_STYLE } from '@/lib/styles'
+import { ProfileEmptyState, ProfileStatusNotice } from '../ProfileStates'
 
 const inputStyle = INPUT_STYLE
 
@@ -71,14 +72,22 @@ export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
         )}
       </div>
       {error && (
-        <div className="mb-4 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.25)', color: '#E74C3C' }}>
-          {error}
+        <div className="mb-4">
+          <ProfileStatusNotice tone="error" text={error} />
         </div>
       )}
       {!editing ? (
-        <div className="text-sm whitespace-pre-wrap min-h-16" style={{ color: coachNotes ? 'var(--text-primary)' : 'var(--text-muted)', lineHeight: 1.7 }}>
-          {coachNotes || 'Brak notatek. Kliknij Edytuj, aby dodać.'}
-        </div>
+        coachNotes ? (
+          <div className="text-sm whitespace-pre-wrap min-h-16" style={{ color: 'var(--text-primary)', lineHeight: 1.7 }}>
+            {coachNotes}
+          </div>
+        ) : (
+          <ProfileEmptyState
+            icon="📝"
+            title="Brak notatek trenera"
+            description="Dodaj najważniejsze obserwacje, ustalenia i kontekst współpracy, żeby mieć je zawsze pod ręką."
+          />
+        )
       ) : (
         <textarea
           value={coachNotes}
