@@ -1,7 +1,6 @@
 'use client'
 
 import { type CSSProperties, useState } from 'react'
-import { regenerateAthleteInviteLink } from '@/lib/actions/athletes'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Tabs } from '@/components/ui/Tabs'
 import { Card } from '@/components/ui/Card'
@@ -74,60 +73,39 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
   // Invite link
   const [linkCopied, setLinkCopied] = useState(false)
-  const [regeneratingInvite, setRegeneratingInvite] = useState(false)
-  const [inviteToken, setInviteToken] = useState<string>(athlete.invite_token)
-  const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(athlete.invite_token_expires_at ?? null)
+  const inviteToken = athlete.invite_token
   const inviteBaseUrl = appUrl.replace(/\/$/, '')
   const inviteUrl = `${inviteBaseUrl}/u/${athlete.slug}?t=${inviteToken}`
-
-  const isInviteExpired = !inviteExpiresAt || new Date(inviteExpiresAt) <= new Date()
   const [inviteError, setInviteError] = useState<string | null>(null)
-
-  async function doRegenerate(): Promise<string | null> {
-    setInviteError(null)
-    const result = await regenerateAthleteInviteLink(athlete.id)
-    if (result && 'error' in result) {
-      setInviteError(result.error ?? 'Nie udało się wygenerować linku')
-      return null
+  const attentionStorageKey = `athlete-profile-attention-collapsed:${athlete.id}`
+  const [attentionCollapsed, setAttentionCollapsed] = useState(() => {
+    try {
+      if (typeof window === 'undefined') return false
+      return window.localStorage.getItem(attentionStorageKey) === '1'
+    } catch {
+      return false
     }
-    if (result?.success && result.inviteToken) {
-      setInviteToken(result.inviteToken)
-      setInviteExpiresAt(result.inviteExpiresAt ?? null)
-      setLinkCopied(false)
-      return `${inviteBaseUrl}/u/${result.slug}?t=${result.inviteToken}`
-    }
-    setInviteError('Nie udało się wygenerować linku')
-    return null
-  }
+  })
 
   async function copyInviteLink() {
-    if (regeneratingInvite) return
-    setRegeneratingInvite(true)
+    setInviteError(null)
     try {
-      let url = inviteUrl
-      if (isInviteExpired) {
-        const freshUrl = await doRegenerate()
-        if (!freshUrl) return
-        url = freshUrl
-      }
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(inviteUrl)
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
     } catch {
       setInviteError('Nie udało się skopiować — skopiuj ręcznie z pola powyżej')
-    } finally {
-      setRegeneratingInvite(false)
     }
   }
 
-  async function handleRegenerateInvite() {
-    if (regeneratingInvite) return
-    setRegeneratingInvite(true)
-    try {
-      await doRegenerate()
-    } finally {
-      setRegeneratingInvite(false)
-    }
+  function toggleAttentionCollapsed() {
+    setAttentionCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(attentionStorageKey, next ? '1' : '0')
+      } catch {}
+      return next
+    })
   }
 
   const unreadFeedbackCount = athleteFeedbacks.filter(f => !f.read).length
@@ -235,7 +213,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   </span>
                 )}
                 <button
-                  onClick={copyInviteLink}
+                  onClick={() => void copyInviteLink()}
                   className="px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer"
                   style={{ background: linkCopied ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.1)', color: linkCopied ? '#2ECC71' : '#FF5C1B' }}
                 >
@@ -251,29 +229,41 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           <div className="flex items-start justify-between gap-4 mb-3">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>
-                Do ogarnięcia dziś
+                Sygnały i status
               </div>
               <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                Najważniejsze sygnały wymagające uwagi trenera.
+                Najważniejsze informacje i sygnały dotyczące bieżącej sytuacji zawodnika.
               </div>
             </div>
-            {attentionItems.length === 0 && (
-              <Badge variant="green">Na dziś bez pilnych tematów</Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {attentionItems.length === 0 && (
+                <Badge variant="green">Bez pilnych tematów</Badge>
+              )}
+              <button
+                type="button"
+                onClick={toggleAttentionCollapsed}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer"
+                style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+              >
+                {attentionCollapsed ? 'Rozwiń sekcję' : 'Zwiń sekcję'}
+              </button>
+            </div>
           </div>
-          {attentionItems.length > 0 ? (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {attentionItems.map((item) => (
-                <div key={`${item.label}-${item.detail}`} className="rounded-2xl px-4 py-3" style={toneStyles[item.tone]}>
-                  <div className="text-sm font-semibold">{item.label}</div>
-                  <div className="text-xs mt-1 opacity-90">{item.detail}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-2xl px-4 py-4 text-sm" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.16)', color: '#A7F3D0' }}>
-              Profil wygląda spokojnie: plan jest uzupełniony, nie ma nowych zaległości ani pilnych sygnałów.
-            </div>
+          {!attentionCollapsed && (
+            attentionItems.length > 0 ? (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {attentionItems.map((item) => (
+                  <div key={`${item.label}-${item.detail}`} className="rounded-2xl px-4 py-3" style={toneStyles[item.tone]}>
+                    <div className="text-sm font-semibold">{item.label}</div>
+                    <div className="text-xs mt-1 opacity-90">{item.detail}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl px-4 py-4 text-sm" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.16)', color: '#A7F3D0' }}>
+                Profil wygląda spokojnie: plan jest uzupełniony, nie ma nowych zaległości ani pilnych sygnałów.
+              </div>
+            )
           )}
         </Card>
 
@@ -320,13 +310,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             packages={packages}
             accessInfo={accessInfo}
             inviteUrl={inviteUrl}
-            inviteExpiresAt={inviteExpiresAt}
-            isInviteExpired={isInviteExpired}
             inviteError={inviteError}
             linkCopied={linkCopied}
-            regeneratingInvite={regeneratingInvite}
             onCopyInviteLink={copyInviteLink}
-            onRegenerateInvite={handleRegenerateInvite}
           />
         )}
 

@@ -21,13 +21,9 @@ interface DataTabProps {
     sessionCreatedAt: string | null
   }
   inviteUrl: string
-  inviteExpiresAt: string | null
-  isInviteExpired: boolean
   inviteError: string | null
   linkCopied: boolean
-  regeneratingInvite: boolean
   onCopyInviteLink: () => Promise<void>
-  onRegenerateInvite: () => Promise<void>
 }
 
 export function DataTab({
@@ -35,13 +31,9 @@ export function DataTab({
   packages,
   accessInfo,
   inviteUrl,
-  inviteExpiresAt,
-  isInviteExpired,
   inviteError,
   linkCopied,
-  regeneratingInvite,
   onCopyInviteLink,
-  onRegenerateInvite,
 }: DataTabProps) {
   const router = useRouter()
 
@@ -337,21 +329,17 @@ export function DataTab({
           </div>
           <div className="flex justify-between gap-4">
             <span style={{ color: 'var(--text-muted)' }}>Ważność linku</span>
-            <span className="font-medium text-right" style={{ color: isInviteExpired ? '#E74C3C' : 'var(--text-primary)' }}>
-              {inviteExpiresAt ? (isInviteExpired ? 'Wygasł' : formatDate(inviteExpiresAt, { day: 'numeric', month: 'long', year: 'numeric' })) : '—'}
+            <span className="font-medium text-right" style={{ color: 'var(--text-primary)' }}>
+              Bezterminowo
             </span>
           </div>
         </div>
 
         <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
           <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Link zaproszenia</div>
-          {inviteExpiresAt && (
-            <div className="text-xs mb-2" style={{ color: isInviteExpired ? '#E74C3C' : 'var(--text-muted)' }}>
-              {isInviteExpired
-                ? 'Link wygasł — skopiowanie lub wygenerowanie nowego linku odświeży dostęp.'
-                : `Ważny do ${formatDate(inviteExpiresAt, { day: 'numeric', month: 'long', year: 'numeric' })}`}
-            </div>
-          )}
+          <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+            To jest stały link dostępu zawodnika. Możesz zawsze wysłać ponownie dokładnie ten sam adres.
+          </div>
           {inviteError && (
             <div className="text-xs mb-2" style={{ color: '#E74C3C' }}>{inviteError}</div>
           )}
@@ -365,14 +353,6 @@ export function DataTab({
               style={{ background: linkCopied ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.1)', color: linkCopied ? '#2ECC71' : '#FF5C1B' }}
             >
               {linkCopied ? '✓ Skopiowano' : '📋 Kopiuj'}
-            </button>
-            <button
-              onClick={() => void onRegenerateInvite()}
-              disabled={regeneratingInvite}
-              className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0 disabled:opacity-60"
-              style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--text-primary)' }}
-            >
-              {regeneratingInvite ? 'Generuję…' : 'Nowy link'}
             </button>
             <a
               href={`https://wa.me/?text=${encodeURIComponent(`Cześć! Oto Twój panel treningowy: ${inviteUrl}`)}`}

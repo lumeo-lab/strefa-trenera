@@ -1,7 +1,6 @@
 import { adminClient } from '@/lib/supabase/admin'
 import {
   addSecondsToNow,
-  ATHLETE_INVITE_TTL_SECONDS,
   ATHLETE_SESSION_TTL_SECONDS,
   generateSecureToken,
   getAthleteSessionCookieValue,
@@ -44,13 +43,13 @@ export async function GET(request: NextRequest) {
   // Find athlete by slug + invite_token
   const { data: athlete } = await adminClient
     .from('athletes')
-    .select('id, invite_token_expires_at')
+    .select('id')
     .eq('slug', slug)
     .eq('invite_token', token)
     .single()
 
-  if (!athlete || !athlete.invite_token_expires_at || new Date(athlete.invite_token_expires_at) <= new Date()) {
-    // Invalid or expired token — redirect back (page.tsx will check session cookie as fallback)
+  if (!athlete) {
+    // Invalid token — redirect back (page.tsx will check session cookie as fallback)
     return NextResponse.redirect(new URL(`/u/${slug}?invalid=1`, request.url))
   }
 
@@ -69,20 +68,20 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (existingSession) {
-      // Session still valid — extend invite expiry and redirect
+      // Session still valid — just mark link as used and redirect
       void adminClient
         .from('athletes')
-        .update({ invite_token_expires_at: addSecondsToNow(ATHLETE_INVITE_TTL_SECONDS), invite_token_used_at: nowIso })
+        .update({ invite_token_used_at: nowIso })
         .eq('id', athlete.id)
         .eq('invite_token', token)
       return NextResponse.redirect(new URL(`/u/${slug}`, request.url))
     }
   }
 
-  // No valid session — extend invite expiry
+  // No valid session — mark link as used
   await adminClient
     .from('athletes')
-    .update({ invite_token_expires_at: addSecondsToNow(ATHLETE_INVITE_TTL_SECONDS), invite_token_used_at: nowIso })
+    .update({ invite_token_used_at: nowIso })
     .eq('id', athlete.id)
     .eq('invite_token', token)
 
