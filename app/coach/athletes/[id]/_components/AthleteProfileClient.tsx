@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Tabs } from '@/components/ui/Tabs'
 import { Card } from '@/components/ui/Card'
@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/Modal'
 import { getBusinessToday } from '@/lib/date'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { NotesTab } from './tabs/NotesTab'
 import { FeedbackTab } from './tabs/FeedbackTab'
 import { RacesTab } from './tabs/RacesTab'
@@ -53,10 +54,20 @@ interface Props {
       distance: string | null
     } | null
   }
+  initialTab?: string
 }
 
-export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces, unreadMessagesCount, appUrl, accessInfo, summaryInfo }: Props) {
-  const [activeTab, setActiveTab] = useState('plan')
+const PROFILE_TABS = ['plan', 'history', 'feedback', 'races', 'notes', 'data', 'finance'] as const
+
+function getSafeProfileTab(tab?: string) {
+  return PROFILE_TABS.includes((tab ?? '') as (typeof PROFILE_TABS)[number]) ? tab! : 'plan'
+}
+
+export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces, unreadMessagesCount, appUrl, accessInfo, summaryInfo, initialTab }: Props) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState(getSafeProfileTab(initialTab))
   const [linkPanelOpen, setLinkPanelOpen] = useState(false)
   const [attentionModalOpen, setAttentionModalOpen] = useState(false)
 
@@ -94,6 +105,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   }
 
   const unreadFeedbackCount = athleteFeedbacks.filter(f => !f.read).length
+  const completedSessionsCount = initialSessions.filter((session) => session.completed).length
 
   const tabs = [
     { id: 'plan', label: 'Plan' },
@@ -138,6 +150,18 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     gray: '#8A92A8',
   }
 
+  useEffect(() => {
+    setActiveTab(getSafeProfileTab(initialTab))
+  }, [initialTab])
+
+  function handleTabChange(tabId: string) {
+    const safeTab = getSafeProfileTab(tabId)
+    setActiveTab(safeTab)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', safeTab)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+
   return (
     <div>
       <CoachTopbar
@@ -153,102 +177,142 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
       <div className="p-6">
         {/* Profile header */}
         <Card className="p-6 mb-6">
-          <div className="flex items-center gap-5">
-            <Avatar initials={athlete.avatar} size="xl" />
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-xl font-bold">{athlete.name}</h2>
-                {athlete.archived_at && (
-                  <Badge variant="gray">Archiwum</Badge>
-                )}
-                <Badge variant="gray">
-                  {athlete.package} — {formatCurrency(athlete.package_price)}/mies.
-                </Badge>
-                <Link href={`/coach/chat?athlete=${athlete.id}`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium ml-auto shrink-0 transition-colors"
-                  style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-                  💬 Chat
-                  {unreadMessagesCount > 0 && (
-                    <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#FF5C1B', color: 'white', lineHeight: 1 }}>
-                      {unreadMessagesCount}
-                    </span>
-                  )}
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setAttentionModalOpen(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium shrink-0 cursor-pointer"
-                  style={{ background: attentionItems.length > 0 ? 'rgba(231,76,60,0.14)' : 'rgba(231,76,60,0.08)', color: attentionItems.length > 0 ? '#FCA5A5' : '#F3B0A8', border: attentionItems.length > 0 ? '1px solid rgba(231,76,60,0.24)' : '1px solid rgba(231,76,60,0.16)' }}
-                >
-                  Sygnały ({attentionItems.length})
-                </button>
-              </div>
-              <div className="mb-2 flex items-center gap-2 flex-wrap text-xs" style={{ color: 'var(--text-muted)' }}>
-                <span className="inline-flex items-center gap-1.5" style={{ color: accessTone }}>
-                  <span className="w-2 h-2 rounded-full" style={{ background: accessTone }} />
-                  {accessLabel}
-                </span>
-                {accessInfo.lastSeenAt && (
-                  <span>
-                    Ostatnia aktywność: {formatDate(accessInfo.lastSeenAt, { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </span>
-                )}
-                {!accessInfo.lastSeenAt && accessInfo.inviteUsedAt && (
-                  <span>
-                    Link użyty: {formatDate(accessInfo.inviteUsedAt, { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-4 text-sm flex-wrap" style={{ color: 'var(--text-muted)' }}>
-                {athlete.goal && <span>🎯 {athlete.goal}</span>}
-                {athlete.city && <span>📍 {athlete.city}</span>}
-                {athlete.age && <span>🎂 {athlete.age} lat</span>}
-                <span>📅 Od {formatDate(athlete.join_date, { month: 'long', year: 'numeric' })}</span>
-                {totalKm > 0 && <span>🏃 {totalKm.toFixed(0)} km łącznie</span>}
-              </div>
-              <div className="mt-4 rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-semibold">Link dla zawodnika</div>
-                    <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                      Wyślij zawodnikowi ten link. To jego prywatny adres dostępu do profilu.
+          <div className="space-y-5">
+            <div className="flex items-start gap-5 flex-wrap xl:flex-nowrap">
+              <Avatar initials={athlete.avatar} size="xl" />
+              <div className="flex-1 min-w-[260px]">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="min-w-[220px]">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                      <h2 className="text-2xl font-bold">{athlete.name}</h2>
+                      {athlete.archived_at && <Badge variant="gray">Archiwum</Badge>}
+                      <Badge variant="gray">
+                        {athlete.package} — {formatCurrency(athlete.package_price)}/mies.
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap text-sm" style={{ color: 'var(--text-muted)' }}>
+                      {athlete.goal && <span>🎯 {athlete.goal}</span>}
+                      {athlete.city && <span>📍 {athlete.city}</span>}
+                      {athlete.age && <span>🎂 {athlete.age} lat</span>}
+                      <span>📅 Od {formatDate(athlete.join_date, { month: 'long', year: 'numeric' })}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => void copyInviteLink()}
-                      className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer"
-                      style={{ background: linkCopied ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.08)', color: linkCopied ? '#2ECC71' : '#FF5C1B' }}
-                    >
-                      {linkCopied ? '✓ Skopiowano' : '📋 Kopiuj link'}
-                    </button>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link href={`/coach/chat?athlete=${athlete.id}`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium shrink-0 transition-colors"
+                      style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+                      💬 Chat
+                      {unreadMessagesCount > 0 && (
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#FF5C1B', color: 'white', lineHeight: 1 }}>
+                          {unreadMessagesCount}
+                        </span>
+                      )}
+                    </Link>
                     <button
                       type="button"
-                      onClick={() => setLinkPanelOpen((prev) => !prev)}
-                      className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer"
-                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                      onClick={() => setAttentionModalOpen(true)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium shrink-0 cursor-pointer"
+                      style={{
+                        background: attentionItems.length > 0 ? 'linear-gradient(135deg, rgba(255,92,27,0.22), rgba(231,76,60,0.18))' : 'rgba(255,92,27,0.1)',
+                        color: attentionItems.length > 0 ? '#FFF3EC' : '#FFB38F',
+                        border: attentionItems.length > 0 ? '1px solid rgba(255,122,66,0.42)' : '1px solid rgba(255,92,27,0.2)',
+                        boxShadow: attentionItems.length > 0 ? '0 10px 30px rgba(255,92,27,0.14)' : 'none',
+                      }}
                     >
-                      {linkPanelOpen ? 'Ukryj link' : 'Pokaż link'}
+                      Powiadomienia ({attentionItems.length})
                     </button>
                   </div>
                 </div>
-                {linkPanelOpen && (
-                  <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-                    <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
-                      To jest link dostępu do prywatnego profilu zawodnika.
-                    </div>
-                    <code className="block w-full px-3 py-2 rounded-xl text-xs font-mono select-all break-all" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                      {inviteUrl}
-                    </code>
-                  </div>
-                )}
               </div>
             </div>
-          </div>
 
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Dostęp zawodnika</div>
+                <div className="mt-2 inline-flex items-center gap-2 text-sm font-medium" style={{ color: accessTone }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: accessTone }} />
+                  {accessLabel}
+                </div>
+                <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                  {accessInfo.lastSeenAt
+                    ? `Ostatnia aktywność: ${formatDate(accessInfo.lastSeenAt, { day: 'numeric', month: 'long', year: 'numeric' })}`
+                    : accessInfo.inviteUsedAt
+                    ? `Link użyty: ${formatDate(accessInfo.inviteUsedAt, { day: 'numeric', month: 'long', year: 'numeric' })}`
+                    : 'Zawodnik nie wszedł jeszcze do swojego panelu.'}
+                </div>
+              </div>
+
+              <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Aktywność treningowa</div>
+                <div className="mt-2 text-lg font-semibold">{totalKm > 0 ? `${totalKm.toFixed(0)} km` : 'Brak danych'}</div>
+                <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                  {completedSessionsCount > 0
+                    ? `${completedSessionsCount} ${completedSessionsCount === 1 ? 'ukończona sesja' : completedSessionsCount < 5 ? 'ukończone sesje' : 'ukończonych sesji'} w historii`
+                    : 'Brak ukończonych sesji zapisanych w profilu.'}
+                </div>
+              </div>
+
+              <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Feedback i wiadomości</div>
+                <div className="mt-2 text-lg font-semibold">{unreadFeedbackCount + unreadMessagesCount}</div>
+                <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                  {unreadFeedbackCount} nieprzeczytanych feedbacków, {unreadMessagesCount} wiadomości do sprawdzenia.
+                </div>
+              </div>
+
+              <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Finanse i starty</div>
+                <div className="mt-2 text-lg font-semibold">
+                  {summaryInfo.unpaidInvoicesCount > 0 ? `${summaryInfo.unpaidInvoicesCount} otw.` : 'Brak zaległości'}
+                </div>
+                <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                  {summaryInfo.nextRace ? `Najbliższy start: ${summaryInfo.nextRace.name}` : 'Brak najbliższego startu w kalendarzu.'}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="text-[13px] font-semibold">Link dla zawodnika</div>
+                  <div className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                    Wyślij zawodnikowi ten link. To jego prywatny adres dostępu do profilu.
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  <button
+                    onClick={() => void copyInviteLink()}
+                    className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+                    style={{ background: linkCopied ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.08)', color: linkCopied ? '#2ECC71' : '#FF5C1B' }}
+                  >
+                    {linkCopied ? '✓ Skopiowano' : '📋 Kopiuj link'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLinkPanelOpen((prev) => !prev)}
+                    className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+                    style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                  >
+                    {linkPanelOpen ? 'Ukryj link' : 'Pokaż link'}
+                  </button>
+                </div>
+              </div>
+              {linkPanelOpen && (
+                <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                  <div className="text-[11px] mb-2" style={{ color: 'var(--text-muted)' }}>
+                    To jest link dostępu do prywatnego profilu zawodnika.
+                  </div>
+                  <code className="block w-full px-3 py-2 rounded-xl text-[11px] font-mono select-all break-all" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                    {inviteUrl}
+                  </code>
+                </div>
+              )}
+            </div>
+          </div>
         </Card>
 
-        <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} className="mb-6" />
+        <Tabs tabs={tabs} active={activeTab} onChange={handleTabChange} className="mb-6" />
 
         {activeTab === 'plan' && (
           <PlanTab
@@ -301,7 +365,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         )}
       </div>
 
-      <Modal open={attentionModalOpen} onClose={() => setAttentionModalOpen(false)} title="Sygnały i status" size="md">
+      <Modal open={attentionModalOpen} onClose={() => setAttentionModalOpen(false)} title="Powiadomienia i status" size="md">
         {attentionItems.length > 0 ? (
           <div className="space-y-3">
             {attentionItems.map((item) => (

@@ -1,19 +1,23 @@
 'use client'
 
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react'
+import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { StatusMessage } from '@/components/ui/StatusMessage'
 import { InvoiceStatusDropdown } from '@/components/ui/InvoiceStatusDropdown'
 import { getBusinessToday } from '@/lib/date'
 import { formatCurrency, formatDate, invoiceStatusLabel } from '@/lib/utils'
-import { createInvoice, deleteInvoice, getInvoiceAttachmentUrl, updateInvoice, updateInvoiceStatus } from '@/lib/actions/invoices'
+import { getInvoiceAttachmentUrl, updateInvoiceStatus } from '@/lib/actions/invoices'
 import { InvoiceStatus } from '@/lib/types'
 import type { InvoiceRow } from '@/lib/supabase/database.types'
-import { INPUT_STYLE } from '@/lib/styles'
+import { SELECT_STYLE } from '@/lib/styles'
+import { InvoiceCreateModal } from './InvoiceCreateModal'
+import { InvoiceEditModal } from './InvoiceEditModal'
 
 type InvoiceWithJoins = InvoiceRow & {
   athletes: { id: string; name: string; package: string } | null
@@ -28,11 +32,6 @@ type AthleteOption = {
 
 type Filter = 'all' | 'pending' | 'paid' | 'overdue'
 type SortKey = 'number' | 'athlete' | 'date' | 'due_date' | 'amount' | 'status'
-
-const STATUS_OPTIONS: InvoiceStatus[] = ['pending', 'paid', 'overdue', 'cancelled']
-
-const inputStyle = INPUT_STYLE
-const labelStyle = { color: 'var(--text-muted)' }
 
 function isInvoiceOverdue(invoice: InvoiceWithJoins, today: string) {
   if (invoice.status === 'paid' || invoice.status === 'cancelled') return false
@@ -73,7 +72,7 @@ export function InvoicesClient({
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  const { statusMessage, showStatus, clearStatus } = useStatusMessage()
   const [compactFilters, setCompactFilters] = useState(false)
 
   function handleSort(key: SortKey) {
@@ -105,14 +104,14 @@ export function InvoicesClient({
     setLocalInvoices(ls => ls.map(i => i.id === invId ? { ...i, status: next } : i))
     setStatusChangingId(invId)
     setConfirmCancelId(null)
-    setStatusMessage(null)
+    clearStatus()
     try {
       const result = await updateInvoiceStatus(invId, next, athleteId)
-      if (result?.error) {
+      if (result && 'error' in result) {
         setLocalInvoices(ls => ls.map(i => i.id === invId ? { ...i, status: prev } : i))
-        setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się zmienić statusu faktury.' })
+        showStatus('error', result.error ?? 'Nie udało się zmienić statusu faktury.')
       } else {
-        setStatusMessage({ tone: 'success', text: `Status faktury został zmieniony na „${invoiceStatusLabel(next)}”.` })
+        showStatus('success', `Status faktury został zmieniony na „${invoiceStatusLabel(next)}”.`)
         startTransition(() => router.refresh())
       }
     } finally {
@@ -123,13 +122,13 @@ export function InvoicesClient({
   async function handleDownloadAttachment(invId: string) {
     if (downloadingId) return
     setDownloadingId(invId)
-    setStatusMessage(null)
+    clearStatus()
     try {
       const result = await getInvoiceAttachmentUrl(invId)
       if (result?.success && result.url) {
         window.open(result.url, '_blank', 'noopener,noreferrer')
       } else {
-        setStatusMessage({ tone: 'error', text: result?.error ?? 'Nie udało się pobrać załącznika.' })
+        showStatus('error', 'Nie udało się pobrać załącznika.')
       }
     } finally {
       setDownloadingId(null)
@@ -186,117 +185,12 @@ export function InvoicesClient({
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], 'pl'))
   }, [localInvoices])
 
-  // ── Create modal ─────────────────────────────────────────────────
+  // ── Modals ──────────────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [createError, setCreateError] = useState<string | null>(null)
-  const [createForm, setCreateForm] = useState({
-    athleteId: athletes[0]?.id ?? '',
-    description: '',
-    amount: athletes[0]?.package_price ? String(athletes[0].package_price) : '',
-    dueDate: '',
-  })
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  // Auto-fill amount when athlete changes in create form
-  function handleCreateAthleteChange(athleteId: string) {
-    const ath = athletes.find(a => a.id === athleteId)
-    setCreateForm(f => ({
-      ...f,
-      athleteId,
-      amount: ath?.package_price ? String(ath.package_price) : f.amount,
-    }))
-  }
-
-  async function handleCreate() {
-    if (!createForm.athleteId || !createForm.amount || submitting) return
-    setSubmitting(true)
-    setCreateError(null)
-    const fd = new FormData()
-    fd.set('athlete_id', createForm.athleteId)
-    fd.set('description', createForm.description)
-    fd.set('amount', createForm.amount)
-    if (createForm.dueDate) fd.set('due_date', createForm.dueDate)
-    const selectedAthlete = athletes.find(a => a.id === createForm.athleteId)
-    if (selectedAthlete) fd.set('package', selectedAthlete.package)
-    const file = fileRef.current?.files?.[0]
-    if (file) fd.set('attachment', file)
-    const result = await createInvoice(null, fd)
-    if (result && 'error' in result) {
-      setCreateError(result.error ?? 'Nie udało się utworzyć faktury')
-      setSubmitting(false)
-      return
-    }
-    setCreateOpen(false)
-    setCreateForm({ athleteId: athletes[0]?.id ?? '', description: '', amount: athletes[0]?.package_price ? String(athletes[0].package_price) : '', dueDate: '' })
-    setCreateError(null)
-    setStatusMessage({ tone: 'success', text: 'Faktura została utworzona.' })
-    if (fileRef.current) fileRef.current.value = ''
-    setSubmitting(false)
-    startTransition(() => router.refresh())
-  }
-
-  // ── Edit modal ───────────────────────────────────────────────────
   const [editingInvoice, setEditingInvoice] = useState<InvoiceWithJoins | null>(null)
-  const [editForm, setEditForm] = useState({ description: '', amount: '', dueDate: '', status: '' })
-  const [saving, setSaving] = useState(false)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   function openEdit(inv: InvoiceWithJoins) {
     setEditingInvoice(inv)
-    setEditForm({
-      description: inv.description ?? '',
-      amount: String(inv.amount),
-      dueDate: inv.due_date ?? '',
-      status: inv.status,
-    })
-    setConfirmingDelete(false)
-    setEditError(null)
-  }
-
-  function closeEdit() {
-    setEditingInvoice(null)
-    setConfirmingDelete(false)
-    setEditError(null)
-  }
-
-  const [editError, setEditError] = useState<string | null>(null)
-
-  async function handleUpdate() {
-    if (!editingInvoice || saving) return
-    setSaving(true)
-    setEditError(null)
-    const result = await updateInvoice(editingInvoice.id, {
-      description: editForm.description || undefined,
-      amount: parseFloat(editForm.amount),
-      due_date: editForm.dueDate || undefined,
-      status: editForm.status,
-    })
-    if (result && 'error' in result) {
-      setEditError(result.error ?? 'Nie udało się zapisać zmian')
-      setSaving(false)
-      return
-    }
-    closeEdit()
-    setStatusMessage({ tone: 'success', text: 'Zmiany faktury zostały zapisane.' })
-    setSaving(false)
-    startTransition(() => router.refresh())
-  }
-
-  async function handleDelete() {
-    if (!editingInvoice || saving) return
-    setSaving(true)
-    setEditError(null)
-    const result = await deleteInvoice(editingInvoice.id)
-    if (result && 'error' in result) {
-      setEditError(result.error ?? 'Nie udało się usunąć faktury')
-      setSaving(false)
-      return
-    }
-    closeEdit()
-    setStatusMessage({ tone: 'success', text: 'Faktura została usunięta.' })
-    setSaving(false)
-    startTransition(() => router.refresh())
   }
 
   // ── Columns ──────────────────────────────────────────────────────
@@ -372,16 +266,7 @@ export function InvoicesClient({
       />
       <div className="p-6">
         {statusMessage && (
-          <div
-            className="mb-6 rounded-xl px-4 py-3 text-sm"
-            style={{
-              background: statusMessage.tone === 'success' ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)',
-              border: `1px solid ${statusMessage.tone === 'success' ? 'rgba(46,204,113,0.25)' : 'rgba(231,76,60,0.25)'}`,
-              color: statusMessage.tone === 'success' ? '#2ECC71' : '#E74C3C',
-            }}
-          >
-            {statusMessage.text}
-          </div>
+          <StatusMessage tone={statusMessage.tone} text={statusMessage.text} className="mb-6" />
         )}
 
         {/* KPIs */}
@@ -430,7 +315,7 @@ export function InvoicesClient({
                   value={filter}
                   onChange={e => setFilter(e.target.value as Filter)}
                   className="w-full max-w-[260px] rounded-xl px-3 py-2 text-sm cursor-pointer"
-                  style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                  style={SELECT_STYLE}
                 >
                   {filters.map(f => (
                     <option key={f.id} value={f.id}>
@@ -460,13 +345,13 @@ export function InvoicesClient({
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Szukaj po numerze, zawodniku lub opisie..."
                 className="px-3 py-2 rounded-xl text-sm w-full"
-                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                style={SELECT_STYLE}
               />
               <select
                 value={athleteFilter}
                 onChange={e => setAthleteFilter(e.target.value)}
                 className="px-3 py-2 rounded-xl text-sm cursor-pointer"
-                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                style={SELECT_STYLE}
               >
                 <option value="all">Wszyscy zawodnicy ({invoiceAthletes.length})</option>
                 {invoiceAthletes.map(([id, name]) => (
@@ -581,147 +466,55 @@ export function InvoicesClient({
       </div>
 
       {/* Confirm cancel modal */}
-      <Modal open={!!confirmCancelId} onClose={() => setConfirmCancelId(null)} title="Anulowanie faktury">
-        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-          Czy na pewno chcesz anulować tę fakturę? Status zmieni się na &quot;Anulowana&quot;.
-        </p>
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => setConfirmCancelId(null)}>Nie, wróć</Button>
-          <Button variant="danger" onClick={() => {
-            if (!confirmCancelId) return
-            const inv = localInvoices.find(i => i.id === confirmCancelId)
-            void doStatusChange(confirmCancelId, inv?.athlete_id, 'cancelled')
-          }}>
-            Tak, anuluj fakturę
-          </Button>
-        </div>
-      </Modal>
+      <ConfirmDialog
+        open={!!confirmCancelId}
+        onClose={() => setConfirmCancelId(null)}
+        onConfirm={() => {
+          if (!confirmCancelId) return
+          const inv = localInvoices.find(i => i.id === confirmCancelId)
+          void doStatusChange(confirmCancelId, inv?.athlete_id, 'cancelled')
+        }}
+        title="Anulowanie faktury"
+        message={'Czy na pewno chcesz anulować tę fakturę? Status zmieni się na „Anulowana".'}
+        confirmLabel="Tak, anuluj fakturę"
+      />
 
-      {/* Create Modal */}
-      <Modal open={createOpen} onClose={() => { setCreateOpen(false); setCreateError(null) }} title="Nowa faktura">
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs mb-1.5 block" style={labelStyle}>Zawodnik</label>
-            <select value={createForm.athleteId}
-              onChange={e => handleCreateAthleteChange(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle}>
-              {athletes.map(a => <option key={a.id} value={a.id}>{a.name} — {a.package} ({formatCurrency(a.package_price)})</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs mb-1.5 block" style={labelStyle}>Opis</label>
-            <input value={createForm.description}
-              onChange={e => setCreateForm(f => ({ ...f, description: e.target.value }))}
-              placeholder="np. Plan Pro — Marzec 2026"
-              className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs mb-1.5 block" style={labelStyle}>Kwota (zł) *</label>
-              <input type="number" value={createForm.amount}
-                onChange={e => setCreateForm(f => ({ ...f, amount: e.target.value }))}
-                placeholder="np. 599"
-                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-            </div>
-            <div>
-              <label className="text-xs mb-1.5 block" style={labelStyle}>Termin płatności</label>
-              <input type="date" value={createForm.dueDate}
-                onChange={e => setCreateForm(f => ({ ...f, dueDate: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs mb-1.5 block" style={labelStyle}>Załącznik (opcjonalnie, PDF / JPG / PNG)</label>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
-              className="w-full text-xs cursor-pointer"
-              style={{ color: 'var(--text-muted)' }}
-            />
-          </div>
-          {createError && (
-            <div className="text-xs text-red-400">{createError}</div>
-          )}
-          <div className="flex gap-2 pt-2">
-            <Button variant="secondary" onClick={() => { setCreateOpen(false); setCreateError(null) }}>Anuluj</Button>
-            <Button onClick={handleCreate} disabled={!createForm.amount || submitting}>
-              {submitting ? 'Tworzenie...' : 'Utwórz fakturę'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      <InvoiceCreateModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        athletes={athletes}
+        onCreated={() => {
+          showStatus('success', 'Faktura została utworzona.')
+          startTransition(() => router.refresh())
+        }}
+        onError={(msg) => showStatus('error', msg)}
+      />
 
-      {/* Edit Modal */}
-      <Modal open={!!editingInvoice} onClose={closeEdit} title={`Faktura ${editingInvoice?.number ?? ''}`}>
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs mb-1.5 block" style={labelStyle}>Opis</label>
-            <input value={editForm.description}
-              onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
-              className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs mb-1.5 block" style={labelStyle}>Kwota (zł)</label>
-              <input type="number" min="0.01" step="0.01" value={editForm.amount}
-                onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-            </div>
-            <div>
-              <label className="text-xs mb-1.5 block" style={labelStyle}>Termin płatności</label>
-              <input type="date" value={editForm.dueDate}
-                onChange={e => setEditForm(f => ({ ...f, dueDate: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs mb-1.5 block" style={labelStyle}>Status</label>
-            <select value={editForm.status}
-              onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
-              className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer" style={inputStyle}>
-              {STATUS_OPTIONS.map(s => (
-                <option key={s} value={s}>{invoiceStatusLabel(s)}</option>
-              ))}
-            </select>
-          </div>
-          {editError && (
-            <div className="text-xs text-red-400">{editError}</div>
-          )}
-          <div className="flex gap-2 pt-2">
-            <Button variant="secondary" onClick={closeEdit}>Anuluj</Button>
-            <Button onClick={handleUpdate} disabled={!editForm.amount || saving}>
-              {saving ? 'Zapisywanie...' : 'Zapisz zmiany'}
-            </Button>
-          </div>
-          {/* Delete zone */}
-          <div className="pt-3 mt-1" style={{ borderTop: '1px solid var(--border)' }}>
-            {!confirmingDelete ? (
-              <button
-                onClick={() => setConfirmingDelete(true)}
-                className="text-xs cursor-pointer hover:opacity-80"
-                style={{ color: '#E74C3C', background: 'none', border: 'none' }}
-              >
-                Usuń fakturę
-              </button>
-            ) : (
-              <div className="flex items-center gap-3">
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Na pewno usunąć?</span>
-                <Button variant="danger" size="sm" onClick={handleDelete} disabled={saving}>
-                  {saving ? '...' : 'Tak, usuń'}
-                </Button>
-                <button
-                  onClick={() => setConfirmingDelete(false)}
-                  className="text-xs cursor-pointer"
-                  style={{ color: 'var(--text-muted)', background: 'none', border: 'none' }}
-                >
-                  Anuluj
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </Modal>
+      {editingInvoice && (
+        <InvoiceEditModal
+          open={!!editingInvoice}
+          onClose={() => setEditingInvoice(null)}
+          invoiceId={editingInvoice.id}
+          invoiceNumber={editingInvoice.number}
+          initialValues={{
+            description: editingInvoice.description ?? '',
+            amount: String(editingInvoice.amount),
+            dueDate: editingInvoice.due_date ?? '',
+            status: editingInvoice.status,
+          }}
+          onSaved={() => {
+            setEditingInvoice(null)
+            showStatus('success', 'Zmiany faktury zostały zapisane.')
+            startTransition(() => router.refresh())
+          }}
+          onDeleted={() => {
+            setEditingInvoice(null)
+            showStatus('success', 'Faktura została usunięta.')
+            startTransition(() => router.refresh())
+          }}
+          onError={(msg) => showStatus('error', msg)}
+        />
+      )}
     </div>
   )
 }

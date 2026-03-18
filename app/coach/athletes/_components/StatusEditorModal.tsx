@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
+import { INPUT_STYLE } from '@/lib/styles'
 import { BUILTIN_ATHLETE_STATUS_KEYS, StatusDef } from '@/lib/athlete-status-defs'
 
 const PRESET_COLORS = ['#2ECC71', '#F1C40F', '#E74C3C', '#6B7280', '#3B82F6', '#8B5CF6', '#EC4899', '#F97316']
@@ -65,7 +66,7 @@ export function StatusEditorModal({ open, statuses, onClose, onSave }: StatusEdi
                   value={s.label}
                   onChange={e => setEditingStatuses(prev => prev.map((x, i) => i === idx ? { ...x, label: e.target.value } : x))}
                   className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm"
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                  style={INPUT_STYLE}
                 />
                 {!BUILTIN_ATHLETE_STATUS_KEYS.includes(s.key as (typeof BUILTIN_ATHLETE_STATUS_KEYS)[number]) && (
                   <button

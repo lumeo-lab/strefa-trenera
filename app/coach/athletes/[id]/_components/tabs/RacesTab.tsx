@@ -1,17 +1,15 @@
 'use client'
 
-import React, { startTransition, useCallback, useEffect, useState } from 'react'
+import React, { startTransition, useEffect, useState } from 'react'
+import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
-import { Button } from '@/components/ui/Button'
 import { formatDate } from '@/lib/utils'
 import { createRace, deleteRace, updateRace } from '@/lib/actions/races'
-import { INPUT_STYLE } from '@/lib/styles'
 import type { CoachRaceRow } from '../types'
 import { ProfileEmptyState, ProfileStatusNotice } from '../ProfileStates'
-
-const inputStyle = INPUT_STYLE
+import { RaceModal } from './races/RaceModal'
 
 type RaceStatus = 'planned' | 'completed' | 'dns' | 'dnf'
 
@@ -46,126 +44,11 @@ const RACE_TABLE_COLUMNS = [
   { key: 'actions', label: '', width: '6%' },
 ] as const
 
-interface RacesTabProps {
-  athleteId: string
+function RaceTable({ races: tableRaces, renderRow }: {
   races: CoachRaceRow[]
-  today: string
-}
-
-export function RacesTab({ athleteId, races, today }: RacesTabProps) {
-  const router = useRouter()
-  const [localRaces, setLocalRaces] = useState(races)
-  const [loadingRaces, setLoadingRaces] = useState(races.length === 0)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [raceModalOpen, setRaceModalOpen] = useState(false)
-  const [editingRaceId, setEditingRaceId] = useState<string | null>(null)
-  const [raceDraft, setRaceDraft] = useState<RaceDraft>({ name: '', date: '', distance: '', goalTime: '', result: '', status: 'planned', notes: '' })
-  const [raceSaving, setRaceSaving] = useState(false)
-  const [confirmDeleteRaceId, setConfirmDeleteRaceId] = useState<string | null>(null)
-  const [noteModalText, setNoteModalText] = useState<string | null>(null)
-  const [plannedOpen, setPlannedOpen] = useState(true)
-  const [finishedOpen, setFinishedOpen] = useState(true)
-  const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
-
-  const loadRaces = useCallback(async () => {
-    setLoadingRaces(true)
-    setLoadError(null)
-    try {
-      const res = await fetch(`/api/coach/athletes/${athleteId}/sections?section=races`, { cache: 'no-store' })
-      const data = await res.json().catch(() => null) as { items?: CoachRaceRow[]; error?: string } | null
-      if (!res.ok) {
-        throw new Error(data?.error || 'Nie udało się pobrać startów.')
-      }
-      setLocalRaces(data?.items ?? [])
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Nie udało się pobrać startów.')
-    } finally {
-      setLoadingRaces(false)
-    }
-  }, [athleteId])
-
-  useEffect(() => {
-    void loadRaces()
-  }, [loadRaces])
-
-  function openNewRace() {
-    setRaceDraft({ name: '', date: '', distance: '', goalTime: '', result: '', status: 'planned', notes: '' })
-    setEditingRaceId(null)
-    setRaceModalOpen(true)
-  }
-
-  function openEditRace(race: CoachRaceRow) {
-    setRaceDraft({ name: race.name, date: race.date, distance: race.distance ?? '', goalTime: race.goal_time ?? '', result: race.result ?? '', status: race.status ?? 'planned', notes: race.notes ?? '' })
-    setEditingRaceId(race.id)
-    setRaceModalOpen(true)
-  }
-
-  async function saveRace() {
-    if (!raceDraft.name.trim() || !raceDraft.date || raceSaving) return
-    setRaceSaving(true)
-    setStatusMessage(null)
-    try {
-      const fd = new FormData()
-      fd.set('athlete_id', athleteId)
-      fd.set('name', raceDraft.name)
-      fd.set('date', raceDraft.date)
-      fd.set('distance', raceDraft.distance)
-      fd.set('goal_time', raceDraft.goalTime)
-      fd.set('result', raceDraft.result)
-      fd.set('status', raceDraft.status)
-      fd.set('notes', raceDraft.notes)
-      let result
-      if (editingRaceId) {
-        fd.set('id', editingRaceId)
-        result = await updateRace(null, fd)
-      } else {
-        result = await createRace(null, fd)
-      }
-
-      if (result && 'error' in result) {
-        setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się zapisać startu.' })
-        return
-      }
-
-      setStatusMessage({ tone: 'success', text: editingRaceId ? 'Zmiany startu zostały zapisane.' : 'Start został dodany.' })
-      setRaceModalOpen(false)
-      await loadRaces()
-      startTransition(() => router.refresh())
-    } finally {
-      setRaceSaving(false)
-    }
-  }
-
-  async function handleDeleteRace(id: string) {
-    setStatusMessage(null)
-    const result = await deleteRace(id, athleteId)
-    if (result && 'error' in result) {
-      setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się usunąć startu.' })
-      return
-    }
-    setStatusMessage({ tone: 'success', text: 'Start został usunięty.' })
-    setConfirmDeleteRaceId(null)
-    setRaceModalOpen(false)
-    await loadRaces()
-    startTransition(() => router.refresh())
-  }
-
-  const plannedRaces = localRaces
-    .filter(r => !r.status || r.status === 'planned')
-    .slice().sort((a, b) => a.date.localeCompare(b.date))
-  const finishedRaces = localRaces
-    .filter(r => r.status && r.status !== 'planned')
-    .slice().sort((a, b) => b.date.localeCompare(a.date))
-  const nextRace = plannedRaces[0] ?? null
-  const latestFinishedRace = finishedRaces[0] ?? null
-  const daysToNextRace = nextRace
-    ? Math.ceil((new Date(nextRace.date).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24))
-    : null
-
-  const RaceTable = ({ races: tableRaces, renderRow }: {
-    races: CoachRaceRow[]
-    renderRow: (race: CoachRaceRow, i: number) => React.ReactNode
-  }) => (
+  renderRow: (race: CoachRaceRow, i: number) => React.ReactNode
+}) {
+  return (
     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
       <table className="w-full text-sm table-fixed">
         <colgroup>
@@ -186,28 +69,106 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
       </table>
     </div>
   )
+}
+
+interface RacesTabProps {
+  athleteId: string
+  races: CoachRaceRow[]
+  today: string
+}
+
+export function RacesTab({ athleteId, races, today }: RacesTabProps) {
+  const router = useRouter()
+  const [localRaces, setLocalRaces] = useState(races)
+  const [raceModalOpen, setRaceModalOpen] = useState(false)
+  const [editingRaceId, setEditingRaceId] = useState<string | null>(null)
+  const [raceDraft, setRaceDraft] = useState<RaceDraft>({ name: '', date: '', distance: '', goalTime: '', result: '', status: 'planned', notes: '' })
+  const [raceSaving, setRaceSaving] = useState(false)
+  const [noteModalText, setNoteModalText] = useState<string | null>(null)
+  const [plannedOpen, setPlannedOpen] = useState(true)
+  const [finishedOpen, setFinishedOpen] = useState(true)
+  const { statusMessage, showStatus, clearStatus } = useStatusMessage()
+
+  useEffect(() => {
+    setLocalRaces(races)
+  }, [races])
+
+  function openNewRace() {
+    setRaceDraft({ name: '', date: '', distance: '', goalTime: '', result: '', status: 'planned', notes: '' })
+    setEditingRaceId(null)
+    setRaceModalOpen(true)
+  }
+
+  function openEditRace(race: CoachRaceRow) {
+    setRaceDraft({ name: race.name, date: race.date, distance: race.distance ?? '', goalTime: race.goal_time ?? '', result: race.result ?? '', status: race.status ?? 'planned', notes: race.notes ?? '' })
+    setEditingRaceId(race.id)
+    setRaceModalOpen(true)
+  }
+
+  async function saveRace() {
+    if (!raceDraft.name.trim() || !raceDraft.date || raceSaving) return
+    setRaceSaving(true)
+    clearStatus()
+    try {
+      const fd = new FormData()
+      fd.set('athlete_id', athleteId)
+      fd.set('name', raceDraft.name)
+      fd.set('date', raceDraft.date)
+      fd.set('distance', raceDraft.distance)
+      fd.set('goal_time', raceDraft.goalTime)
+      fd.set('result', raceDraft.result)
+      fd.set('status', raceDraft.status)
+      fd.set('notes', raceDraft.notes)
+      let result
+      if (editingRaceId) {
+        fd.set('id', editingRaceId)
+        result = await updateRace(null, fd)
+      } else {
+        result = await createRace(null, fd)
+      }
+
+      if (result && 'error' in result) {
+        showStatus('error', result.error ?? 'Nie udało się zapisać startu.')
+        return
+      }
+
+      showStatus('success', editingRaceId ? 'Zmiany startu zostały zapisane.' : 'Start został dodany.')
+      setRaceModalOpen(false)
+      startTransition(() => router.refresh())
+    } finally {
+      setRaceSaving(false)
+    }
+  }
+
+  async function handleDeleteRace(id: string) {
+    clearStatus()
+    const result = await deleteRace(id, athleteId)
+    if (result && 'error' in result) {
+      showStatus('error', result.error ?? 'Nie udało się usunąć startu.')
+      return
+    }
+    showStatus('success', 'Start został usunięty.')
+    setRaceModalOpen(false)
+    startTransition(() => router.refresh())
+  }
+
+  const plannedRaces = localRaces
+    .filter(r => !r.status || r.status === 'planned')
+    .slice().sort((a, b) => a.date.localeCompare(b.date))
+  const finishedRaces = localRaces
+    .filter(r => r.status && r.status !== 'planned')
+    .slice().sort((a, b) => b.date.localeCompare(a.date))
+  const nextRace = plannedRaces[0] ?? null
+  const latestFinishedRace = finishedRaces[0] ?? null
+  const daysToNextRace = nextRace
+    ? Math.ceil((new Date(nextRace.date).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24))
+    : null
 
   return (
     <>
       <div className="space-y-4">
         {statusMessage && (
           <ProfileStatusNotice tone={statusMessage.tone} text={statusMessage.text} />
-        )}
-        {loadError && (
-          <ProfileStatusNotice
-            tone="error"
-            text={loadError}
-            action={
-              <button
-                type="button"
-                onClick={() => void loadRaces()}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer"
-                style={{ background: 'rgba(231,76,60,0.12)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.2)' }}
-              >
-                Spróbuj ponownie
-              </button>
-            }
-          />
         )}
         <Card className="p-5">
           <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
@@ -299,13 +260,7 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
               {plannedRaces.length === 0 ? 'Dodaj pierwszy planowany start.' : 'Najbliższe zawody do monitorowania.'}
             </div>
           </div>
-          {plannedOpen && (loadingRaces ? (
-            <ProfileEmptyState
-              icon="⏳"
-              title="Ładowanie startów"
-              description="Pobieram planowane zawody i historię startów tego zawodnika."
-            />
-          ) : plannedRaces.length === 0 ? (
+          {plannedOpen && (plannedRaces.length === 0 ? (
             <ProfileEmptyState
               icon="🏁"
               title="Brak zaplanowanych startów"
@@ -367,13 +322,7 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
               </span>
             )}
           </button>
-          {finishedOpen && (loadingRaces ? (
-            <ProfileEmptyState
-              icon="⏳"
-              title="Ładowanie historii startów"
-              description="Pobieram zakończone zawody i wyniki zawodnika."
-            />
-          ) : finishedRaces.length === 0 ? (
+          {finishedOpen && (finishedRaces.length === 0 ? (
             <ProfileEmptyState
               icon="📋"
               title="Brak zamkniętych startów"
@@ -420,90 +369,16 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
         </Modal>
       )}
 
-      {/* Race Modal */}
-      <Modal
+      <RaceModal
         open={raceModalOpen}
-        onClose={() => { setRaceModalOpen(false); setConfirmDeleteRaceId(null) }}
-        title={editingRaceId ? 'Edytuj start' : 'Nowy start'}
-        footer={
-          <div className="flex gap-3">
-            {editingRaceId && (
-              confirmDeleteRaceId === editingRaceId ? (
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Na pewno usunąć?</span>
-                  <button onClick={() => handleDeleteRace(editingRaceId)}
-                    className="px-3 py-2 rounded-xl text-sm font-medium cursor-pointer"
-                    style={{ background: 'rgba(231,76,60,0.15)', color: '#E74C3C' }}>Tak, usuń</button>
-                  <button onClick={() => setConfirmDeleteRaceId(null)}
-                    className="px-3 py-2 rounded-xl text-sm cursor-pointer"
-                    style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Nie</button>
-                </div>
-              ) : (
-                <button onClick={() => setConfirmDeleteRaceId(editingRaceId)}
-                  className="px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer"
-                  style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>🗑 Usuń</button>
-              )
-            )}
-            <Button className="flex-1" onClick={saveRace} disabled={!raceDraft.name.trim() || !raceDraft.date || raceSaving}>
-              {raceSaving ? 'Zapisywanie...' : editingRaceId ? 'Zapisz zmiany' : 'Dodaj start'}
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Nazwa zawodów *</label>
-            <input value={raceDraft.name} onChange={e => setRaceDraft(d => ({ ...d, name: e.target.value }))}
-              placeholder="np. Maraton Warszawski 2026"
-              className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Data *</label>
-              <input type="date" value={raceDraft.date} onChange={e => setRaceDraft(d => ({ ...d, date: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-            </div>
-            <div>
-              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Dystans</label>
-              <input value={raceDraft.distance} onChange={e => setRaceDraft(d => ({ ...d, distance: e.target.value }))}
-                placeholder="np. Maraton, 10 km"
-                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Cel czasowy</label>
-              <input value={raceDraft.goalTime} onChange={e => setRaceDraft(d => ({ ...d, goalTime: e.target.value }))}
-                placeholder="np. 3:30:00"
-                className="w-full px-3 py-2 rounded-xl text-sm font-mono" style={inputStyle} />
-            </div>
-            <div>
-              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Status</label>
-              <select value={raceDraft.status} onChange={e => setRaceDraft(d => ({ ...d, status: e.target.value as RaceStatus }))}
-                className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle}>
-                <option value="planned">Planowany</option>
-                <option value="completed">Ukończony</option>
-                <option value="dns">DNS</option>
-                <option value="dnf">DNF</option>
-              </select>
-            </div>
-          </div>
-          {raceDraft.status === 'completed' && (
-            <div>
-              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Wynik</label>
-              <input value={raceDraft.result} onChange={e => setRaceDraft(d => ({ ...d, result: e.target.value }))}
-                placeholder="np. 3:24:15"
-                className="w-full px-3 py-2 rounded-xl text-sm font-mono" style={inputStyle} />
-            </div>
-          )}
-          <div>
-            <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Notatki</label>
-            <textarea value={raceDraft.notes} onChange={e => setRaceDraft(d => ({ ...d, notes: e.target.value }))}
-              placeholder="Dodatkowe informacje..."
-              rows={3} className="w-full px-3 py-2 rounded-xl text-sm resize-none" style={inputStyle} />
-          </div>
-        </div>
-      </Modal>
+        onClose={() => setRaceModalOpen(false)}
+        editingRaceId={editingRaceId}
+        draft={raceDraft}
+        onDraftChange={setRaceDraft}
+        saving={raceSaving}
+        onSave={saveRace}
+        onDelete={(id) => void handleDeleteRace(id)}
+      />
     </>
   )
 }

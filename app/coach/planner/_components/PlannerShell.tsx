@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { PlanTab } from '@/app/coach/athletes/[id]/_components/tabs/PlanTab'
 import type { CoachFeedbackRow, CoachTrainingSessionRow, FeedbackByDateMap, FeedbackBySessionMap } from '@/app/coach/athletes/[id]/_components/types'
 
@@ -10,18 +11,6 @@ type Athlete = {
   name: string
   avatar: string
   status: string
-}
-
-function EmptyPanel({ title, description }: { title: string; description: string }) {
-  return (
-    <div
-      className="rounded-2xl px-5 py-8 text-center"
-      style={{ background: 'var(--bg-card)', border: '1px dashed var(--border)', color: 'var(--text-muted)' }}
-    >
-      <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{title}</div>
-      <div className="text-xs leading-6 max-w-xl mx-auto">{description}</div>
-    </div>
-  )
 }
 
 interface Props {
@@ -99,7 +88,7 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
       <div>
         <CoachTopbar title="Planer" subtitle="Plan treningowy" />
         <div className="p-4 sm:p-6">
-          <EmptyPanel
+          <EmptyState
             title="Planer jest jeszcze pusty"
             description="Dodaj aktywnego zawodnika, a tutaj pojawi się jego plan treningowy, sesje i feedback przypisany do dni."
           />
@@ -113,7 +102,7 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
       <div>
         <CoachTopbar title="Planer" subtitle="Ładowanie..." />
         <div className="p-4 sm:p-6">
-          <EmptyPanel
+          <EmptyState
             title="Przywracanie ostatniego widoku"
             description="Za chwilę wrócisz do ostatnio otwartego zawodnika i zapisanej konfiguracji planera."
           />

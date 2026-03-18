@@ -1,6 +1,7 @@
 'use client'
 
-import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
+import { startTransition, useEffect, useRef, useState } from 'react'
+import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
 import { useRouter } from 'next/navigation'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -23,38 +24,19 @@ interface FinanceTabProps {
 export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoices }: FinanceTabProps) {
   const router = useRouter()
   const [localInvoices, setLocalInvoices] = useState(athleteInvoices)
-  const [loadingInvoices, setLoadingInvoices] = useState(athleteInvoices.length === 0)
-  const [loadError, setLoadError] = useState<string | null>(null)
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null)
   const [invoiceDraft, setInvoiceDraft] = useState({ description: '', amount: '', dueDate: '' })
   const [invoiceSaving, setInvoiceSaving] = useState(false)
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
   const [statusChangingId, setStatusChangingId] = useState<string | null>(null)
-  const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  const { statusMessage, showStatus, clearStatus } = useStatusMessage()
   const [attachmentLoadingId, setAttachmentLoadingId] = useState<string | null>(null)
   const invoiceFileRef = useRef<HTMLInputElement>(null)
 
-  const loadInvoices = useCallback(async () => {
-    setLoadingInvoices(true)
-    setLoadError(null)
-    try {
-      const res = await fetch(`/api/coach/athletes/${athleteId}/sections?section=invoices`, { cache: 'no-store' })
-      const data = await res.json().catch(() => null) as { items?: CoachInvoiceRow[]; error?: string } | null
-      if (!res.ok) {
-        throw new Error(data?.error || 'Nie udało się pobrać faktur.')
-      }
-      setLocalInvoices(data?.items ?? [])
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Nie udało się pobrać faktur.')
-    } finally {
-      setLoadingInvoices(false)
-    }
-  }, [athleteId])
-
   useEffect(() => {
-    void loadInvoices()
-  }, [loadInvoices])
+    setLocalInvoices(athleteInvoices)
+  }, [athleteInvoices])
 
   function closeInvoiceModal() {
     setInvoiceModalOpen(false)
@@ -86,17 +68,16 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
 
   async function changeInvoiceStatus(invId: string, next: InvoiceStatus) {
     const prev = localInvoices.find(i => i.id === invId)?.status as InvoiceStatus
-    setStatusMessage(null)
+    clearStatus()
     setLocalInvoices(ls => ls.map(i => i.id === invId ? { ...i, status: next } : i))
     setStatusChangingId(invId)
     try {
       const result = await updateInvoiceStatus(invId, next, athleteId)
-      if (result?.error) {
+      if (result && 'error' in result) {
         setLocalInvoices(ls => ls.map(i => i.id === invId ? { ...i, status: prev } : i))
-        setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się zmienić statusu faktury.' })
+        showStatus('error', result.error ?? 'Nie udało się zmienić statusu faktury.')
       } else {
-        setStatusMessage({ tone: 'success', text: 'Status faktury został zaktualizowany.' })
-        await loadInvoices()
+        showStatus('success', 'Status faktury został zaktualizowany.')
         startTransition(() => router.refresh())
       }
     } finally {
@@ -107,11 +88,11 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
   async function openAttachment(invoiceId: string) {
     if (attachmentLoadingId) return
     setAttachmentLoadingId(invoiceId)
-    setStatusMessage(null)
+    clearStatus()
     try {
       const result = await getInvoiceAttachmentUrl(invoiceId)
       if (result && 'error' in result) {
-        setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się otworzyć załącznika.' })
+        showStatus('error', result.error ?? 'Nie udało się otworzyć załącznika.')
         return
       }
       if (result?.success && result.url) {
@@ -126,7 +107,7 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
     if (!invoiceDraft.amount || invoiceSaving) return
     setInvoiceSaving(true)
     setInvoiceError(null)
-    setStatusMessage(null)
+    clearStatus()
     try {
       if (editingInvoiceId) {
         const result = await updateInvoice(editingInvoiceId, {
@@ -138,7 +119,7 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
           setInvoiceError(result.error ?? 'Nie udało się zaktualizować faktury')
           return
         }
-        setStatusMessage({ tone: 'success', text: 'Faktura została zaktualizowana.' })
+        showStatus('success', 'Faktura została zaktualizowana.')
       } else {
         const fd = new FormData()
         fd.set('athlete_id', athleteId)
@@ -153,10 +134,9 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
           setInvoiceError(result.error ?? 'Nie udało się utworzyć faktury')
           return
         }
-        setStatusMessage({ tone: 'success', text: 'Faktura została utworzona.' })
+        showStatus('success', 'Faktura została utworzona.')
       }
       closeInvoiceModal()
-      await loadInvoices()
       startTransition(() => router.refresh())
     } finally {
       setInvoiceSaving(false)
@@ -168,22 +148,6 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
       <div className="space-y-4">
         {statusMessage && (
           <ProfileStatusNotice tone={statusMessage.tone} text={statusMessage.text} />
-        )}
-        {loadError && (
-          <ProfileStatusNotice
-            tone="error"
-            text={loadError}
-            action={
-              <button
-                type="button"
-                onClick={() => void loadInvoices()}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer"
-                style={{ background: 'rgba(231,76,60,0.12)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.2)' }}
-              >
-                Spróbuj ponownie
-              </button>
-            }
-          />
         )}
         <div className="flex justify-end">
           <button onClick={openCreateInvoice}
@@ -202,17 +166,6 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
               </tr>
             </thead>
             <tbody>
-              {loadingInvoices && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center">
-                    <ProfileEmptyState
-                      icon="⏳"
-                      title="Ładowanie faktur"
-                      description="Pobieram historię rozliczeń i załączniki dla tego zawodnika."
-                    />
-                  </td>
-                </tr>
-              )}
               {localInvoices.map((inv, i) => (
                 <tr key={inv.id} style={{ borderBottom: i < localInvoices.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}>
                   <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{inv.number}</td>
@@ -254,7 +207,7 @@ export function FinanceTab({ athleteId, athletePackage, invoices: athleteInvoice
                   </td>
                 </tr>
               ))}
-              {!loadingInvoices && localInvoices.length === 0 && (
+              {localInvoices.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-10 text-center">
                     <ProfileEmptyState

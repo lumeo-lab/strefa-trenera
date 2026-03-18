@@ -4,24 +4,14 @@ import { startTransition, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
 import { archiveAthlete, updateAthlete } from '@/lib/actions/athletes'
-import { type AthleteInjuryRecord, getActiveAthleteInjuries, parseAthleteInjuryHistory } from '@/lib/athlete-injuries'
-import { getBusinessToday } from '@/lib/date'
+import { getActiveAthleteInjuries, parseAthleteInjuryHistory } from '@/lib/athlete-injuries'
 import { INPUT_STYLE } from '@/lib/styles'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { PersonalBestsEditor } from './data/PersonalBestsEditor'
+import { InjuryEditor } from './data/InjuryEditor'
 import type { CoachAthleteRow, CoachPackageRow } from '../types'
 
 const inputStyle = INPUT_STYLE
-const DEFAULT_PB_DISTANCES = ['5 km', '10 km', 'Półmaraton', 'Maraton']
-
-function todayInputValue(): string {
-  return getBusinessToday()
-}
-
-function formatInjuryRange(startedAt: string | null, endedAt: string | null): string {
-  const from = startedAt ? formatDate(startedAt, { day: 'numeric', month: 'short', year: 'numeric' }) : 'brak daty startu'
-  if (!endedAt) return `od ${from}`
-  return `${from} → ${formatDate(endedAt, { day: 'numeric', month: 'short', year: 'numeric' })}`
-}
 
 interface DataTabProps {
   athlete: CoachAthleteRow
@@ -68,30 +58,6 @@ export function DataTab({
   const [dataSaved, setDataSaved] = useState(false)
   const [dataError, setDataError] = useState<string | null>(null)
 
-  const savedDistances = Object.keys(athlete.personal_bests ?? {})
-  const initialDistances = [
-    ...DEFAULT_PB_DISTANCES,
-    ...savedDistances.filter((d) => !DEFAULT_PB_DISTANCES.includes(d)),
-  ]
-  const [pbDistances, setPbDistances] = useState(initialDistances)
-  const [newPbDistance, setNewPbDistance] = useState('')
-  const [pbEditing, setPbEditing] = useState(false)
-  const [pbEdit, setPbEdit] = useState<Record<string, string>>(
-    Object.fromEntries(initialDistances.map((d) => [d, (athlete.personal_bests ?? {})[d] ?? ''])),
-  )
-  const [pbSaving, setPbSaving] = useState(false)
-  const [pbSaved, setPbSaved] = useState(false)
-  const [pbError, setPbError] = useState<string | null>(null)
-
-  const initialInjuryHistory = parseAthleteInjuryHistory(athlete.injury_history, athlete.injuries)
-  const [localInjuries, setLocalInjuries] = useState<AthleteInjuryRecord[]>(initialInjuryHistory)
-  const [injuriesEditing, setInjuriesEditing] = useState(false)
-  const [injuriesSaving, setInjuriesSaving] = useState(false)
-  const [injuriesSaved, setInjuriesSaved] = useState(false)
-  const [injuriesError, setInjuriesError] = useState<string | null>(null)
-  const [injuryInput, setInjuryInput] = useState('')
-  const [injuryStartDate, setInjuryStartDate] = useState(todayInputValue())
-
   const [archiveConfirm, setArchiveConfirm] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [archiveError, setArchiveError] = useState<string | null>(null)
@@ -103,9 +69,8 @@ export function DataTab({
       ? 'Link użyty, brak aktywnej sesji'
       : 'Dostęp jeszcze nieaktywowany'
 
-  const activeInjuries = getActiveAthleteInjuries(localInjuries)
-  const activeInjuriesCount = activeInjuries.length
-  const closedInjuries = localInjuries.filter((injury) => !!injury.ended_at)
+  const initialInjuryHistory = parseAthleteInjuryHistory(athlete.injury_history, athlete.injuries)
+  const activeInjuriesCount = getActiveAthleteInjuries(initialInjuryHistory).length
 
   const personalRows: [string, string][] = [
     ['Imię i nazwisko', dataEdit.name],
@@ -148,86 +113,11 @@ export function DataTab({
     }
   }
 
-  async function savePb() {
-    if (pbSaving) return
-    setPbSaving(true)
-    setPbError(null)
-    setPbSaved(false)
-    const fd = new FormData()
-    fd.set('id', athlete.id)
-    fd.set('personal_bests', JSON.stringify(Object.fromEntries(Object.entries(pbEdit).filter(([, v]) => v.trim()))))
-    try {
-      const result = await updateAthlete(null, fd)
-      if (result && 'error' in result) {
-        setPbError(result.error ?? 'Nie udało się zapisać rekordów życiowych.')
-        return
-      }
-      setPbSaved(true)
-      setPbEditing(false)
-      setTimeout(() => setPbSaved(false), 2000)
-      startTransition(() => router.refresh())
-    } finally {
-      setPbSaving(false)
-    }
-  }
-
-  async function saveInjuries() {
-    if (injuriesSaving) return
-    setInjuriesSaving(true)
-    setInjuriesError(null)
-    setInjuriesSaved(false)
-    const fd = new FormData()
-    fd.set('id', athlete.id)
-    fd.set('injuries', JSON.stringify(activeInjuries.map((injury) => injury.name)))
-    fd.set('injury_history', JSON.stringify(localInjuries))
-    try {
-      const result = await updateAthlete(null, fd)
-      if (result && 'error' in result) {
-        setInjuriesError(result.error ?? 'Nie udało się zapisać historii kontuzji.')
-        return
-      }
-      setInjuriesSaved(true)
-      setInjuriesEditing(false)
-      setInjuryInput('')
-      setInjuryStartDate(todayInputValue())
-      setTimeout(() => setInjuriesSaved(false), 2000)
-      startTransition(() => router.refresh())
-    } finally {
-      setInjuriesSaving(false)
-    }
-  }
-
-  function addInjury() {
-    const name = injuryInput.trim()
-    if (!name) return
-    const id = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`
-    setLocalInjuries((current) => [
-      ...current,
-      {
-        id,
-        name,
-        started_at: injuryStartDate || todayInputValue(),
-        ended_at: null,
-      },
-    ])
-    setInjuryInput('')
-    setInjuryStartDate(todayInputValue())
-  }
-
-  function removeInjury(id: string) {
-    setLocalInjuries((current) => current.filter((injury) => injury.id !== id))
-  }
-
-  function setInjuryEndDate(id: string, endedAt: string) {
-    setLocalInjuries((current) => current.map((injury) => injury.id === id ? { ...injury, ended_at: endedAt || null } : injury))
-  }
-
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
         <div className="space-y-6">
+          {/* ── Dane osobowe ── */}
           <Card className="p-5">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -307,6 +197,7 @@ export function DataTab({
             )}
           </Card>
 
+          {/* ── Współpraca ── */}
           <Card className="p-5">
             <div className="mb-4">
               <h3 className="font-semibold">Współpraca</h3>
@@ -366,6 +257,7 @@ export function DataTab({
           </Card>
         </div>
 
+        {/* ── Sport i zdrowie ── */}
         <div className="space-y-6">
           <Card className="p-5">
             <div className="flex items-start justify-between gap-4 mb-5">
@@ -381,213 +273,21 @@ export function DataTab({
             </div>
 
             <div className="space-y-6">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-semibold">Rekordy życiowe</h4>
-                  {!pbEditing ? (
-                    <button onClick={() => setPbEditing(true)} className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer" style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-                      Edytuj
-                    </button>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setPbEditing(false)
-                          setPbDistances(initialDistances)
-                          setPbEdit(Object.fromEntries(initialDistances.map((d) => [d, (athlete.personal_bests ?? {})[d] ?? ''])))
-                          setNewPbDistance('')
-                        }}
-                        className="px-3 py-2 rounded-xl text-sm cursor-pointer"
-                        style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
-                      >
-                        Anuluj
-                      </button>
-                      <button onClick={savePb} disabled={pbSaving} className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer" style={{ background: pbSaved ? 'rgba(46,204,113,0.15)' : '#FF5C1B', color: pbSaved ? '#2ECC71' : 'white' }}>
-                        {pbSaved ? '✓ Zapisano' : pbSaving ? 'Zapisywanie...' : 'Zapisz'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {pbError && (
-                  <div className="mb-4 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.25)', color: '#E74C3C' }}>
-                    {pbError}
-                  </div>
-                )}
-
-                {!pbEditing ? (
-                  <div className="space-y-3 text-sm">
-                    {pbDistances.map((dist) => (
-                      <div key={dist} className="flex justify-between">
-                        <span style={{ color: 'var(--text-muted)' }}>{dist}</span>
-                        <span className="font-mono font-medium">{pbEdit[dist] || '—'}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Format: 3:52:00 lub 22:30</p>
-                    {pbDistances.map((dist) => (
-                      <div key={dist}>
-                        <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>{dist}</label>
-                        <input value={pbEdit[dist] ?? ''} onChange={(e) => setPbEdit((p) => ({ ...p, [dist]: e.target.value }))} placeholder="np. 22:30" className="w-full px-3 py-2 rounded-xl text-sm font-mono" style={inputStyle} />
-                      </div>
-                    ))}
-                    <div>
-                      <input
-                        value={newPbDistance}
-                        onChange={(e) => setNewPbDistance(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && newPbDistance.trim()) {
-                            e.preventDefault()
-                            const dist = newPbDistance.trim()
-                            if (!pbDistances.includes(dist)) {
-                              setPbDistances((d) => [...d, dist])
-                              setPbEdit((p) => ({ ...p, [dist]: '' }))
-                            }
-                            setNewPbDistance('')
-                          }
-                        }}
-                        placeholder="+ Dodaj dystans (np. 3 km) — Enter"
-                        className="w-full px-3 py-2 rounded-xl text-sm"
-                        style={{ ...inputStyle, borderStyle: 'dashed' }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-5" style={{ borderTop: '1px solid var(--border)' }}>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 className="font-semibold">Zdrowie i kontuzje</h4>
-                    <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                      Dodawaj kontuzje z datą rozpoczęcia i zamykaj je datą zakończenia, żeby mieć pełną historię urazów.
-                    </p>
-                  </div>
-                  {!injuriesEditing ? (
-                    <button onClick={() => setInjuriesEditing(true)} className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer" style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-                      Edytuj
-                    </button>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setInjuriesEditing(false)
-                          setLocalInjuries(parseAthleteInjuryHistory(athlete.injury_history, athlete.injuries))
-                          setInjuryInput('')
-                          setInjuryStartDate(todayInputValue())
-                        }}
-                        className="px-3 py-2 rounded-xl text-sm cursor-pointer"
-                        style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
-                      >
-                        Anuluj
-                      </button>
-                      <button onClick={saveInjuries} disabled={injuriesSaving} className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer" style={{ background: injuriesSaved ? 'rgba(46,204,113,0.15)' : '#FF5C1B', color: injuriesSaved ? '#2ECC71' : 'white' }}>
-                        {injuriesSaved ? '✓ Zapisano' : injuriesSaving ? 'Zapisywanie...' : 'Zapisz'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {injuriesError && (
-                  <div className="mb-4 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid rgba(231,76,60,0.25)', color: '#E74C3C' }}>
-                    {injuriesError}
-                  </div>
-                )}
-
-                {!injuriesEditing ? (
-                  localInjuries.length > 0 ? (
-                    <div className="space-y-4">
-                      {activeInjuries.length > 0 && (
-                        <div>
-                          <div className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>Aktywne kontuzje</div>
-                          <div className="space-y-2">
-                            {activeInjuries.map((injury) => (
-                              <div key={injury.id} className="rounded-xl px-3 py-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
-                                <div className="text-sm font-semibold" style={{ color: '#FCA5A5' }}>{injury.name}</div>
-                                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{formatInjuryRange(injury.started_at, injury.ended_at)}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {closedInjuries.length > 0 && (
-                        <div>
-                          <div className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>Historia kontuzji</div>
-                          <div className="space-y-2">
-                            {closedInjuries.map((injury) => (
-                              <div key={injury.id} className="rounded-xl px-3 py-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-                                <div className="text-sm font-semibold">{injury.name}</div>
-                                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{formatInjuryRange(injury.started_at, injury.ended_at)}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Brak kontuzji w historii zawodnika</span>
-                  )
-                ) : (
-                  <div className="space-y-4">
-                    {localInjuries.length > 0 && (
-                      <div className="space-y-3">
-                        {localInjuries.map((injury) => (
-                          <div key={injury.id} className="rounded-xl px-3 py-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-                            <div className="flex items-start justify-between gap-3 mb-3">
-                              <div>
-                                <div className="text-sm font-semibold">{injury.name}</div>
-                                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{injury.ended_at ? 'Kontuzja zakończona' : 'Kontuzja aktywna'}</div>
-                              </div>
-                              <button type="button" onClick={() => removeInjury(injury.id)} className="text-xs px-2.5 py-1 rounded-lg cursor-pointer" style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>
-                                Usuń
-                              </button>
-                            </div>
-                            <div className="grid gap-3 md:grid-cols-2">
-                              <div>
-                                <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Data rozpoczęcia</label>
-                                <input type="date" value={injury.started_at ?? ''} onChange={(e) => setLocalInjuries((current) => current.map((item) => item.id === injury.id ? { ...item, started_at: e.target.value || null } : item))} className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-                              </div>
-                              <div>
-                                <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Data zakończenia</label>
-                                <input type="date" value={injury.ended_at ?? ''} onChange={(e) => setInjuryEndDate(injury.id, e.target.value)} className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="rounded-xl p-3" style={{ background: 'var(--bg-elevated)', border: '1px dashed var(--border)' }}>
-                      <div className="text-xs font-semibold uppercase tracking-[0.08em] mb-3" style={{ color: 'var(--text-muted)' }}>Dodaj kontuzję</div>
-                      <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px_auto]">
-                        <input
-                          value={injuryInput}
-                          onChange={(e) => setInjuryInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && injuryInput.trim()) {
-                              e.preventDefault()
-                              addInjury()
-                            }
-                          }}
-                          placeholder="np. Kolano lewe, ból pleców..."
-                          className="w-full px-3 py-2 rounded-xl text-sm"
-                          style={inputStyle}
-                        />
-                        <input type="date" value={injuryStartDate} onChange={(e) => setInjuryStartDate(e.target.value)} className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
-                        <button type="button" onClick={addInjury} className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                          + Dodaj
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <PersonalBestsEditor
+                athleteId={athlete.id}
+                personalBests={athlete.personal_bests as Record<string, string> | null}
+              />
+              <InjuryEditor
+                athleteId={athlete.id}
+                injuryHistory={athlete.injury_history}
+                legacyInjuries={athlete.injuries}
+              />
             </div>
           </Card>
         </div>
       </div>
 
+      {/* ── Konto i administracja ── */}
       <Card className="p-5">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
@@ -618,14 +318,14 @@ export function DataTab({
           </div>
 
           <div>
-            <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Link zaproszenia</div>
-            <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Link zaproszenia</div>
+            <div className="text-[11px] mb-2" style={{ color: 'var(--text-muted)' }}>
               Wyślij zawodnikowi ten link, aby mógł wejść do swojego prywatnego profilu.
             </div>
             {inviteError && (
-              <div className="text-xs mb-2" style={{ color: '#E74C3C' }}>{inviteError}</div>
+              <div className="text-[11px] mb-2" style={{ color: '#E74C3C' }}>{inviteError}</div>
             )}
-            <code className="block w-full px-3 py-2 rounded-xl text-xs font-mono select-all overflow-x-auto" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+            <code className="block w-full px-3 py-2 rounded-xl text-[11px] font-mono select-all overflow-x-auto" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
               {inviteUrl}
             </code>
             <div className="mt-3 flex flex-wrap gap-2">

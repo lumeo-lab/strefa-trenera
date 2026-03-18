@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { formatDateTime } from '@/lib/utils'
+import { INPUT_STYLE } from '@/lib/styles'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
 import { markAthleteThreadRead, sendAthleteMessage } from '@/lib/actions/messages'
@@ -127,7 +128,7 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder={`Napisz do ${coachName}...`}
             className="flex-1 px-4 py-3 rounded-2xl text-sm"
-            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+            style={INPUT_STYLE}
           />
           <Button onClick={handleSend} disabled={!input.trim() || sending}>
             {sending ? '...' : 'Wyślij'}

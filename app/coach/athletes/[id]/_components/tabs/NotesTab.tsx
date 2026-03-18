@@ -21,6 +21,18 @@ export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const noteTemplates = [
+    'Cele na najbliższe 2 tygodnie',
+    'Ryzyka / sygnały ostrzegawcze',
+    'Ustalenia po ostatniej rozmowie',
+    'Co monitorować w planie',
+  ]
+
+  function insertTemplate(label: string) {
+    const section = `${coachNotes.trim() ? '\n\n' : ''}${label}\n- `
+    setCoachNotes((current) => `${current}${section}`)
+    setEditing(true)
+  }
 
   async function saveNotes() {
     if (saving) return false
@@ -46,8 +58,13 @@ export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
 
   return (
     <Card className="p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold">Notatki trenera</h3>
+      <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
+        <div>
+          <h3 className="font-semibold">Notatki trenera</h3>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+            Miejsce na ustalenia, obserwacje i priorytety pracy z zawodnikiem.
+          </p>
+        </div>
         {!editing ? (
           <button
             onClick={() => setEditing(true)}
@@ -76,28 +93,71 @@ export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
           <ProfileStatusNotice tone="error" text={error} />
         </div>
       )}
-      {!editing ? (
-        coachNotes ? (
-          <div className="text-sm whitespace-pre-wrap min-h-16" style={{ color: 'var(--text-primary)', lineHeight: 1.7 }}>
-            {coachNotes}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,0.78fr)_minmax(260px,0.22fr)]">
+        <div>
+          {!editing ? (
+            coachNotes ? (
+              <div className="rounded-2xl p-4 min-h-32" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                <div className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-primary)', lineHeight: 1.8 }}>
+                  {coachNotes}
+                </div>
+              </div>
+            ) : (
+              <ProfileEmptyState
+                icon="📝"
+                title="Brak notatek trenera"
+                description="Dodaj najważniejsze obserwacje, ustalenia i kontekst współpracy, żeby mieć je zawsze pod ręką."
+              />
+            )
+          ) : (
+            <div>
+              <textarea
+                value={coachNotes}
+                onChange={e => setCoachNotes(e.target.value)}
+                placeholder="Zapisz obserwacje, uwagi, przemyślenia o zawodniku..."
+                rows={14}
+                className="w-full px-4 py-3 rounded-2xl text-sm resize-none"
+                style={inputStyle}
+              />
+              <div className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                {coachNotes.trim().length} znaków
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <div className="rounded-2xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+            <div className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
+              Szybkie sekcje
+            </div>
+            <div className="space-y-2">
+              {noteTemplates.map((template) => (
+                <button
+                  key={template}
+                  type="button"
+                  onClick={() => insertTemplate(template)}
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
+                  style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                >
+                  + {template}
+                </button>
+              ))}
+            </div>
           </div>
-        ) : (
-          <ProfileEmptyState
-            icon="📝"
-            title="Brak notatek trenera"
-            description="Dodaj najważniejsze obserwacje, ustalenia i kontekst współpracy, żeby mieć je zawsze pod ręką."
-          />
-        )
-      ) : (
-        <textarea
-          value={coachNotes}
-          onChange={e => setCoachNotes(e.target.value)}
-          placeholder="Zapisz obserwacje, uwagi, przemyślenia o zawodniku..."
-          rows={12}
-          className="w-full px-4 py-3 rounded-xl text-sm resize-none"
-          style={inputStyle}
-        />
-      )}
+
+          <div className="rounded-2xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+            <div className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
+              Dobre notatki
+            </div>
+            <div className="text-xs space-y-2" style={{ color: 'var(--text-muted)', lineHeight: 1.7 }}>
+              <p>Zapisuj decyzje, nie tylko luźne myśli.</p>
+              <p>Oddzielaj obserwacje od planu działania.</p>
+              <p>Po rozmowie z zawodnikiem wpisz krótko: ustalenie, ryzyko, kolejny krok.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </Card>
   )
 }

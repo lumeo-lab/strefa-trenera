@@ -1,8 +1,10 @@
 'use client'
 
 import { startTransition, useState } from 'react'
+import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
 import { useRouter } from 'next/navigation'
 import { FeedbackCard } from '@/components/coach/FeedbackCard'
+import { SelectField } from '@/components/ui/SelectField'
 import { markFeedbackRead, replyFeedback } from '@/lib/actions/feedback'
 import type { CoachFeedbackRow } from '../types'
 import { ProfileEmptyState, ProfileStatusNotice } from '../ProfileStates'
@@ -19,9 +21,11 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
   const [replyText, setReplyText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [markingReadId, setMarkingReadId] = useState<string | null>(null)
-  const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  const { statusMessage, showStatus, clearStatus } = useStatusMessage()
   const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'replied' | 'no-reply'>('all')
   const [signalFilter, setSignalFilter] = useState<'all' | 'red' | 'yellow' | 'green'>('all')
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7days' | '30days'>('all')
+  const [search, setSearch] = useState('')
 
   async function handleExpand(id: string) {
     setExpandedId(prev => prev === id ? null : id)
@@ -30,14 +34,14 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
   async function handleMarkRead(id: string) {
     if (markingReadId) return
     setMarkingReadId(id)
-    setStatusMessage(null)
+    clearStatus()
     try {
       const result = await markFeedbackRead(id, athleteId)
       if (result && 'error' in result) {
-        setStatusMessage({ tone: 'error', text: `Nie udało się oznaczyć feedbacku jako przeczytany: ${result.error}` })
+        showStatus('error', `Nie udało się oznaczyć feedbacku jako przeczytany: ${result.error}`)
         return
       }
-      setStatusMessage({ tone: 'success', text: 'Feedback został oznaczony jako przeczytany.' })
+      showStatus('success', 'Feedback został oznaczony jako przeczytany.')
       startTransition(() => router.refresh())
     } finally {
       setMarkingReadId(null)
@@ -47,7 +51,7 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
   async function handleReply(id: string) {
     if (!replyText.trim() || submitting) return
     setSubmitting(true)
-    setStatusMessage(null)
+    clearStatus()
     const fd = new FormData()
     fd.set('id', id)
     fd.set('athlete_id', athleteId)
@@ -55,12 +59,12 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
     try {
       const result = await replyFeedback(null, fd)
       if (result && 'error' in result) {
-        setStatusMessage({ tone: 'error', text: `Nie udało się zapisać odpowiedzi: ${result.error}` })
+        showStatus('error', `Nie udało się zapisać odpowiedzi: ${result.error}`)
         return
       }
       setReplyingId(null)
       setReplyText('')
-      setStatusMessage({ tone: 'success', text: 'Odpowiedź została zapisana.' })
+      showStatus('success', 'Odpowiedź została zapisana.')
       startTransition(() => router.refresh())
     } finally {
       setSubmitting(false)
@@ -68,63 +72,90 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
   }
 
   const filteredFeedbacks = feedbacks.filter((fb) => {
+    const query = search.trim().toLowerCase()
+    if (query) {
+      const haystack = [fb.transcript, fb.coach_reply, fb.ai_summary, fb.ai_analysis].filter(Boolean).join(' ').toLowerCase()
+      if (!haystack.includes(query)) return false
+    }
+
     if (readFilter === 'unread' && fb.read) return false
     if (readFilter === 'replied' && !fb.coach_reply) return false
     if (readFilter === 'no-reply' && fb.coach_reply) return false
 
     if (signalFilter !== 'all' && fb.signal !== signalFilter) return false
 
+    const todayDate = new Date()
+    const feedbackDate = new Date(`${fb.date}T12:00:00`)
+    const diffDays = Math.floor((todayDate.getTime() - feedbackDate.getTime()) / 86400000)
+    if (dateFilter === 'today' && diffDays !== 0) return false
+    if (dateFilter === '7days' && (diffDays < 0 || diffDays > 6)) return false
+    if (dateFilter === '30days' && (diffDays < 0 || diffDays > 29)) return false
+
     return true
   })
-
-  const filterControlStyle = {
-    background: 'var(--bg-card)',
-    color: 'var(--text-primary)',
-    border: '1px solid var(--border)',
-  }
 
   return (
     <div className="space-y-4">
       <div className="max-w-4xl mx-auto space-y-4">
-        <div className="flex items-end justify-between gap-3 flex-wrap rounded-2xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
-          <div className="grid gap-3 md:grid-cols-2 flex-1 min-w-[280px]">
+        <div className="rounded-3xl p-4 md:p-5" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))', border: '1px solid var(--border)' }}>
+          <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
+              <div className="text-sm font-semibold">Filtry feedbacku</div>
+              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                Zawęź listę po statusie odpowiedzi i poziomie sygnału.
+              </div>
+            </div>
+            <div className="text-sm px-3 py-2 rounded-xl shrink-0" style={{ background: 'rgba(255,92,27,0.08)', color: '#FFD2BD', border: '1px solid rgba(255,92,27,0.16)' }}>
+              {filteredFeedbacks.length} {filteredFeedbacks.length === 1 ? 'wynik' : filteredFeedbacks.length < 5 ? 'wyniki' : 'wyników'}
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-2xl p-3 md:col-span-2" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
+                Szukaj w feedbacku
+              </div>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Szukaj po treści feedbacku lub odpowiedzi trenera"
+                className="w-full px-3 py-2 rounded-xl text-sm"
+                style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+              />
+            </div>
+            <div className="rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
                 Odpowiedzi i odczyt
               </div>
-              <select
-                value={readFilter}
-                onChange={(e) => setReadFilter(e.target.value as typeof readFilter)}
-                className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
-                style={filterControlStyle}
-              >
+              <SelectField value={readFilter} onChange={(value) => setReadFilter(value as typeof readFilter)}>
                 <option value="all">Wszystkie feedbacki</option>
                 <option value="unread">Nieprzeczytane</option>
                 <option value="replied">Z odpowiedzią</option>
                 <option value="no-reply">Bez odpowiedzi</option>
-              </select>
+              </SelectField>
             </div>
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
+            <div className="rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
                 Sygnał
               </div>
-              <select
-                value={signalFilter}
-                onChange={(e) => setSignalFilter(e.target.value as typeof signalFilter)}
-                className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
-                style={filterControlStyle}
-              >
+              <SelectField value={signalFilter} onChange={(value) => setSignalFilter(value as typeof signalFilter)}>
                 <option value="all">Wszystkie sygnały</option>
                 <option value="red">Czerwone</option>
                 <option value="yellow">Żółte</option>
                 <option value="green">Zielone</option>
-              </select>
+              </SelectField>
             </div>
-          </div>
-          <div className="text-sm px-3 py-2 rounded-xl" style={{ background: 'rgba(255,92,27,0.08)', color: '#FFB38F', border: '1px solid rgba(255,92,27,0.14)' }}>
-            {filteredFeedbacks.length} {filteredFeedbacks.length === 1 ? 'wynik' : filteredFeedbacks.length < 5 ? 'wyniki' : 'wyników'}
+            <div className="rounded-2xl p-3 md:col-span-2" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
+                Zakres dat
+              </div>
+              <SelectField value={dateFilter} onChange={(value) => setDateFilter(value as typeof dateFilter)}>
+                <option value="all">Cały okres</option>
+                <option value="today">Tylko dziś</option>
+                <option value="7days">Ostatnie 7 dni</option>
+                <option value="30days">Ostatnie 30 dni</option>
+              </SelectField>
+            </div>
           </div>
         </div>
 

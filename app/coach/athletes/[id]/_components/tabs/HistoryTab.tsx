@@ -4,6 +4,7 @@ import { Fragment, useState } from 'react'
 import { formatDate, sessionTypeLabel } from '@/lib/utils'
 import { SessionType } from '@/lib/types'
 import { FeedbackDetail } from '@/components/coach/FeedbackCard'
+import { SelectField } from '@/components/ui/SelectField'
 import { SessionTypeDef } from '@/lib/session-type-defs'
 import { ProfileEmptyState } from '../ProfileStates'
 import type {
@@ -35,9 +36,10 @@ interface HistoryTabProps {
 export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today, currentMonth, allSessionTypes }: HistoryTabProps) {
   const [historyMonth, setHistoryMonth] = useState(currentMonth)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
-  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'missed' | 'planned'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'missed'>('all')
   const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'with-feedback'>('all')
   const [typeFilter, setTypeFilter] = useState<'all' | SessionType>('all')
+  const [search, setSearch] = useState('')
 
   function toggleRow(sessionId: string) {
     setExpandedRows(prev => {
@@ -55,11 +57,19 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
     return allSessionTypes.find(t => t.key === type)?.label ?? sessionTypeLabel(type as SessionType)
   }
 
-  const monthSessions = sessions.filter(s => s.date.slice(0, 7) === historyMonth).sort((a, b) => b.date.localeCompare(a.date))
+  const monthSessions = sessions
+    .filter((session) => session.date.slice(0, 7) === historyMonth)
+    .filter((session) => session.completed || session.date < today)
+    .sort((a, b) => b.date.localeCompare(a.date))
   const filteredMonthSessions = monthSessions.filter((session) => {
+    const query = search.trim().toLowerCase()
+    if (query) {
+      const haystack = [session.title, session.description, typeLabel(session.type)].filter(Boolean).join(' ').toLowerCase()
+      if (!haystack.includes(query)) return false
+    }
+
     if (statusFilter === 'completed' && !session.completed) return false
     if (statusFilter === 'missed' && (session.completed || session.date >= today)) return false
-    if (statusFilter === 'planned' && (session.completed || session.date < today)) return false
 
     const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
     if (feedbackFilter === 'with-feedback' && !fb) return false
@@ -68,70 +78,66 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
     return true
   })
 
-  const filterControlStyle = {
-    background: 'var(--bg-card)',
-    color: 'var(--text-primary)',
-    border: '1px solid var(--border)',
-  }
-
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between gap-3 flex-wrap rounded-2xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
-        <div className="grid gap-3 md:grid-cols-3 flex-1 min-w-[320px]">
+      <div className="rounded-3xl p-4 md:p-5" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))', border: '1px solid var(--border)' }}>
+        <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
+            <div className="text-sm font-semibold">Filtry historii</div>
+            <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              Pokazujemy tu tylko sesje historyczne: wykonane albo pominięte.
+            </div>
+          </div>
+          <div className="text-sm px-3 py-2 rounded-xl shrink-0" style={{ background: 'rgba(255,92,27,0.08)', color: '#FFD2BD', border: '1px solid rgba(255,92,27,0.16)' }}>
+            {filteredMonthSessions.length} {filteredMonthSessions.length === 1 ? 'sesja' : filteredMonthSessions.length < 5 ? 'sesje' : 'sesji'}
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-2xl p-3 md:col-span-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
+              Szukaj w historii
+            </div>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Szukaj po nazwie sesji, opisie albo typie"
+              className="w-full px-3 py-2 rounded-xl text-sm"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            />
+          </div>
+          <div className="rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
               Status sesji
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-              className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
-              style={filterControlStyle}
-            >
+            <SelectField value={statusFilter} onChange={(value) => setStatusFilter(value as typeof statusFilter)}>
               <option value="all">Wszystkie sesje</option>
               <option value="completed">Wykonane</option>
               <option value="missed">Pominięte</option>
-              <option value="planned">Planowane</option>
-            </select>
+            </SelectField>
           </div>
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
+          <div className="rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
               Feedback
             </div>
-            <select
-              value={feedbackFilter}
-              onChange={(e) => setFeedbackFilter(e.target.value as typeof feedbackFilter)}
-              className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
-              style={filterControlStyle}
-            >
+            <SelectField value={feedbackFilter} onChange={(value) => setFeedbackFilter(value as typeof feedbackFilter)}>
               <option value="all">Cała historia</option>
               <option value="with-feedback">Tylko z feedbackiem</option>
-            </select>
+            </SelectField>
           </div>
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
+          <div className="rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
               Typ sesji
             </div>
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as 'all' | SessionType)}
-              className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
-              style={filterControlStyle}
-            >
+            <SelectField value={typeFilter} onChange={(value) => setTypeFilter(value as 'all' | SessionType)}>
               <option value="all">Wszystkie typy</option>
               {allSessionTypes.map((type) => (
                 <option key={type.key} value={type.key}>
                   {type.label}
                 </option>
               ))}
-            </select>
+            </SelectField>
           </div>
-        </div>
-        <div className="text-sm px-3 py-2 rounded-xl" style={{ background: 'rgba(255,92,27,0.08)', color: '#FFB38F', border: '1px solid rgba(255,92,27,0.14)' }}>
-          {filteredMonthSessions.length} {filteredMonthSessions.length === 1 ? 'sesja' : filteredMonthSessions.length < 5 ? 'sesje' : 'sesji'}
         </div>
       </div>
 
@@ -194,17 +200,17 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {session.actual_distance ? `${session.actual_distance} km` : session.planned_distance ? `(${session.planned_distance} km)` : '—'}
+                        {session.actual_distance ? `${session.actual_distance} km` : session.planned_distance ? `Plan: ${session.planned_distance} km` : '—'}
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.actual_pace || session.planned_pace || '—'}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.actual_pace || (session.planned_pace ? `Plan: ${session.planned_pace}` : '—')}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.avg_hr ? `${session.avg_hr} bpm` : '—'}</td>
-                      <td className="px-4 py-3">
-                        {session.completed
-                          ? <span className="text-xs text-green-400">✓ Wykonany</span>
-                          : session.date < today
-                          ? <span className="text-xs text-red-400">✗ Pominięty</span>
-                          : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Planowany</span>}
-                      </td>
+                    <td className="px-4 py-3">
+                      {session.completed
+                        ? <span className="text-xs text-green-400">✓ Wykonany</span>
+                        : session.date < today
+                        ? <span className="text-xs text-red-400">✗ Pominięty</span>
+                          : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>}
+                    </td>
                       <td className="px-4 py-3">
                         {fb ? (
                           <button onClick={() => toggleRow(session.id)}

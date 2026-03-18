@@ -6,7 +6,10 @@ import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { SelectField } from '@/components/ui/SelectField'
 import { formatDateTime, getInitials, timeAgo } from '@/lib/utils'
+import { INPUT_STYLE } from '@/lib/styles'
 import { loadThreadMessages, markCoachThreadRead, sendMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 import type { MessageRow } from '@/lib/supabase/database.types'
@@ -27,48 +30,6 @@ type ThreadSummary = {
 }
 
 type ThreadFilter = 'all' | 'unread'
-
-function EmptyPanel({ title, description }: { title: string; description: string }) {
-  return (
-    <div
-      className="rounded-2xl px-5 py-8 text-center"
-      style={{ background: 'var(--bg-card)', border: '1px dashed var(--border)', color: 'var(--text-muted)' }}
-    >
-      <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{title}</div>
-      <div className="text-xs leading-6 max-w-sm mx-auto">{description}</div>
-    </div>
-  )
-}
-
-function SelectField({
-  value,
-  onChange,
-  children,
-}: {
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full rounded-xl px-3 py-2 pr-11 text-sm cursor-pointer appearance-none"
-        style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-      >
-        {children}
-      </select>
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-xs"
-        style={{ color: 'var(--text-muted)' }}
-      >
-        ▾
-      </span>
-    </div>
-  )
-}
 
 export function ChatClient({ threadSummaries, coachId, coachName, initialAthleteId }: {
   threadSummaries: ThreadSummary[]
@@ -208,7 +169,7 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
       <div>
         <CoachTopbar title="Czat" subtitle="Rozmowy z zawodnikami" />
         <div className="p-4 sm:p-6">
-          <EmptyPanel
+          <EmptyState
             title="Nie ma jeszcze rozmów do pokazania"
             description="Czat pojawi się tutaj, gdy dodasz zawodnika i rozpocznie się pierwsza wiadomość po jednej ze stron."
           />
@@ -244,7 +205,7 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
           <div className="overflow-y-auto flex-1">
             {filteredThreads.length === 0 && (
               <div className="p-3">
-                <EmptyPanel
+                <EmptyState
                   title="Nic nie pasuje do tego widoku"
                   description="Spróbuj wyczyścić wyszukiwanie albo przełączyć filtr rozmów, żeby znów zobaczyć zawodników."
                 />
@@ -337,7 +298,7 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
               </div>
             )}
             {!loadingThread && threadMessages.length === 0 && (
-              <EmptyPanel
+              <EmptyState
                 title="Ta rozmowa jest jeszcze pusta"
                 description="Wyślij pierwszą wiadomość, a wątek zacznie się budować tutaj w czasie rzeczywistym."
               />
@@ -382,7 +343,7 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
                 placeholder={`Napisz do ${selectedAthlete?.name ?? 'zawodnika'}…`}
                 className="flex-1 px-4 py-3 rounded-2xl text-sm"
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                style={INPUT_STYLE}
               />
               <Button onClick={handleSend} disabled={!input.trim() || sending}>
                 {sending ? '…' : 'Wyślij'}

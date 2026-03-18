@@ -1,14 +1,19 @@
 'use client'
 
-import { startTransition, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import Link from 'next/link'
+import { startTransition, useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
+import { useClickOutside, useDismissOnInteraction } from '@/lib/hooks/useClickOutside'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { StatusMessage } from '@/components/ui/StatusMessage'
 import { saveAthleteOrder, updateAthlete } from '@/lib/actions/athletes'
+import { exportAthletesToExcel } from '@/lib/athletes-export'
 import { type StatusDef, useCustomStatuses } from '@/lib/useCustomStatuses'
-import { formatCurrency, formatDate } from '@/lib/utils'
 import { AddAthleteModal } from './AddAthleteModal'
+import { AthletesActionMenu } from './AthletesActionMenu'
 import { AthletesFilters } from './AthletesFilters'
+import { AthletesStatusMenu } from './AthletesStatusMenu'
 import { AthletesTable } from './AthletesTable'
 import { AthletesToolbar } from './AthletesToolbar'
 import { StatusEditorModal } from './StatusEditorModal'
@@ -16,30 +21,6 @@ import { COLUMN_DEFS, COLUMNS_STORAGE_KEY, DEFAULT_COLUMNS, SIGNAL_LABELS } from
 import type { AthletesClientProps, ColumnKey, SortKey } from './types'
 
 const TABLE_HINT_STORAGE_KEY = 'athletes-table-hint-dismissed'
-
-function EmptyState({ title, description, actionLabel, onAction }: { title: string; description: string; actionLabel: string; onAction: () => void }) {
-  return (
-    <div className="text-center py-14 px-6" style={{ color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: 24, background: 'var(--bg-card)' }}>
-      <div className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{title}</div>
-      <div className="text-sm mb-5 max-w-xl mx-auto">{description}</div>
-      <button
-        onClick={onAction}
-        className="inline-flex items-center rounded-xl px-3 py-2 text-sm cursor-pointer"
-        style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-      >
-        {actionLabel}
-      </button>
-    </div>
-  )
-}
-
-function escapeExcelHtml(value: unknown) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
 
 function sanitizeColumns(raw: unknown): ColumnKey[] {
   if (!Array.isArray(raw)) return DEFAULT_COLUMNS
@@ -109,7 +90,7 @@ export function AthletesClient({
   const [editingStatusFor, setEditingStatusFor] = useState<string | null>(null)
   const [statusDropdownPos, setStatusDropdownPos] = useState<{ top: number; left: number } | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
-  const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  const { statusMessage, showStatus, clearStatus } = useStatusMessage()
   const [actionMenuFor, setActionMenuFor] = useState<string | null>(null)
   const [actionMenuPos, setActionMenuPos] = useState<{ top: number; left: number } | null>(null)
   const [columnOverride, setColumnOverride] = useState<ColumnKey[] | null>(null)
@@ -150,46 +131,23 @@ export function AthletesClient({
     }
     if (!sanitized.includes('package') && packageFilter !== 'all') {
       setPackageFilter('all')
-      setStatusMessage({ tone: 'success', text: 'Ukryto kolumnę Pakiet, więc filtr po pakiecie został wyłączony.' })
+      showStatus('success', 'Ukryto kolumnę Pakiet, więc filtr po pakiecie został wyłączony.')
     }
   }
 
-  useEffect(() => {
-    if (!colPickerOpen) return
-    function close(e: MouseEvent) {
-      if (colPickerRef.current && !colPickerRef.current.contains(e.target as Node)) setColPickerOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [colPickerOpen])
+  useClickOutside(colPickerRef, useCallback(() => setColPickerOpen(false), []), colPickerOpen)
 
-  useEffect(() => {
-    if (!editingStatusFor) return
-    function close() {
-      setEditingStatusFor(null)
-      setStatusDropdownPos(null)
-    }
-    document.addEventListener('click', close)
-    document.addEventListener('scroll', close, true)
-    return () => {
-      document.removeEventListener('click', close)
-      document.removeEventListener('scroll', close, true)
-    }
-  }, [editingStatusFor])
+  const dismissStatusDropdown = useCallback(() => {
+    setEditingStatusFor(null)
+    setStatusDropdownPos(null)
+  }, [])
+  useDismissOnInteraction(dismissStatusDropdown, !!editingStatusFor)
 
-  useEffect(() => {
-    if (!actionMenuFor) return
-    function close() {
-      setActionMenuFor(null)
-      setActionMenuPos(null)
-    }
-    document.addEventListener('click', close)
-    document.addEventListener('scroll', close, true)
-    return () => {
-      document.removeEventListener('click', close)
-      document.removeEventListener('scroll', close, true)
-    }
-  }, [actionMenuFor])
+  const dismissActionMenu = useCallback(() => {
+    setActionMenuFor(null)
+    setActionMenuPos(null)
+  }, [])
+  useDismissOnInteraction(dismissActionMenu, !!actionMenuFor)
 
   const storedColumns = useMemo(() => {
     if (!hydrated) return DEFAULT_COLUMNS
@@ -311,13 +269,13 @@ export function AthletesClient({
 
   async function handleStatusChange(athleteId: string, newStatus: string) {
     setUpdatingStatus(true)
-    setStatusMessage(null)
+    clearStatus()
     const fd = new FormData()
     fd.set('id', athleteId)
     fd.set('status', newStatus)
     const result = await updateAthlete(null, fd)
     if (result && 'error' in result) {
-      setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się zmienić statusu zawodnika.' })
+      showStatus('error', result.error ?? 'Nie udało się zmienić statusu zawodnika.')
       setUpdatingStatus(false)
       return
     }
@@ -325,7 +283,7 @@ export function AthletesClient({
     setEditingStatusFor(null)
     setStatusDropdownPos(null)
     setUpdatingStatus(false)
-    setStatusMessage({ tone: 'success', text: 'Status zawodnika został zapisany.' })
+    showStatus('success', 'Status zawodnika został zapisany.')
     startTransition(() => router.refresh())
   }
 
@@ -349,12 +307,12 @@ export function AthletesClient({
 
     const result = await saveAthleteOrder(nextOrder)
     if (result && 'error' in result) {
-      setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się zapisać nowej kolejności zawodników.' })
+      showStatus('error', result.error ?? 'Nie udało się zapisać nowej kolejności zawodników.')
       setOrderOverride(null)
       return
     }
 
-    setStatusMessage({ tone: 'success', text: 'Nowa kolejność zawodników została zapisana.' })
+    showStatus('success', 'Nowa kolejność zawodników została zapisana.')
     startTransition(() => router.refresh())
   }
 
@@ -366,122 +324,21 @@ export function AthletesClient({
   }
 
   function exportDisplayedAthletes() {
-    const columns: Array<{ label: string; value: (athlete: AthletesClientProps['athletes'][number], index: number) => string | number }> = [
-      { label: 'Lp.', value: (_athlete, index) => index + 1 },
-      { label: 'Imię i nazwisko', value: (athlete) => athlete.name },
-      { label: 'Email', value: (athlete) => athlete.email ?? '' },
-      { label: 'Telefon', value: (athlete) => athlete.phone ?? '' },
-      { label: 'Miasto', value: (athlete) => athlete.city ?? '' },
-      { label: 'Wiek', value: (athlete) => athlete.age !== null ? athlete.age : '' },
-      { label: 'Cel', value: (athlete) => athlete.goal ?? '' },
-      { label: 'Pakiet', value: (athlete) => athlete.package?.trim() ?? '' },
-      { label: 'Cena pakietu', value: (athlete) => athlete.package_price ? formatCurrency(athlete.package_price) : '' },
-      { label: 'Płatność', value: (athlete) => unpaidInvoiceSet[athlete.id] ? 'Nieopłacone' : 'OK' },
-      { label: 'Status zawodnika', value: (athlete) => getStatusDef(athlete.status).label },
-      { label: 'Nieprzeczytane wiadomości', value: (athlete) => unreadMessagesMap[athlete.id] ?? 0 },
-      { label: 'Nieprzeczytane feedbacki', value: (athlete) => unreadFeedbackMap[athlete.id] ?? 0 },
-      { label: 'Ostatni trening - data', value: (athlete) => lastSessionMap[athlete.id]?.date ? formatDate(lastSessionMap[athlete.id].date, { day: 'numeric', month: 'short', year: 'numeric' }) : '' },
-      { label: 'Ostatni trening - typ', value: (athlete) => lastSessionMap[athlete.id]?.type ?? '' },
-      { label: 'Następna sesja - data', value: (athlete) => nextSessionMap[athlete.id]?.date ? formatDate(nextSessionMap[athlete.id].date, { day: 'numeric', month: 'short', year: 'numeric' }) : '' },
-      { label: 'Następna sesja - typ', value: (athlete) => nextSessionMap[athlete.id]?.type ?? '' },
-      { label: 'Sygnał formy', value: (athlete) => SIGNAL_LABELS[signalMap[athlete.id] ?? ''] ?? '' },
-      { label: 'Ostatni feedback', value: (athlete) => lastFeedbackDateMap[athlete.id] ? new Date(lastFeedbackDateMap[athlete.id]).toLocaleString('pl-PL') : '' },
-      {
-        label: 'Realizacja 30 dni (%)',
-        value: (athlete) => {
-          const compliance = complianceMap[athlete.id]
-          return compliance ? `${Math.round((compliance.completed / compliance.total) * 100)}%` : ''
-        },
-      },
-      { label: 'Realizacja 30 dni - ukończone sesje', value: (athlete) => complianceMap[athlete.id]?.completed ?? 0 },
-      { label: 'Realizacja 30 dni - wszystkie sesje', value: (athlete) => complianceMap[athlete.id]?.total ?? 0 },
-      { label: 'Obciążenie 7 dni (km)', value: (athlete) => {
-        const km = weeklyLoadMap[athlete.id] ?? 0
-        return km ? Number(km).toFixed(0) : ''
-      } },
-      { label: 'Obciążenie 7 dni - sesje', value: (athlete) => weeklySessionCountMap[athlete.id] ?? 0 },
-      {
-        label: 'Następne zawody - nazwa',
-        value: (athlete) => {
-          const race = nextRaceMap[athlete.id]
-          return race?.name ?? ''
-        },
-      },
-      { label: 'Następne zawody - data', value: (athlete) => nextRaceMap[athlete.id]?.date ? formatDate(nextRaceMap[athlete.id].date, { day: 'numeric', month: 'short', year: 'numeric' }) : '' },
-      { label: 'Następne zawody - dystans', value: (athlete) => nextRaceMap[athlete.id]?.distance ?? '' },
-      { label: 'Data dołączenia', value: (athlete) => athlete.join_date ? formatDate(athlete.join_date, { day: 'numeric', month: 'short', year: 'numeric' }) : '' },
-    ]
-
-    const generatedAt = new Date()
-    const headerCells = columns.map((column) => (
-      `<Cell ss:StyleID="Header"><Data ss:Type="String">${escapeExcelHtml(column.label)}</Data></Cell>`
-    )).join('')
-    const dataRows = displayed.map((athlete, index) => (
-      `<Row>${columns.map((column) => `<Cell ss:StyleID="Cell"><Data ss:Type="String">${escapeExcelHtml(column.value(athlete, index))}</Data></Cell>`).join('')}</Row>`
-    )).join('')
-    const xml = `<?xml version="1.0"?>
-      <?mso-application progid="Excel.Sheet"?>
-      <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-        xmlns:o="urn:schemas-microsoft-com:office:office"
-        xmlns:x="urn:schemas-microsoft-com:office:excel"
-        xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-        <Styles>
-          <Style ss:ID="Header">
-            <Font ss:Bold="1" ss:Color="#C2410C" />
-            <Interior ss:Color="#FFF3ED" ss:Pattern="Solid" />
-            <Borders>
-              <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FDBA74" />
-              <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FDBA74" />
-              <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FDBA74" />
-              <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FDBA74" />
-            </Borders>
-          </Style>
-          <Style ss:ID="Cell">
-            <Borders>
-              <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E7EB" />
-              <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E7EB" />
-              <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E7EB" />
-              <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E7EB" />
-            </Borders>
-          </Style>
-          <Style ss:ID="Meta">
-            <Font ss:Color="#6B7280" />
-          </Style>
-          <Style ss:ID="Title">
-            <Font ss:Bold="1" ss:Size="14" />
-          </Style>
-        </Styles>
-        <Worksheet ss:Name="Zawodnicy">
-          <Table>
-            <Row>
-              <Cell ss:StyleID="Title"><Data ss:Type="String">Eksport zawodników</Data></Cell>
-            </Row>
-            <Row>
-              <Cell ss:StyleID="Meta"><Data ss:Type="String">Wygenerowano: ${escapeExcelHtml(generatedAt.toLocaleString('pl-PL'))}</Data></Cell>
-            </Row>
-            <Row>
-              <Cell ss:StyleID="Meta"><Data ss:Type="String">Liczba rekordów: ${escapeExcelHtml(displayed.length)}</Data></Cell>
-            </Row>
-            <Row>
-              <Cell ss:StyleID="Meta"><Data ss:Type="String">Zakres: bieżący widok listy zawodników</Data></Cell>
-            </Row>
-            <Row />
-            <Row>${headerCells}</Row>
-            ${dataRows}
-          </Table>
-          <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
-            <DisplayGridlines />
-          </WorksheetOptions>
-        </Worksheet>
-      </Workbook>`.trim()
-
-    const blob = new Blob(['\uFEFF' + xml], { type: 'application/xml;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `zawodnicy_${new Date().toISOString().slice(0, 10)}.xml`
-    link.click()
-    URL.revokeObjectURL(url)
+    exportAthletesToExcel(displayed, {
+      lastSessionMap,
+      nextSessionMap,
+      nextRaceMap,
+      signalMap,
+      lastFeedbackDateMap,
+      complianceMap,
+      weeklyLoadMap,
+      weeklySessionCountMap,
+      unreadMessagesMap,
+      unreadFeedbackMap,
+      unpaidInvoiceSet,
+      signalLabels: SIGNAL_LABELS,
+      getStatusDef,
+    })
   }
 
   const subtitle = useMemo(() => {
@@ -497,16 +354,7 @@ export function AthletesClient({
 
       <div className="p-6">
         {statusMessage && (
-          <div
-            className="mb-4 rounded-2xl px-4 py-3 text-sm"
-            style={{
-              background: statusMessage.tone === 'success' ? 'rgba(46,204,113,0.12)' : 'rgba(231,76,60,0.12)',
-              border: statusMessage.tone === 'success' ? '1px solid rgba(46,204,113,0.28)' : '1px solid rgba(231,76,60,0.28)',
-              color: statusMessage.tone === 'success' ? '#2ECC71' : '#E74C3C',
-            }}
-          >
-            {statusMessage.text}
-          </div>
+          <StatusMessage tone={statusMessage.tone} text={statusMessage.text} className="mb-4" />
         )}
 
         <AthletesToolbar
@@ -518,7 +366,7 @@ export function AthletesClient({
           onToggleColumns={() => setColPickerOpen((value) => !value)}
           onSaveColumns={saveColumns}
           onAddAthlete={() => {
-            setStatusMessage(null)
+            clearStatus()
             setModalKey((value) => value + 1)
             setModalOpen(true)
           }}
@@ -545,7 +393,7 @@ export function AthletesClient({
             }}
             onToggleStatusFilterOpen={() => setStatusFilterOpen((value) => !value)}
             onOpenStatusModal={() => {
-              setStatusMessage(null)
+              clearStatus()
               setStatusModalOpen(true)
             }}
             onResetSort={() => {
@@ -656,82 +504,25 @@ export function AthletesClient({
           const athlete = displayed.find((item) => item.id === editingStatusFor)
           if (!athlete) return null
           return (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                position: 'fixed',
-                top: statusDropdownPos.top,
-                left: statusDropdownPos.left,
-                zIndex: 9999,
-                background: 'var(--bg-raised)',
-                border: '1px solid var(--border)',
-                borderRadius: 12,
-                padding: '4px',
-                minWidth: 180,
-                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-              }}
-            >
-              {allStatuses.map((status) => (
-                <button
-                  key={status.key}
-                  disabled={updatingStatus}
-                  onClick={() => void handleStatusChange(athlete.id, status.key)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left cursor-pointer transition-opacity hover:opacity-70"
-                  style={{
-                    background: status.key === athlete.status ? 'rgba(255,92,27,0.08)' : 'transparent',
-                    color: status.key === athlete.status ? '#FF5C1B' : 'var(--text-primary)',
-                    opacity: updatingStatus ? 0.6 : 1,
-                  }}
-                >
-                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: status.color }} />
-                  {status.label}
-                  {status.key === athlete.status && <span className="ml-auto text-xs">✓</span>}
-                </button>
-              ))}
-            </div>
+            <AthletesStatusMenu
+              pos={statusDropdownPos}
+              athleteStatus={athlete.status}
+              allStatuses={allStatuses}
+              updating={updatingStatus}
+              onSelect={(statusKey) => void handleStatusChange(athlete.id, statusKey)}
+            />
           )
         })()}
 
         {actionMenuFor && actionMenuPos && (() => {
           const athlete = displayed.find((item) => item.id === actionMenuFor)
           if (!athlete) return null
-          const items = [
-            { href: `/coach/athletes/${athlete.id}`, label: 'Profil' },
-            { href: `/coach/planner?athlete=${athlete.id}`, label: 'Planer' },
-            { href: `/coach/chat?athlete=${athlete.id}`, label: 'Czat' },
-            { href: `/coach/invoices?athlete=${athlete.id}`, label: 'Faktury' },
-          ]
           return (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                position: 'fixed',
-                top: actionMenuPos.top,
-                left: actionMenuPos.left,
-                zIndex: 9999,
-                background: 'var(--bg-raised)',
-                border: '1px solid var(--border)',
-                borderRadius: 12,
-                padding: '4px',
-                minWidth: 150,
-                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-              }}
-            >
-              {items.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => {
-                    setActionMenuFor(null)
-                    setActionMenuPos(null)
-                  }}
-                  className="block rounded-lg px-3 py-2 text-sm transition-opacity hover:opacity-80"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
+            <AthletesActionMenu
+              pos={actionMenuPos}
+              athleteId={athlete.id}
+              onClose={dismissActionMenu}
+            />
           )
         })()}
       </div>
@@ -742,7 +533,7 @@ export function AthletesClient({
         packages={packages}
         onClose={() => setModalOpen(false)}
         onCreated={(name) => {
-          setStatusMessage({ tone: 'success', text: `Dodano zawodnika: ${name}.` })
+          showStatus('success', `Dodano zawodnika: ${name}.`)
           startTransition(() => router.refresh())
         }}
       />
@@ -753,16 +544,13 @@ export function AthletesClient({
         onClose={() => setStatusModalOpen(false)}
         onSave={async (statuses) => {
           try {
-            setStatusMessage(null)
+            clearStatus()
             await saveAll(statuses)
             setStatusModalOpen(false)
-            setStatusMessage({ tone: 'success', text: 'Statusy zawodników zostały zapisane.' })
+            showStatus('success', 'Statusy zawodników zostały zapisane.')
             startTransition(() => router.refresh())
           } catch (error) {
-            setStatusMessage({
-              tone: 'error',
-              text: error instanceof Error ? error.message : 'Nie udało się zapisać statusów zawodników.',
-            })
+            showStatus('error', error instanceof Error ? error.message : 'Nie udało się zapisać statusów zawodników.')
           }
         }}
       />

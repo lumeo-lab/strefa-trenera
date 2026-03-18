@@ -1,55 +1,25 @@
 'use client'
 
 import React, { startTransition, useEffect, useState } from 'react'
+import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
 import { useRouter } from 'next/navigation'
 import {
   dayName, formatDate,
-  getWeekDays, isToday, parseFeedbackTranscript, toISODate,
+  getWeekDays, isToday, toISODate,
 } from '@/lib/utils'
 import { duplicateWeekSessions, moveSessionDate } from '@/lib/actions/sessions'
 import { applyWeekTemplate, saveWeekTemplate } from '@/lib/actions/sessions'
 import { useCustomSessionTypes } from '@/lib/useCustomSessionTypes'
 import { FeedbackDetail } from '@/components/coach/FeedbackCard'
 import { Modal } from '@/components/ui/Modal'
+import { StatusMessage } from '@/components/ui/StatusMessage'
 import { SessionModal } from '../modals/SessionModal'
+import { getMonthBounds, getMonthCalendar, shiftMonth } from '@/lib/calendar'
+import { SessionCard } from './plan/SessionCard'
+import { DayFeedbackSection } from './plan/DayFeedbackSection'
+import { WeekTemplateModals } from './plan/WeekTemplateModals'
+import { PlanToolbar } from './plan/PlanToolbar'
 import type { CoachFeedbackRow, CoachTrainingSessionRow, FeedbackByDateMap, FeedbackBySessionMap } from '../types'
-
-function shiftMonth(m: string, d: number): string {
-  const [y, mo] = m.split('-').map(Number)
-  const dt = new Date(y, mo - 1 + d, 1)
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
-}
-
-function monthLabel(m: string): string {
-  const [y, mo] = m.split('-').map(Number)
-  return new Date(y, mo - 1, 1).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })
-}
-
-function getMonthCalendar(monthStr: string): (string | null)[][] {
-  const [y, mo] = monthStr.split('-').map(Number)
-  const daysInMonth = new Date(y, mo, 0).getDate()
-  const startDow = (new Date(y, mo - 1, 1).getDay() + 6) % 7
-  const cells: (string | null)[] = []
-  for (let i = 0; i < startDow; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) cells.push(`${monthStr}-${String(d).padStart(2, '0')}`)
-  while (cells.length % 7 !== 0) cells.push(null)
-  const weeks: (string | null)[][] = []
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
-  return weeks
-}
-
-function getMonthBounds(monthStr: string): { from: string; to: string } {
-  const [y, mo] = monthStr.split('-').map(Number)
-  const lastDay = new Date(y, mo, 0).getDate()
-  return {
-    from: `${monthStr}-01`,
-    to: `${monthStr}-${String(lastDay).padStart(2, '0')}`,
-  }
-}
-
-function formatFeedbackBadgeLabel(sessionTitle: string, totalSessions: number) {
-  return totalSessions > 1 ? `feedback · ${sessionTitle}` : 'feedback'
-}
 
 interface PlanTabProps {
   athleteId: string
@@ -71,7 +41,7 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
-  const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  const { statusMessage, showStatus, clearStatus } = useStatusMessage()
   const [visibleSessions, setVisibleSessions] = useState<CoachTrainingSessionRow[]>(sessions)
   const [visibleFeedbackBySession, setVisibleFeedbackBySession] = useState<FeedbackBySessionMap>(feedbackBySession)
   const [visibleFeedbackByDate, setVisibleFeedbackByDate] = useState<FeedbackByDateMap>(feedbackByDate)
@@ -104,49 +74,15 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
     if (session.completed) return { outline: '2px solid rgba(46,204,113,0.6)', outlineOffset: '-2px' }
     return {}
   }
-  function feedbackToneStyle(feedback: CoachFeedbackRow): React.CSSProperties {
-    if (feedback.signal === 'red') {
-      return {
-        background: 'linear-gradient(180deg, rgba(255,244,244,0.96) 0%, rgba(255,237,237,0.96) 100%)',
-        color: '#B42318',
-        border: '1px solid rgba(229,72,77,0.28)',
-        boxShadow: 'inset 3px 0 0 #E5484D',
-      }
-    }
-    if (feedback.signal === 'yellow') {
-      return {
-        background: 'linear-gradient(180deg, rgba(255,249,235,0.98) 0%, rgba(255,244,214,0.98) 100%)',
-        color: '#B7791F',
-        border: '1px solid rgba(234,179,8,0.28)',
-        boxShadow: 'inset 3px 0 0 #EAB308',
-      }
-    }
-    return {
-      background: 'linear-gradient(180deg, rgba(238,252,244,0.98) 0%, rgba(228,249,237,0.98) 100%)',
-      color: '#15803D',
-      border: '1px solid rgba(34,197,94,0.24)',
-      boxShadow: 'inset 3px 0 0 #22C55E',
-    }
-  }
-  function feedbackToneIcon(feedback: CoachFeedbackRow): string {
-    const parsed = parseFeedbackTranscript(feedback.transcript ?? '')
-    return parsed.feeling || '💬'
-  }
-  const noFeedbackStyle: React.CSSProperties = {
-    background: 'linear-gradient(180deg, rgba(255,244,244,0.96) 0%, rgba(255,237,237,0.96) 100%)',
-    color: '#B42318',
-    border: '1px solid rgba(229,72,77,0.24)',
-    boxShadow: 'inset 3px 0 0 #E5484D',
-  }
   function openNewSession(date: string) {
-    setStatusMessage(null)
+    clearStatus()
     setNewSessionDate(date)
     setEditingSession(null)
     setSessionModalOpen(true)
   }
 
   function openEditSession(session: CoachTrainingSessionRow) {
-    setStatusMessage(null)
+    clearStatus()
     setEditingSession(session)
     setNewSessionDate('')
     setSessionModalOpen(true)
@@ -178,35 +114,32 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
       return
     }
 
-    setStatusMessage(null)
+    clearStatus()
     const result = await moveSessionDate(sessionId, athleteId, targetDate)
     setDraggedSessionId(null)
     setDragTargetDate(null)
 
     if (result && 'error' in result) {
-      setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się przenieść sesji.' })
+      showStatus('error', result.error ?? 'Nie udało się przenieść sesji.')
       return
     }
 
-    setStatusMessage({ tone: 'success', text: 'Sesja została przeniesiona na nowy dzień.' })
+    showStatus('success', 'Sesja została przeniesiona na nowy dzień.')
     startTransition(() => router.refresh())
   }
 
   async function handleCopyWeek() {
     if (copyingWeek) return
     setCopyingWeek(true)
-    setStatusMessage(null)
+    clearStatus()
     const result = await duplicateWeekSessions(athleteId, weekStart, weekEnd, 7)
     if (result && 'error' in result) {
-      setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się skopiować tygodnia.' })
+      showStatus('error', result.error ?? 'Nie udało się skopiować tygodnia.')
       setCopyWeekConfirm(false)
       setCopyingWeek(false)
       return
     }
-    setStatusMessage({
-      tone: 'success',
-      text: `Skopiowano ${result?.count ?? 0} ${result?.count === 1 ? 'sesję' : result?.count && result.count < 5 ? 'sesje' : 'sesji'} na kolejny tydzień.`,
-    })
+    showStatus('success', `Skopiowano ${result?.count ?? 0} ${result?.count === 1 ? 'sesję' : result?.count && result.count < 5 ? 'sesje' : 'sesji'} na kolejny tydzień.`)
     if (result && 'sessions' in result && Array.isArray(result.sessions) && result.sessions.length > 0) {
       mergeSessionsIntoVisible(result.sessions)
     }
@@ -230,7 +163,7 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
 
       setTemplates(data?.items ?? [])
     } catch (error) {
-      setStatusMessage({ tone: 'error', text: error instanceof Error ? error.message : 'Nie udało się pobrać szablonów.' })
+      showStatus('error', error instanceof Error ? error.message : 'Nie udało się pobrać szablonów.')
     } finally {
       setTemplatesLoading(false)
     }
@@ -238,36 +171,36 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
 
   async function handleOpenTemplates() {
     setTemplatesOpen(true)
-    setStatusMessage(null)
+    clearStatus()
     await loadTemplates()
   }
 
   async function handleSaveTemplate() {
     if (!templateName.trim()) {
-      setStatusMessage({ tone: 'error', text: 'Podaj nazwę szablonu.' })
+      showStatus('error', 'Podaj nazwę szablonu.')
       return
     }
     setTemplateActionLoading(true)
-    setStatusMessage(null)
+    clearStatus()
     const result = await saveWeekTemplate(athleteId, weekStart, weekEnd, templateName)
     if (result && 'error' in result) {
-      setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się zapisać szablonu.' })
+      showStatus('error', result.error ?? 'Nie udało się zapisać szablonu.')
       setTemplateActionLoading(false)
       return
     }
     setTemplateName('')
     setSaveTemplateOpen(false)
     setTemplateActionLoading(false)
-    setStatusMessage({ tone: 'success', text: 'Szablon tygodnia został zapisany.' })
+    showStatus('success', 'Szablon tygodnia został zapisany.')
     await loadTemplates()
   }
 
   async function handleApplyTemplate(templateId: string) {
     setTemplateActionLoading(true)
-    setStatusMessage(null)
+    clearStatus()
     const result = await applyWeekTemplate(athleteId, templateId, weekStart)
     if (result && 'error' in result) {
-      setStatusMessage({ tone: 'error', text: result.error ?? 'Nie udało się zastosować szablonu.' })
+      showStatus('error', result.error ?? 'Nie udało się zastosować szablonu.')
       setTemplateActionLoading(false)
       return
     }
@@ -276,10 +209,7 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
     if (result && 'sessions' in result && Array.isArray(result.sessions) && result.sessions.length > 0) {
       mergeSessionsIntoVisible(result.sessions)
     }
-    setStatusMessage({
-      tone: 'success',
-      text: `Dodano ${result?.count ?? 0} ${result?.count === 1 ? 'sesję' : result?.count && result.count < 5 ? 'sesje' : 'sesji'} z szablonu.`,
-    })
+    showStatus('success', `Dodano ${result?.count ?? 0} ${result?.count === 1 ? 'sesję' : result?.count && result.count < 5 ? 'sesje' : 'sesji'} z szablonu.`)
     startTransition(() => router.refresh())
   }
 
@@ -413,10 +343,7 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
         if (cancelled) return
         if (error instanceof DOMException && error.name === 'AbortError') return
         if (error instanceof TypeError && error.message === 'Load failed') return
-        setStatusMessage({
-          tone: 'error',
-          text: error instanceof Error ? error.message : 'Nie udało się pobrać danych planera.',
-        })
+        showStatus('error', error instanceof Error ? error.message : 'Nie udało się pobrać danych planera.')
       } finally {
         if (!cancelled) setLoadingRange(false)
       }
@@ -428,7 +355,7 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
       cancelled = true
       controller.abort()
     }
-  }, [athleteId, range.from, range.to, stateReady])
+  }, [athleteId, range.from, range.to, stateReady, showStatus])
 
   if (!stateReady) {
     return (
@@ -442,127 +369,33 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
     <>
       <div>
         {/* Toolbar */}
-        <div className="mb-4 space-y-3">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-            <div className="rounded-2xl p-1" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setPlanView('week')}
-                  className="flex-1 px-4 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
-                  style={{ background: planView === 'week' ? '#FF5C1B' : 'transparent', color: planView === 'week' ? 'white' : 'var(--text-muted)' }}
-                >📅 Tydzień</button>
-                <button
-                  onClick={() => setPlanView('month')}
-                  className="flex-1 px-4 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
-                  style={{ background: planView === 'month' ? '#FF5C1B' : 'transparent', color: planView === 'month' ? 'white' : 'var(--text-muted)' }}
-                >📆 Miesiąc</button>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-stretch gap-3 xl:justify-end">
-              <div className="rounded-2xl p-1" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setDensity('full')}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
-                    style={{ background: density === 'full' ? '#FF5C1B' : 'transparent', color: density === 'full' ? 'white' : 'var(--text-muted)' }}
-                  >
-                    Widok pełny
-                  </button>
-                  <button
-                    onClick={() => setDensity('compact')}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-all whitespace-nowrap"
-                    style={{ background: density === 'compact' ? '#FF5C1B' : 'transparent', color: density === 'compact' ? 'white' : 'var(--text-muted)' }}
-                  >
-                    Widok skrócony
-                  </button>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowFeedback((value) => !value)}
-                className="px-3 py-1.5 rounded-xl text-sm font-medium cursor-pointer transition-all whitespace-nowrap inline-flex items-center gap-1.5"
-                style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-              >
-                <span>{showFeedback ? '🙈' : '💬'}</span>
-                <span>{showFeedback ? 'Ukryj feedback' : 'Pokaż feedback'}</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl px-3 py-2.5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            {planView === 'week' ? (
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex gap-1">
-                    <button onClick={() => setWeekOffset(w => w - 1)} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>←</button>
-                    <button onClick={() => setWeekOffset(0)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Dziś</button>
-                    <button onClick={() => setWeekOffset(w => w + 1)} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>→</button>
-                  </div>
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Zakres</div>
-                    <div className="text-sm font-medium">
-                      {formatDate(weekStart, { day: 'numeric', month: 'short' })} — {formatDate(weekEnd, { day: 'numeric', month: 'short' })}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {copyWeekConfirm ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Skopiować ten tydzień na kolejny?</span>
-                      <button onClick={handleCopyWeek} disabled={copyingWeek} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'rgba(255,92,27,0.12)', color: '#FF5C1B', border: '1px solid rgba(255,92,27,0.22)' }}>
-                        {copyingWeek ? 'Kopiowanie...' : 'Potwierdź'}
-                      </button>
-                      <button onClick={() => setCopyWeekConfirm(false)} disabled={copyingWeek} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                        Anuluj
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <button onClick={() => setCopyWeekConfirm(true)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                        Skopiuj tydzień
-                      </button>
-                      <button onClick={() => setSaveTemplateOpen(true)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                        Zapisz szablon
-                      </button>
-                      <button onClick={() => void handleOpenTemplates()} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                        Użyj szablonu
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex gap-1">
-                    <button onClick={() => setSelectedMonth(m => shiftMonth(m, -1))} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>←</button>
-                    <button onClick={() => setSelectedMonth(currentMonth)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Dziś</button>
-                    <button onClick={() => setSelectedMonth(m => shiftMonth(m, 1))} className="px-3 py-1.5 rounded-lg text-sm cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>→</button>
-                  </div>
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Miesiąc</div>
-                    <div className="text-sm capitalize font-medium">{monthLabel(selectedMonth)}</div>
-                  </div>
-                </div>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {monthSessions.length === 0 ? 'Brak zaplanowanych sesji w tym miesiącu.' : `${monthSessions.length} ${monthSessions.length === 1 ? 'sesja' : monthSessions.length < 5 ? 'sesje' : 'sesji'} w tym miesiącu`}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <PlanToolbar
+          planView={planView}
+          setPlanView={setPlanView}
+          density={density}
+          setDensity={setDensity}
+          showFeedback={showFeedback}
+          setShowFeedback={setShowFeedback}
+          weekStart={weekStart}
+          weekEnd={weekEnd}
+          onWeekPrev={() => setWeekOffset(w => w - 1)}
+          onWeekNext={() => setWeekOffset(w => w + 1)}
+          onWeekToday={() => setWeekOffset(0)}
+          copyWeekConfirm={copyWeekConfirm}
+          setCopyWeekConfirm={setCopyWeekConfirm}
+          onCopyWeek={handleCopyWeek}
+          copyingWeek={copyingWeek}
+          onSaveTemplate={() => setSaveTemplateOpen(true)}
+          onUseTemplate={() => void handleOpenTemplates()}
+          selectedMonth={selectedMonth}
+          onMonthPrev={() => setSelectedMonth(m => shiftMonth(m, -1))}
+          onMonthNext={() => setSelectedMonth(m => shiftMonth(m, 1))}
+          onMonthToday={() => setSelectedMonth(currentMonth)}
+          monthSessionCount={monthSessions.length}
+        />
 
         {statusMessage && (
-          <div
-            className="mb-4 rounded-xl px-4 py-3 text-sm"
-            style={{
-              background: statusMessage.tone === 'success' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-              border: `1px solid ${statusMessage.tone === 'success' ? 'rgba(34,197,94,0.22)' : 'rgba(239,68,68,0.22)'}`,
-              color: statusMessage.tone === 'success' ? '#16A34A' : '#DC2626',
-            }}
-          >
-            {statusMessage.text}
-          </div>
+          <StatusMessage tone={statusMessage.tone} text={statusMessage.text} className="mb-4" />
         )}
 
         {loadingRange && (
@@ -638,8 +471,13 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
                     )}
                     {daySessions.map(session => (
                       <div key={session.id} className="space-y-1.5">
-                        <div onClick={() => openEditSession(session)}
-                          draggable
+                        <SessionCard
+                          session={session}
+                          density={density}
+                          typeStyle={typeStyle(session.type)}
+                          completionStyle={completionStyle(session)}
+                          isDragging={draggedSessionId === session.id}
+                          onClick={() => openEditSession(session)}
                           onDragStart={(e) => {
                             setDraggedSessionId(session.id)
                             e.dataTransfer.effectAllowed = 'move'
@@ -649,35 +487,7 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
                             setDraggedSessionId(null)
                             setDragTargetDate(null)
                           }}
-                          className="relative p-2 rounded-xl cursor-pointer hover:opacity-80"
-                          style={{
-                            ...typeStyle(session.type),
-                            ...completionStyle(session),
-                            opacity: draggedSessionId === session.id ? 0.55 : 1,
-                            transition: 'transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease',
-                            boxShadow: draggedSessionId === session.id ? '0 10px 24px rgba(15,23,42,0.16)' : 'none',
-                          }}>
-                          <div className="font-semibold text-xs leading-tight mb-1">{session.title}</div>
-                          {density === 'full' && session.description && <div className="text-xs opacity-60 leading-tight mb-1">{session.description}</div>}
-                          <div className="flex flex-col gap-0.5 text-xs opacity-75">
-                            {session.planned_distance && <span>📏 {session.planned_distance} km</span>}
-                            {session.planned_duration && <span>⏱ {session.planned_duration} min</span>}
-                            {session.planned_pace && <span>⚡ {session.planned_pace}/km</span>}
-                          </div>
-                          {density === 'full' && session.actual_distance && (
-                            <div className="flex flex-col gap-0.5 text-xs mt-1" style={{ color: 'rgba(46,204,113,0.9)' }}>
-                              <span>✓ {session.actual_distance} km</span>
-                              {session.actual_pace && <span>⚡ {session.actual_pace}/km</span>}
-                            </div>
-                          )}
-                          {density === 'full' && session.url && (
-                            <a href={session.url} target="_blank" rel="noopener noreferrer"
-                              onClick={e => e.stopPropagation()}
-                              className="flex items-center gap-1 mt-1.5 text-xs opacity-80 hover:opacity-100">
-                              🔗 <span className="underline">{session.url_label || 'Link'}</span>
-                            </a>
-                          )}
-                        </div>
+                        />
                       </div>
                     ))}
                   </div>
@@ -686,55 +496,15 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
                       className="px-1.5 pb-3 pt-2 shrink-0"
                       style={{ borderTop: '1px dashed var(--border-strong)' }}
                     >
-                      {sessionFeedbacks.length > 0 ? (
-                        <div className="space-y-1.5">
-                          {sessionFeedbacks.map(({ session, feedback }) => (
-                            <button
-                              key={feedback.id}
-                              onClick={() => setFeedbackModalData(feedback)}
-                              className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
-                              style={feedbackToneStyle(feedback)}
-                            >
-                              <span>{feedbackToneIcon(feedback)}</span>
-                              <span>{formatFeedbackBadgeLabel(session.title, daySessions.length)}</span>
-                            </button>
-                          ))}
-                          {dateFeedback && (
-                            <button
-                              onClick={() => setFeedbackModalData(dateFeedback)}
-                              className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
-                              style={feedbackToneStyle(dateFeedback)}
-                            >
-                              <span>{feedbackToneIcon(dateFeedback)}</span>
-                              <span>feedback dzienny</span>
-                            </button>
-                          )}
-                          {showNoFeedback && (
-                            <div
-                              className="w-full py-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1"
-                              style={noFeedbackStyle}
-                            >
-                              <span style={{ color: '#DC2626' }}>✕</span>
-                              <span>{missingSessionFeedbacks.length > 1 ? 'brak feedbacku przy części treningów' : 'brak feedbacku'}</span>
-                            </div>
-                          )}
-                        </div>
-                      ) : dateFeedback ? (
-                        <button onClick={() => setFeedbackModalData(dateFeedback)}
-                          className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
-                          style={feedbackToneStyle(dateFeedback)}>
-                          <span>{feedbackToneIcon(dateFeedback)}</span>
-                          <span>feedback</span>
-                        </button>
-                      ) : showNoFeedback ? (
-                        <div
-                          className="w-full py-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1"
-                          style={noFeedbackStyle}
-                        >
-                          <span style={{ color: '#DC2626' }}>✕</span>
-                          <span>{missingSessionFeedbacks.length > 1 ? 'brak feedbacku przy części treningów' : 'brak feedbacku'}</span>
-                        </div>
-                      ) : null}
+                      <DayFeedbackSection
+                        sessionFeedbacks={sessionFeedbacks}
+                        dateFeedback={dateFeedback}
+                        showNoFeedback={showNoFeedback}
+                        missingSessionFeedbacksCount={missingSessionFeedbacks.length}
+                        totalDaySessions={daySessions.length}
+                        onFeedbackClick={setFeedbackModalData}
+                        compact={false}
+                      />
                   </div>
                   )}
                   <div className="p-1.5 shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
@@ -828,8 +598,13 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
                         <div className="space-y-1 flex-1">
                           {daySessions.slice(0, 3).map(s => (
                             <div key={s.id} className="space-y-1">
-                              <div onClick={() => openEditSession(s)}
-                                draggable
+                              <SessionCard
+                                session={s}
+                                density={density}
+                                typeStyle={typeStyle(s.type)}
+                                completionStyle={completionStyle(s)}
+                                isDragging={draggedSessionId === s.id}
+                                onClick={() => openEditSession(s)}
                                 onDragStart={(e) => {
                                   setDraggedSessionId(s.id)
                                   e.dataTransfer.effectAllowed = 'move'
@@ -839,35 +614,7 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
                                   setDraggedSessionId(null)
                                   setDragTargetDate(null)
                                 }}
-                                className="relative p-2 rounded-xl cursor-pointer hover:opacity-80"
-                                style={{
-                                  ...typeStyle(s.type),
-                                  ...completionStyle(s),
-                                  opacity: draggedSessionId === s.id ? 0.55 : 1,
-                                  transition: 'transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease',
-                                  boxShadow: draggedSessionId === s.id ? '0 10px 24px rgba(15,23,42,0.16)' : 'none',
-                                }}>
-                                <div className="font-semibold text-xs leading-tight mb-1">{s.title}</div>
-                                {density === 'full' && s.description && <div className="text-xs opacity-60 leading-tight mb-1">{s.description}</div>}
-                                <div className="flex flex-col gap-0.5 text-xs opacity-75">
-                                  {s.planned_distance && <span>📏 {s.planned_distance} km</span>}
-                                  {s.planned_duration && <span>⏱ {s.planned_duration} min</span>}
-                                  {s.planned_pace && <span>⚡ {s.planned_pace}/km</span>}
-                                </div>
-                                {density === 'full' && s.actual_distance && (
-                                  <div className="flex flex-col gap-0.5 text-xs mt-1" style={{ color: 'rgba(46,204,113,0.9)' }}>
-                                    <span>✓ {s.actual_distance} km</span>
-                                    {s.actual_pace && <span>⚡ {s.actual_pace}/km</span>}
-                                  </div>
-                                )}
-                                {density === 'full' && s.url && (
-                                  <a href={s.url} target="_blank" rel="noopener noreferrer"
-                                    onClick={e => e.stopPropagation()}
-                                    className="flex items-center gap-1 mt-1.5 text-xs opacity-80 hover:opacity-100">
-                                    🔗 <span className="underline">{s.url_label || 'Link'}</span>
-                                  </a>
-                                )}
-                              </div>
+                              />
                             </div>
                           ))}
                           {daySessions.length > 3 && <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>+{daySessions.length - 3} więcej</div>}
@@ -877,50 +624,15 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
                             className="mt-auto pt-2"
                             style={{ borderTop: '1px dashed var(--border-strong)' }}
                           >
-                            {sessionFeedbacks.length > 0 ? (
-                              <div className="space-y-1.5">
-                                {sessionFeedbacks.map(({ session, feedback }) => (
-                                  <button
-                                    key={feedback.id}
-                                    onClick={e => { e.stopPropagation(); setFeedbackModalData(feedback) }}
-                                    className="w-full text-center cursor-pointer rounded-lg py-0.5"
-                                    style={{ fontSize: '10px', ...feedbackToneStyle(feedback) }}
-                                  >
-                                    {feedbackToneIcon(feedback)} {formatFeedbackBadgeLabel(session.title, daySessions.length)}
-                                  </button>
-                                ))}
-                                {dateFeedback && (
-                                  <button
-                                    onClick={e => { e.stopPropagation(); setFeedbackModalData(dateFeedback) }}
-                                    className="w-full text-center cursor-pointer rounded-lg py-0.5"
-                                    style={{ fontSize: '10px', ...feedbackToneStyle(dateFeedback) }}
-                                  >
-                                    {feedbackToneIcon(dateFeedback)} feedback dzienny
-                                  </button>
-                                )}
-                                {showNoFeedback && (
-                                  <div
-                                    className="w-full text-center rounded-lg py-0.5"
-                                    style={{ fontSize: '10px', ...noFeedbackStyle }}
-                                  >
-                                    <span style={{ color: '#DC2626' }}>✕</span> {missingSessionFeedbacks.length > 1 ? 'brak feedbacku przy części treningów' : 'brak feedbacku'}
-                                  </div>
-                                )}
-                              </div>
-                            ) : dateFeedback ? (
-                              <button onClick={e => { e.stopPropagation(); setFeedbackModalData(dateFeedback) }}
-                                className="w-full text-center cursor-pointer rounded-lg py-0.5"
-                                style={{ fontSize: '10px', ...feedbackToneStyle(dateFeedback) }}>
-                                {feedbackToneIcon(dateFeedback)} feedback
-                              </button>
-                            ) : showNoFeedback ? (
-                              <div
-                                className="w-full text-center rounded-lg py-0.5"
-                                style={{ fontSize: '10px', ...noFeedbackStyle }}
-                              >
-                                <span style={{ color: '#DC2626' }}>✕</span> {missingSessionFeedbacks.length > 1 ? 'brak feedbacku przy części treningów' : 'brak feedbacku'}
-                              </div>
-                            ) : null}
+                            <DayFeedbackSection
+                              sessionFeedbacks={sessionFeedbacks}
+                              dateFeedback={dateFeedback}
+                              showNoFeedback={showNoFeedback}
+                              missingSessionFeedbacksCount={missingSessionFeedbacks.length}
+                              totalDaySessions={daySessions.length}
+                              onFeedbackClick={setFeedbackModalData}
+                              compact={true}
+                            />
                           </div>
                         )}
                       </div>
@@ -981,89 +693,20 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
         {feedbackModalData && <FeedbackDetail fb={feedbackModalData} />}
       </Modal>
 
-      <Modal
-        open={saveTemplateOpen}
-        onClose={() => setSaveTemplateOpen(false)}
-        title="Zapisz tydzień jako szablon"
-        size="sm"
-        footer={(
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSaveTemplateOpen(false)}
-              className="px-4 py-2 rounded-xl text-sm cursor-pointer"
-              style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
-            >
-              Anuluj
-            </button>
-            <button
-              onClick={() => void handleSaveTemplate()}
-              disabled={templateActionLoading || !templateName.trim()}
-              className="px-4 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer disabled:opacity-60"
-              style={{ background: '#FF5C1B' }}
-            >
-              {templateActionLoading ? 'Zapisywanie...' : 'Zapisz szablon'}
-            </button>
-          </div>
-        )}
-      >
-        <div className="space-y-3">
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Zapiszesz układ bieżącego tygodnia jako gotowy szablon do ponownego użycia.
-          </p>
-          <div>
-            <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>
-              Nazwa szablonu
-            </label>
-            <input
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
-              placeholder="np. Tydzień bazowy 10 km"
-              className="w-full px-3 py-2 rounded-xl text-sm"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
-            />
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
-        open={templatesOpen}
-        onClose={() => setTemplatesOpen(false)}
-        title="Użyj szablonu tygodnia"
-        size="sm"
-      >
-        <div className="space-y-3">
-          {templatesLoading ? (
-            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Ładowanie szablonów...</div>
-          ) : templates.length === 0 ? (
-            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Nie masz jeszcze zapisanych szablonów tygodnia. Zapisz dobry układ tygodnia, żeby potem używać go jednym kliknięciem.
-            </div>
-          ) : (
-            templates.map((template) => (
-              <div
-                key={template.id}
-                className="flex items-center justify-between gap-3 rounded-xl px-3 py-3"
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold">{template.name}</div>
-                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    Zapisano {formatDate(template.created_at, { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </div>
-                </div>
-                <button
-                  onClick={() => void handleApplyTemplate(template.id)}
-                  disabled={templateActionLoading}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-white cursor-pointer disabled:opacity-60 whitespace-nowrap"
-                  style={{ background: '#FF5C1B' }}
-                >
-                  {templateActionLoading ? 'Trwa...' : 'Użyj'}
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </Modal>
+      <WeekTemplateModals
+        saveOpen={saveTemplateOpen}
+        onSaveClose={() => setSaveTemplateOpen(false)}
+        templateName={templateName}
+        onTemplateNameChange={setTemplateName}
+        onSaveTemplate={() => void handleSaveTemplate()}
+        saving={templateActionLoading}
+        useOpen={templatesOpen}
+        onUseClose={() => setTemplatesOpen(false)}
+        templates={templates}
+        templatesLoading={templatesLoading}
+        onApplyTemplate={(id) => void handleApplyTemplate(id)}
+        applying={templateActionLoading}
+      />
 
       {/* Session modal */}
       {sessionModalOpen && (
@@ -1074,7 +717,7 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
           today={today}
           editSession={editingSession}
           initialDate={newSessionDate}
-          onActionComplete={setStatusMessage}
+          onActionComplete={(notice) => showStatus(notice.tone, notice.text)}
         />
       )}
     </>

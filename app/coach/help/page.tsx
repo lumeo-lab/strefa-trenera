@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
+import { INPUT_STYLE } from '@/lib/styles'
 
 type HelpCategory =
   | 'start'
@@ -369,7 +370,7 @@ export default function HelpPage() {
                     required
                     placeholder="np. Anna Kowalska"
                     className="w-full rounded-xl px-3 py-2.5 text-sm"
-                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                    style={INPUT_STYLE}
                   />
                 </div>
                 <div>
@@ -381,7 +382,7 @@ export default function HelpPage() {
                     required
                     placeholder="twoj@email.com"
                     className="w-full rounded-xl px-3 py-2.5 text-sm"
-                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                    style={INPUT_STYLE}
                   />
                 </div>
               </div>
@@ -393,7 +394,7 @@ export default function HelpPage() {
                   required
                   placeholder="Krótko opisz, czego dotyczy wiadomość"
                   className="w-full rounded-xl px-3 py-2.5 text-sm"
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                  style={INPUT_STYLE}
                 />
               </div>
               <div>
@@ -405,7 +406,7 @@ export default function HelpPage() {
                   rows={5}
                   placeholder="Opisz swój problem lub pytanie..."
                   className="w-full resize-none rounded-xl px-3 py-2.5 text-sm"
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                  style={INPUT_STYLE}
                 />
               </div>
               {contactState === 'error' ? (
@@ -439,13 +440,13 @@ export default function HelpPage() {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Szukaj w pytaniach i odpowiedziach..."
                 className="w-full rounded-xl px-3 py-2.5 text-sm"
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                style={INPUT_STYLE}
               />
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as 'all' | HelpCategory)}
                 className="w-full rounded-xl px-3 py-2.5 text-sm cursor-pointer"
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
+                style={INPUT_STYLE}
               >
                 <option value="all">Wszystkie kategorie</option>
                 {Object.entries(CATEGORY_LABELS).map(([key, label]) => (

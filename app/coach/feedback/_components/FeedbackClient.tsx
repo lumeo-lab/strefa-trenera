@@ -6,6 +6,9 @@ import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { FeedbackCard } from '@/components/coach/FeedbackCard'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
+import { SelectField } from '@/components/ui/SelectField'
+import { StatusMessage } from '@/components/ui/StatusMessage'
+import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
 import { getBusinessToday } from '@/lib/date'
 import { plural } from '@/lib/utils'
 import { markFeedbackRead, replyFeedback } from '@/lib/actions/feedback'
@@ -21,36 +24,6 @@ type SortKey = 'date' | 'signal'
 type ViewMode = 'grouped' | 'chronological'
 
 const PAGE_SIZE = 30
-
-function SelectField({
-  value,
-  onChange,
-  children,
-}: {
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <div className="relative min-w-0">
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full min-w-0 rounded-xl px-3 py-2 pr-11 text-sm cursor-pointer appearance-none"
-        style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-      >
-        {children}
-      </select>
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-xs"
-        style={{ color: 'var(--text-muted)' }}
-      >
-        ▾
-      </span>
-    </div>
-  )
-}
 
 // ── Overview stats cards ──────────────────────────────────────────────────────
 
@@ -92,7 +65,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
   const [submitting, setSubmitting] = useState(false)
   const [markingReadId, setMarkingReadId] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
-  const [statusMessage, setStatusMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
+  const { statusMessage, showStatus, clearStatus } = useStatusMessage()
   const [hintDismissed, setHintDismissed] = useState(() => {
     if (typeof window === 'undefined') return true
     return !!localStorage.getItem('feedback-hint-dismissed')
@@ -172,14 +145,14 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
   async function handleMarkRead(id: string, athleteId?: string) {
     if (markingReadId) return
     setMarkingReadId(id)
-    setStatusMessage(null)
+    clearStatus()
     try {
       const result = await markFeedbackRead(id, athleteId)
       if (result && 'error' in result) {
-        setStatusMessage({ tone: 'error', text: `Nie udało się oznaczyć feedbacku jako przeczytany: ${result.error}` })
+        showStatus('error', `Nie udało się oznaczyć feedbacku jako przeczytany: ${result.error}`)
         return
       }
-      setStatusMessage({ tone: 'success', text: 'Feedback został oznaczony jako przeczytany.' })
+      showStatus('success', 'Feedback został oznaczony jako przeczytany.')
       startTransition(() => router.refresh())
     } finally {
       setMarkingReadId(null)
@@ -189,7 +162,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
   async function handleReply(id: string, athleteId: string) {
     if (!replyText.trim() || submitting) return
     setSubmitting(true)
-    setStatusMessage(null)
+    clearStatus()
     const fd = new FormData()
     fd.set('id', id)
     fd.set('athlete_id', athleteId)
@@ -197,12 +170,12 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
     try {
       const result = await replyFeedback(null, fd)
       if (result && 'error' in result) {
-        setStatusMessage({ tone: 'error', text: `Nie udało się zapisać odpowiedzi: ${result.error}` })
+        showStatus('error', `Nie udało się zapisać odpowiedzi: ${result.error}`)
         return
       }
       setReplyingId(null)
       setReplyText('')
-      setStatusMessage({ tone: 'success', text: 'Odpowiedź została zapisana.' })
+      showStatus('success', 'Odpowiedź została zapisana.')
       startTransition(() => router.refresh())
     } finally {
       setSubmitting(false)
@@ -257,16 +230,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
         <OverviewStats feedbacks={initialFeedbacks} today={today} />
 
         {statusMessage && (
-          <div
-            className="mb-6 rounded-xl px-4 py-3 text-sm"
-            style={{
-              background: statusMessage.tone === 'success' ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)',
-              border: `1px solid ${statusMessage.tone === 'success' ? 'rgba(46,204,113,0.25)' : 'rgba(231,76,60,0.25)'}`,
-              color: statusMessage.tone === 'success' ? '#2ECC71' : '#E74C3C',
-            }}
-          >
-            {statusMessage.text}
-          </div>
+          <StatusMessage tone={statusMessage.tone} text={statusMessage.text} className="mb-6" />
         )}
 
         {!hintDismissed && (
