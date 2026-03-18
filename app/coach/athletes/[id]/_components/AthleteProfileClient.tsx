@@ -178,7 +178,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   type="button"
                   onClick={() => setAttentionModalOpen(true)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium shrink-0 cursor-pointer"
-                  style={{ background: attentionItems.length > 0 ? 'rgba(255,92,27,0.1)' : 'var(--bg-elevated)', color: attentionItems.length > 0 ? '#FF5C1B' : 'var(--text-primary)', border: attentionItems.length > 0 ? '1px solid rgba(255,92,27,0.16)' : '1px solid var(--border)' }}
+                  style={{ background: attentionItems.length > 0 ? 'rgba(52,152,219,0.14)' : 'rgba(52,152,219,0.08)', color: attentionItems.length > 0 ? '#8FD3FF' : '#A9CBE4', border: attentionItems.length > 0 ? '1px solid rgba(52,152,219,0.24)' : '1px solid rgba(52,152,219,0.16)' }}
                 >
                   Sygnały ({attentionItems.length})
                 </button>

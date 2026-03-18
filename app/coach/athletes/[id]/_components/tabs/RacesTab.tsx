@@ -306,7 +306,7 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
           ) : (
             <RaceTable
               races={plannedRaces}
-              columns={['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Status', 'Notatki', '']}
+              columns={['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Wynik', 'Status', 'Notatki', '']}
               renderRow={(race, i) => {
                 const isPastDate = race.date < today
                 const st = RACE_STATUS_INFO[(race.status as RaceStatus) || 'planned'] ?? RACE_STATUS_INFO.planned
@@ -321,6 +321,7 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
                     <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
                     <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
+                    <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>—</td>
                     <td className="px-4 py-3 text-xs">
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: `${st.color}22`, color: st.color }}>
                         {st.label}
@@ -367,7 +368,7 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
           ) : (
             <RaceTable
               races={finishedRaces}
-              columns={['Data', 'Zawody', 'Dystans', 'Wynik', 'Status', 'Notatki', '']}
+              columns={['Data', 'Zawody', 'Dystans', 'Cel czasowy', 'Wynik', 'Status', 'Notatki', '']}
               renderRow={(race, i) => {
                 const st = RACE_STATUS_INFO[(race.status as RaceStatus)] ?? RACE_STATUS_INFO.completed
                 return (
@@ -377,6 +378,7 @@ export function RacesTab({ athleteId, races, today }: RacesTabProps) {
                     </td>
                     <td className="px-4 py-3 text-xs font-medium">{race.name}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{race.distance || '—'}</td>
+                    <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{race.goal_time || '—'}</td>
                     <td className="px-4 py-3 text-xs font-mono font-medium">{race.result || '—'}</td>
                     <td className="px-4 py-3 text-xs">
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium"

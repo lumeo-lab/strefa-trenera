@@ -77,12 +77,19 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
     return true
   })
 
+  const filterControlStyle = {
+    background: 'linear-gradient(180deg, var(--bg-elevated) 0%, rgba(255,92,27,0.04) 100%)',
+    color: 'var(--text-primary)',
+    border: '1px solid rgba(255,92,27,0.2)',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
+  }
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div className="grid gap-3 md:grid-cols-2 flex-1 min-w-[280px]">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: '#FFB38F' }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
               Odpowiedzi i odczyt
             </div>
@@ -90,7 +97,7 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
               value={readFilter}
               onChange={(e) => setReadFilter(e.target.value as typeof readFilter)}
               className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
-              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+              style={filterControlStyle}
             >
               <option value="all">Wszystkie feedbacki</option>
               <option value="unread">Nieprzeczytane</option>
@@ -99,7 +106,7 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
             </select>
           </div>
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-1.5 inline-flex items-center gap-1.5" style={{ color: '#FFB38F' }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF5C1B' }} />
               Sygnał
             </div>
@@ -107,7 +114,7 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
               value={signalFilter}
               onChange={(e) => setSignalFilter(e.target.value as typeof signalFilter)}
               className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
-              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+              style={filterControlStyle}
             >
               <option value="all">Wszystkie sygnały</option>
               <option value="red">Czerwone</option>
@@ -137,24 +144,27 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
           description="Zmień filtry, aby zobaczyć więcej wpisów albo wróć do pełnej historii feedbacku."
         />
       ) : (
-        filteredFeedbacks.map(fb => (
-          <FeedbackCard
-            key={fb.id}
-            fb={fb}
-            isExpanded={expandedId === fb.id}
-            isReplying={replyingId === fb.id}
-            replyText={replyingId === fb.id ? replyText : ''}
-            submitting={submitting}
-            markingRead={markingReadId === fb.id}
-            showAthleteName={false}
-            onExpand={() => handleExpand(fb.id)}
-            onMarkRead={() => handleMarkRead(fb.id)}
-            onReplyStart={() => { setReplyingId(fb.id); setReplyText(fb.coach_reply ?? '') }}
-            onReplyChange={setReplyText}
-            onReplySubmit={() => handleReply(fb.id)}
-            onReplyCancel={() => setReplyingId(null)}
-          />
-        ))
+        <div className="space-y-3">
+          {filteredFeedbacks.map(fb => (
+            <div key={fb.id} className="max-w-4xl">
+              <FeedbackCard
+                fb={fb}
+                isExpanded={expandedId === fb.id}
+                isReplying={replyingId === fb.id}
+                replyText={replyingId === fb.id ? replyText : ''}
+                submitting={submitting}
+                markingRead={markingReadId === fb.id}
+                showAthleteName={false}
+                onExpand={() => handleExpand(fb.id)}
+                onMarkRead={() => handleMarkRead(fb.id)}
+                onReplyStart={() => { setReplyingId(fb.id); setReplyText(fb.coach_reply ?? '') }}
+                onReplyChange={setReplyText}
+                onReplySubmit={() => handleReply(fb.id)}
+                onReplyCancel={() => setReplyingId(null)}
+              />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
