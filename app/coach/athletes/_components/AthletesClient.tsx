@@ -72,15 +72,8 @@ interface Props {
 }
 
 type SortKey = 'name' | 'package' | 'status' | 'join_date' | 'last_session' | 'next_session' | 'signal' | 'weekly_load' | 'compliance' | null
-type QuickFilter = 'unread' | 'unpaid' | 'no_session' | 'weak_signal' | 'no_training' | null
 
 const ORDER_KEY = 'coach_athlete_order'
-
-function daysSinceDate(dateStr: string): number {
-  const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
-  const now = new Date(); now.setHours(0, 0, 0, 0)
-  return Math.floor((now.getTime() - d.getTime()) / 86400000)
-}
 
 function SortHeader({ label, sk, sortKey, sortDir, onSort }: { label: string; sk: SortKey; sortKey: SortKey; sortDir: 'asc' | 'desc'; onSort: (key: SortKey) => void }) {
   const isActive = sortKey === sk
@@ -109,7 +102,6 @@ export function AthletesClient({
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>(null)
   const [sortKey, setSortKey] = useState<SortKey>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [masterOrder, setMasterOrder] = useState<string[]>([])
@@ -238,13 +230,7 @@ export function AthletesClient({
       (a.email ?? '').toLowerCase().includes(q) ||
       (a.phone ?? '').includes(q)
     const matchesStatus = statusFilter === 'all' || a.status === statusFilter
-    const matchesQuick = !quickFilter ||
-      (quickFilter === 'unread' && ((unreadMessagesMap[a.id] ?? 0) > 0 || (unreadFeedbackMap[a.id] ?? 0) > 0)) ||
-      (quickFilter === 'unpaid' && unpaidInvoiceSet[a.id]) ||
-      (quickFilter === 'no_session' && !nextSessionMap[a.id] && a.status !== 'inactive') ||
-      (quickFilter === 'weak_signal' && (signalMap[a.id] === 'red' || signalMap[a.id] === 'yellow')) ||
-      (quickFilter === 'no_training' && a.status !== 'inactive' && (!lastSessionMap[a.id] || daysSinceDate(lastSessionMap[a.id].date) >= 7))
-    return matchesText && matchesStatus && matchesQuick
+    return matchesText && matchesStatus
   })
 
   // Sort or custom order
@@ -322,14 +308,6 @@ export function AthletesClient({
     return allStatuses.find(s => s.key === key) ?? { key, label: key, color: '#6B7280' }
   }
 
-  const quickFilterDefs = useMemo(() => [
-    { id: 'unread' as QuickFilter, label: 'Nieprzeczytane', count: athletes.filter(a => (unreadMessagesMap[a.id] ?? 0) > 0 || (unreadFeedbackMap[a.id] ?? 0) > 0).length },
-    { id: 'unpaid' as QuickFilter, label: 'Nieopłacone', count: athletes.filter(a => unpaidInvoiceSet[a.id]).length },
-    { id: 'no_session' as QuickFilter, label: 'Bez planu', count: athletes.filter(a => !nextSessionMap[a.id] && a.status !== 'inactive').length },
-    { id: 'weak_signal' as QuickFilter, label: 'Słaba forma', count: athletes.filter(a => signalMap[a.id] === 'red' || signalMap[a.id] === 'yellow').length },
-    { id: 'no_training' as QuickFilter, label: 'Dawno bez treningu', count: athletes.filter(a => a.status !== 'inactive' && (!lastSessionMap[a.id] || daysSinceDate(lastSessionMap[a.id].date) >= 7)).length },
-  ], [athletes, unreadMessagesMap, unreadFeedbackMap, unpaidInvoiceSet, nextSessionMap, signalMap, lastSessionMap])
-
   return (
     <div>
       <CoachTopbar
@@ -370,8 +348,30 @@ export function AthletesClient({
             + Dodaj zawodnika
           </Button>
 
+          {/* Export Excel */}
+          <button
+            onClick={() => {
+              const headers = ['Imię', 'Email', 'Telefon', 'Pakiet', 'Cena pakietu', 'Status', 'Cel', 'Data dołączenia', 'Wiek', 'Miasto']
+              const rows = displayed.map(a => [
+                a.name, a.email ?? '', a.phone ?? '', a.package, a.package_price, getStatusDef(a.status).label, a.goal, a.join_date, a.age ?? '', a.city ?? '',
+              ])
+              const tsv = [headers, ...rows].map(r => r.map(v => String(v).replace(/\t/g, ' ')).join('\t')).join('\n')
+              const blob = new Blob(['\uFEFF' + tsv], { type: 'application/vnd.ms-excel;charset=utf-8' })
+              const url = URL.createObjectURL(blob)
+              const link = document.createElement('a')
+              link.href = url
+              link.download = `zawodnicy_${new Date().toISOString().slice(0, 10)}.xls`
+              link.click()
+              URL.revokeObjectURL(url)
+            }}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm cursor-pointer whitespace-nowrap ml-auto"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-mid)', color: 'var(--text-muted)' }}
+          >
+            📥 Eksport Excel
+          </button>
+
           {/* Column picker */}
-          <div className="relative ml-auto" ref={colPickerRef}>
+          <div className="relative" ref={colPickerRef}>
             <button
               onClick={() => setColPickerOpen(o => !o)}
               className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm cursor-pointer whitespace-nowrap"
@@ -515,59 +515,6 @@ export function AthletesClient({
               )}
             </div>
 
-            {/* Quick filters + export */}
-            <div className="flex flex-wrap items-center gap-2 mt-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] shrink-0" style={{ color: 'var(--text-muted)' }}>
-                Szybkie
-              </span>
-              {quickFilterDefs.map(qf => (
-                <button
-                  key={qf.id}
-                  onClick={() => setQuickFilter(quickFilter === qf.id ? null : qf.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
-                  style={{
-                    background: quickFilter === qf.id ? 'rgba(59,130,246,0.12)' : 'var(--bg-elevated)',
-                    color: quickFilter === qf.id ? '#3B82F6' : 'var(--text-muted)',
-                    border: quickFilter === qf.id ? '1px solid rgba(59,130,246,0.3)' : '1px solid var(--border)',
-                  }}
-                >
-                  {qf.label}
-                  <span className="opacity-60">{qf.count}</span>
-                </button>
-              ))}
-
-              {quickFilter && (
-                <button
-                  onClick={() => setQuickFilter(null)}
-                  className="text-xs px-2 py-1 cursor-pointer"
-                  style={{ color: 'var(--text-muted)', background: 'none', border: 'none' }}
-                >
-                  ✕ Wyczyść
-                </button>
-              )}
-
-              <button
-                onClick={() => {
-                  const headers = ['Imię', 'Email', 'Telefon', 'Pakiet', 'Cena pakietu', 'Status', 'Cel', 'Data dołączenia', 'Wiek', 'Miasto']
-                  const rows = displayed.map(a => [
-                    a.name, a.email ?? '', a.phone ?? '', a.package, a.package_price, getStatusDef(a.status).label, a.goal, a.join_date, a.age ?? '', a.city ?? '',
-                  ])
-                  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
-                  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
-                  const url = URL.createObjectURL(blob)
-                  const link = document.createElement('a')
-                  link.href = url
-                  link.download = `zawodnicy_${new Date().toISOString().slice(0, 10)}.csv`
-                  link.click()
-                  URL.revokeObjectURL(url)
-                }}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs cursor-pointer ml-auto"
-                style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-              >
-                📥 Eksport CSV
-              </button>
-            </div>
-
           </div>
         )}
 
@@ -586,7 +533,7 @@ export function AthletesClient({
             <div className="text-3xl mb-3">🔍</div>
             <div className="text-sm">Brak zawodników spełniających kryteria</div>
             <button
-              onClick={() => { setSearch(''); setStatusFilter('all'); setQuickFilter(null) }}
+              onClick={() => { setSearch(''); setStatusFilter('all') }}
               className="mt-4 inline-flex items-center rounded-xl px-3 py-2 text-sm cursor-pointer"
               style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
             >
