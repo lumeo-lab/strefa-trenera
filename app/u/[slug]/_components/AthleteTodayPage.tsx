@@ -1,7 +1,7 @@
 'use client'
 
-import { startTransition, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { startTransition, useEffect, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { getWeekDays, intensityColor, sessionTypeLabel, toISODate } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
@@ -17,6 +17,7 @@ interface Props {
   sessions: AthleteTrainingSessionRow[]
   feedbacks: AthleteFeedbackByDay
   today: string
+  initialDate: string
 }
 
 function shiftDate(dateStr: string, days: number): string {
@@ -97,9 +98,11 @@ function VoiceFeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdi
   )
 }
 
-export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props) {
+export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialDate }: Props) {
   const router = useRouter()
-  const [selectedDate, setSelectedDate] = useState(today)
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [selectedDate, setSelectedDate] = useState(initialDate)
   const [optimisticTextFeedback, setOptimisticTextFeedback] = useState<FeedbackData | null>(null)
   const [optimisticVoiceFeedback, setOptimisticVoiceFeedback] = useState<FeedbackData | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -122,6 +125,22 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
   const sessionStatus = daySession ? (optimisticSessionStatus ?? getSessionExecutionStatus(daySession)) : null
   const sessionTone = daySession ? getSessionExecutionTone({ ...daySession, status: sessionStatus ?? undefined }) : 'muted'
 
+  useEffect(() => {
+    setSelectedDate(initialDate)
+    resetDayState()
+  }, [initialDate])
+
+  function updateDateInUrl(dateStr: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    if (dateStr === today) {
+      params.delete('d')
+    } else {
+      params.set('d', dateStr)
+    }
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
+
   function resetDayState() {
     setOptimisticTextFeedback(null)
     setOptimisticVoiceFeedback(null)
@@ -130,12 +149,15 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
   }
 
   function navigate(delta: number) {
-    setSelectedDate(d => shiftDate(d, delta))
+    const nextDate = shiftDate(selectedDate, delta)
+    setSelectedDate(nextDate)
+    updateDateInUrl(nextDate)
     resetDayState()
   }
 
   function selectDay(dateStr: string) {
     setSelectedDate(dateStr)
+    updateDateInUrl(dateStr)
     resetDayState()
   }
 

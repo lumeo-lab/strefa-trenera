@@ -6,12 +6,12 @@ import { AthleteTodayPage } from './_components/AthleteTodayPage'
 
 interface Props {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ t?: string; invalid?: string; info?: string }>
+  searchParams: Promise<{ t?: string; invalid?: string; info?: string; d?: string }>
 }
 
 export default async function SlugPage({ params, searchParams }: Props) {
   const { slug } = await params
-  const { t: token, invalid, info } = await searchParams
+  const { t: token, invalid, info, d } = await searchParams
 
   // If token in URL → redirect to verify API
   if (token) {
@@ -47,6 +47,7 @@ export default async function SlugPage({ params, searchParams }: Props) {
 
   // Fetch today's session
   const today = getBusinessToday()
+  const selectedDate = typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : today
   const sessionsFrom = addDaysToBusinessDate(today, -7)
   const sessionsTo = addDaysToBusinessDate(today, 7)
   const sessions = await getAthleteWindowSessions(athlete.id, sessionsFrom, sessionsTo)
@@ -70,6 +71,7 @@ export default async function SlugPage({ params, searchParams }: Props) {
       sessions={sessions}
       feedbacks={feedbacksByDate}
       today={today}
+      initialDate={selectedDate}
     />
   )
 }
