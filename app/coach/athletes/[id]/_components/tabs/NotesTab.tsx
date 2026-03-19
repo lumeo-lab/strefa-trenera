@@ -1,17 +1,42 @@
 'use client'
 
-import { startTransition, useState } from 'react'
+import { startTransition, useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
 import { updateAthlete } from '@/lib/actions/athletes'
-import { INPUT_STYLE } from '@/lib/styles'
 import { ProfileEmptyState, ProfileStatusNotice } from '../ProfileStates'
-
-const inputStyle = INPUT_STYLE
 
 interface NotesTabProps {
   athleteId: string
   initialNotes: string
+}
+
+// Toolbar button for the rich editor
+function ToolbarBtn({ label, icon, command, active, onClick, bold, italic, underline, children }: {
+  label: string; icon?: string; command?: string; active?: boolean; onClick?: () => void
+  bold?: boolean; italic?: boolean; underline?: boolean; children?: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => {
+        e.preventDefault()
+        if (command) document.execCommand(command)
+        if (onClick) onClick()
+      }}
+      className="w-8 h-8 flex items-center justify-center rounded-lg text-sm cursor-pointer transition-all hover:bg-[var(--bg-hover)] shrink-0"
+      style={{
+        background: active ? 'rgba(255,92,27,0.12)' : 'transparent',
+        color: active ? '#FF5C1B' : 'var(--text-muted)',
+        fontWeight: bold ? 700 : undefined,
+        fontStyle: italic ? 'italic' : undefined,
+        textDecoration: underline ? 'underline' : undefined,
+      }}
+      title={label}
+    >
+      {children ?? icon}
+    </button>
+  )
 }
 
 export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
@@ -21,32 +46,27 @@ export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const noteTemplates = [
-    'Cele na najbliższe 2 tygodnie',
-    'Ryzyka / sygnały ostrzegawcze',
-    'Ustalenia po ostatniej rozmowie',
-    'Co monitorować w planie',
-  ]
+  const editorRef = useRef<HTMLDivElement>(null)
 
-  function insertTemplate(label: string) {
-    const section = `${coachNotes.trim() ? '\n\n' : ''}${label}\n- `
-    setCoachNotes((current) => `${current}${section}`)
-    setEditing(true)
-  }
+  const getEditorContent = useCallback(() => {
+    return editorRef.current?.innerHTML ?? ''
+  }, [])
 
   async function saveNotes() {
     if (saving) return false
+    const content = editing ? getEditorContent() : coachNotes
     setSaving(true)
     setError(null)
     const fd = new FormData()
     fd.set('id', athleteId)
-    fd.set('coach_notes', coachNotes)
+    fd.set('coach_notes', content)
     try {
       const result = await updateAthlete(null, fd)
       if (result && 'error' in result) {
         setError(result.error ?? 'Nie udało się zapisać notatek.')
         return false
       }
+      setCoachNotes(content)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
       startTransition(() => router.refresh())
@@ -55,6 +75,9 @@ export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
       setSaving(false)
     }
   }
+
+  // Check if content has any visible text (strip tags)
+  const hasContent = coachNotes.replace(/<[^>]*>/g, '').trim().length > 0
 
   return (
     <Card className="p-5">
@@ -73,7 +96,7 @@ export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
           >Edytuj</button>
         ) : (
           <div className="flex gap-2">
-            <button onClick={() => setEditing(false)}
+            <button onClick={() => { setEditing(false); setCoachNotes(initialNotes) }}
               className="px-3 py-2 rounded-xl text-sm cursor-pointer"
               style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Anuluj</button>
             <button
@@ -93,71 +116,69 @@ export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
           <ProfileStatusNotice tone="error" text={error} />
         </div>
       )}
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,0.78fr)_minmax(260px,0.22fr)]">
+      {!editing ? (
+        hasContent ? (
+          <div className="rounded-2xl p-4 min-h-32" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+            <div
+              className="text-sm prose-notes"
+              style={{ color: 'var(--text-primary)', lineHeight: 1.8 }}
+              dangerouslySetInnerHTML={{ __html: coachNotes }}
+            />
+          </div>
+        ) : (
+          <ProfileEmptyState
+            icon="📝"
+            title="Brak notatek trenera"
+            description="Dodaj najważniejsze obserwacje, ustalenia i kontekst współpracy, żeby mieć je zawsze pod ręką."
+          />
+        )
+      ) : (
         <div>
-          {!editing ? (
-            coachNotes ? (
-              <div className="rounded-2xl p-4 min-h-32" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-                <div className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-primary)', lineHeight: 1.8 }}>
-                  {coachNotes}
-                </div>
-              </div>
-            ) : (
-              <ProfileEmptyState
-                icon="📝"
-                title="Brak notatek trenera"
-                description="Dodaj najważniejsze obserwacje, ustalenia i kontekst współpracy, żeby mieć je zawsze pod ręką."
-              />
-            )
-          ) : (
-            <div>
-              <textarea
-                value={coachNotes}
-                onChange={e => setCoachNotes(e.target.value)}
-                placeholder="Zapisz obserwacje, uwagi, przemyślenia o zawodniku..."
-                rows={14}
-                className="w-full px-4 py-3 rounded-2xl text-sm resize-none"
-                style={inputStyle}
-              />
-              <div className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                {coachNotes.trim().length} znaków
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-3">
-          <div className="rounded-2xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-            <div className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
-              Szybkie sekcje
-            </div>
-            <div className="space-y-2">
-              {noteTemplates.map((template) => (
-                <button
-                  key={template}
-                  type="button"
-                  onClick={() => insertTemplate(template)}
-                  className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
-                  style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-                >
-                  + {template}
-                </button>
-              ))}
-            </div>
+          {/* Toolbar */}
+          <div className="flex items-center gap-1 px-2 py-1.5 rounded-t-2xl flex-wrap" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderBottom: 'none' }}>
+            <ToolbarBtn label="Pogrubienie" icon="B" command="bold" bold />
+            <ToolbarBtn label="Kursywa" icon="I" command="italic" italic />
+            <ToolbarBtn label="Podkreślenie" icon="U" command="underline" underline />
+            <div className="w-px h-5" style={{ background: 'var(--border)' }} />
+            <ToolbarBtn label="Lista punktowa" icon="" onClick={() => document.execCommand('insertUnorderedList')}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="4" r="1.5"/><rect x="6" y="3" width="8" height="2" rx="1"/><circle cx="3" cy="8" r="1.5"/><rect x="6" y="7" width="8" height="2" rx="1"/><circle cx="3" cy="12" r="1.5"/><rect x="6" y="11" width="8" height="2" rx="1"/></svg>
+            </ToolbarBtn>
+            <ToolbarBtn label="Lista numerowana" icon="" onClick={() => document.execCommand('insertOrderedList')}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="1" y="5.5" fontSize="5" fontWeight="700">1</text><rect x="6" y="3" width="8" height="2" rx="1"/><text x="1" y="9.5" fontSize="5" fontWeight="700">2</text><rect x="6" y="7" width="8" height="2" rx="1"/><text x="1" y="13.5" fontSize="5" fontWeight="700">3</text><rect x="6" y="11" width="8" height="2" rx="1"/></svg>
+            </ToolbarBtn>
+            <div className="w-px h-5" style={{ background: 'var(--border)' }} />
+            <ToolbarBtn label="Nagłówek duży" icon="H1" onClick={() => document.execCommand('formatBlock', false, 'h3')} bold />
+            <ToolbarBtn label="Nagłówek mały" icon="H2" onClick={() => document.execCommand('formatBlock', false, 'h4')} bold />
+            <ToolbarBtn label="Zwykły tekst" icon="T" onClick={() => document.execCommand('formatBlock', false, 'p')} />
           </div>
-
-          <div className="rounded-2xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-            <div className="text-xs font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
-              Dobre notatki
-            </div>
-            <div className="text-xs space-y-2" style={{ color: 'var(--text-muted)', lineHeight: 1.7 }}>
-              <p>Zapisuj decyzje, nie tylko luźne myśli.</p>
-              <p>Oddzielaj obserwacje od planu działania.</p>
-              <p>Po rozmowie z zawodnikiem wpisz krótko: ustalenie, ryzyko, kolejny krok.</p>
-            </div>
-          </div>
+          {/* Editor */}
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            className="w-full px-4 py-3 rounded-b-2xl text-sm min-h-[280px] focus:outline-none prose-notes overflow-visible"
+            style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-primary)',
+              lineHeight: 1.8,
+            }}
+            dangerouslySetInnerHTML={{ __html: coachNotes }}
+          />
         </div>
-      </div>
+      )}
+      <style>{`
+        .prose-notes ul, .prose-notes ol { padding-left: 1.5em; margin: 0.5em 0; }
+        .prose-notes ul { list-style: disc; }
+        .prose-notes ol { list-style: decimal; }
+        .prose-notes li { margin: 0.2em 0; }
+        .prose-notes h3 { font-size: 1.15em; font-weight: 700; margin: 1em 0 0.4em; }
+        .prose-notes h4 { font-size: 1em; font-weight: 700; margin: 0.8em 0 0.3em; }
+        .prose-notes p { margin: 0.3em 0; }
+        .prose-notes b, .prose-notes strong { font-weight: 700; }
+        .prose-notes i, .prose-notes em { font-style: italic; }
+        .prose-notes u { text-decoration: underline; }
+      `}</style>
     </Card>
   )
 }

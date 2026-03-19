@@ -328,16 +328,61 @@ export function FeedbackClient({
           <StatusMessage tone={statusMessage.tone} text={statusMessage.text} className="mb-4" />
         )}
 
-        {/* Compact toolbar */}
-        <div className="mb-4 rounded-2xl pl-4 pr-3 py-2.5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: '3px solid #FF5C1B' }}>
-          <div className="flex flex-wrap items-center gap-2">
+        {/* Toolbar */}
+        <div className="mb-5 rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '2px solid var(--border-strong)' }}>
+          {/* Top row: search + result count + legend */}
+          <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+            <span className="text-sm font-semibold shrink-0">📥 Feedback</span>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Szukaj..."
-              className="px-3 py-1.5 rounded-xl text-xs min-w-[120px] flex-1"
-              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)', maxWidth: 200 }}
+              placeholder="Szukaj w feedbackach..."
+              className="px-3 py-2 rounded-xl text-sm flex-1"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
             />
+            <span className="text-xs px-2.5 py-1 rounded-full font-medium shrink-0" style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+              {filtered.length} {filtered.length === 1 ? 'wynik' : filtered.length < 5 ? 'wyniki' : 'wyników'}
+            </span>
+            <div className="relative shrink-0" ref={legendRef}>
+              <button
+                onClick={() => setLegendOpen(o => !o)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-xs cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+                style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+                title="Legenda sygnałów"
+              >
+                ℹ️
+              </button>
+                {legendOpen && (
+                  <div className="absolute right-0 top-8 z-50 w-64 rounded-xl p-4 shadow-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                    <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Legenda sygnałów</div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span>🟢</span>
+                        <span>Dobrze / Świetnie</span>
+                        <span style={{ color: 'var(--text-muted)' }}>😊 🤩</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>🟡</span>
+                        <span>Średnio</span>
+                        <span style={{ color: 'var(--text-muted)' }}>😐</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>🔴</span>
+                        <span>Słabo / Fatalnie</span>
+                        <span style={{ color: 'var(--text-muted)' }}>😕 😫</span>
+                      </div>
+                    </div>
+                    <p className="text-xs mt-3 pt-2" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+                      Sygnał ustawiany automatycznie na podstawie samopoczucia zawodnika.
+                    </p>
+                  </div>
+                )}
+              </div>
+          </div>
+
+          {/* Bottom row: filters */}
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.1em] shrink-0" style={{ color: 'var(--text-muted)' }}>Filtry</span>
             <SelectField
               value={filter}
               onChange={(value) => {
@@ -372,47 +417,6 @@ export function FeedbackClient({
               <option value="grouped">Po zawodniku</option>
               <option value="urgency">Wg pilności</option>
             </SelectField>
-
-            <div className="flex items-center gap-1.5 ml-auto shrink-0">
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-                {filtered.length} {filtered.length === 1 ? 'wynik' : filtered.length < 5 ? 'wyniki' : 'wyników'}
-              </span>
-              <div className="relative" ref={legendRef}>
-                <button
-                  onClick={() => setLegendOpen(o => !o)}
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
-                  style={{ color: 'var(--text-muted)' }}
-                  title="Legenda sygnałów"
-                >
-                  ℹ️
-                </button>
-                {legendOpen && (
-                  <div className="absolute right-0 top-8 z-50 w-64 rounded-xl p-4 shadow-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                    <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Legenda sygnałów</div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span>🟢</span>
-                        <span>Dobrze / Świetnie</span>
-                        <span style={{ color: 'var(--text-muted)' }}>😊 🤩</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span>🟡</span>
-                        <span>Średnio</span>
-                        <span style={{ color: 'var(--text-muted)' }}>😐</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span>🔴</span>
-                        <span>Słabo / Fatalnie</span>
-                        <span style={{ color: 'var(--text-muted)' }}>😕 😫</span>
-                      </div>
-                    </div>
-                    <p className="text-xs mt-3 pt-2" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
-                      Sygnał ustawiany automatycznie na podstawie samopoczucia zawodnika.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         </div>
 

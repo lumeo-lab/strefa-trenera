@@ -64,6 +64,10 @@ export function DataTab({
   const initialInjuryHistory = parseAthleteInjuryHistory(athlete.injury_history, athlete.injuries)
   const activeInjuriesCount = getActiveAthleteInjuries(initialInjuryHistory).length
 
+  const [goalEditing, setGoalEditing] = useState(false)
+  const [goalValue, setGoalValue] = useState(athlete.goal ?? '')
+  const [goalSaving, setGoalSaving] = useState(false)
+
   const personalRows: [string, string][] = [
     ['Imię i nazwisko', dataEdit.name],
     ['Email', dataEdit.email],
@@ -72,7 +76,6 @@ export function DataTab({
     ['Wzrost', dataEdit.height ? `${dataEdit.height} cm` : ''],
     ['Waga', dataEdit.weight ? `${dataEdit.weight} kg` : ''],
     ['Miasto', dataEdit.city],
-    ['Cel treningowy', dataEdit.goal],
   ]
 
   const collaborationRows: [string, string][] = [
@@ -178,7 +181,6 @@ export function DataTab({
                   ['Wzrost (cm)', 'height', 'number'],
                   ['Waga (kg)', 'weight', 'number'],
                   ['Miasto', 'city', 'text'],
-                  ['Cel treningowy', 'goal', 'text'],
                 ] as const).map(([label, field, type]) => (
                   <div key={field}>
                     <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>{label}</label>
@@ -265,6 +267,48 @@ export function DataTab({
             </div>
 
             <div className="space-y-6">
+              {/* Cel treningowy */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Cel treningowy</span>
+                  {!goalEditing && (
+                    <button onClick={() => { setGoalEditing(true); setGoalValue(athlete.goal ?? '') }}
+                      className="text-xs cursor-pointer hover:opacity-80" style={{ color: '#FF5C1B' }}>
+                      Edytuj
+                    </button>
+                  )}
+                </div>
+                {goalEditing ? (
+                  <div className="flex items-center gap-2">
+                    <input type="text" value={goalValue} onChange={(e) => setGoalValue(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl text-sm" style={inputStyle} placeholder="np. maraton poniżej 3:30" autoFocus />
+                    <button onClick={() => setGoalEditing(false)}
+                      className="px-2 py-2 rounded-xl text-xs cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                      Anuluj
+                    </button>
+                    <button
+                      disabled={goalSaving}
+                      onClick={async () => {
+                        setGoalSaving(true)
+                        const fd = new FormData()
+                        fd.set('id', athlete.id)
+                        fd.set('goal', goalValue)
+                        const result = await updateAthlete(null, fd)
+                        setGoalSaving(false)
+                        if (result && 'error' in result) return
+                        setGoalEditing(false)
+                        startTransition(() => router.refresh())
+                      }}
+                      className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+                      style={{ background: '#FF5C1B', color: 'white' }}>
+                      {goalSaving ? '...' : 'Zapisz'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-sm font-medium">{athlete.goal || '—'}</div>
+                )}
+              </div>
+
               <PersonalBestsEditor
                 athleteId={athlete.id}
                 personalBests={athlete.personal_bests as Record<string, string> | null}
