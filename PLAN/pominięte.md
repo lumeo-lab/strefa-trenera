@@ -70,6 +70,7 @@ Elementy, które zostały świadomie odłożone jako duże feature'y lub nice-to
 
 ### Ustawienia
 - **Auto-dismiss success messages (S2)** — plan zakładał auto-dismiss komunikatów sukcesu po 4s. Lint rule `react-hooks/set-state-in-effect` blokuje setState w useEffect. Komunikaty znikają naturalnie po kolejnej akcji. Drobnostka UX, nie wpływa na funkcjonalność.
+- **Zmiana planu przez trenera** — w ustawieniach trener powinien móc samodzielnie zmienić plan (Starter → Pro itp.). Wymaga integracji z systemem płatności / Stripe / manual upgrade flow. Obecnie wyświetla "Aby zmienić plan, skontaktuj się z nami."
 - **Dane firmy i rozliczeń (Etap 6)** — wymaga nowej tabeli w Supabase (company_info), migracji i server action. Brak modelu danych w bazie. Odłożone do momentu gdy trener będzie potrzebował generować faktury z danymi firmy.
 - **Powiadomienia i preferencje (Etap 7)** — wymaga nowej tabeli notification_preferences + UI toggleów. Obecne push subscription działa bez konfiguracji per typ. Odłożone.
 

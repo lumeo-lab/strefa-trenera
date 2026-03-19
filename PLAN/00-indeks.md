@@ -22,8 +22,8 @@ Kolejność wdrażania ustalona na podstawie analizy zależności między moduł
 | 8 | `08-dashboard.md` | Dashboard (plan w plan2.md) | ✅ Ukończony |
 | 9 | `09-zawodnicy.md` | Lista zawodników | Do wdrożenia |
 | 10 | `10-profil-zawodnika.md` | Profil zawodnika (coach view) | Do wdrożenia |
-| 11 | `11-ustawienia.md` | Ustawienia | Do wdrożenia |
-| 12 | `12-pomoc.md` | Pomoc | Do wdrożenia |
+| 11 | `11-ustawienia.md` | Ustawienia | ✅ Ukończony |
+| 12 | `12-pomoc.md` | Pomoc | ✅ Ukończony |
 | 13 | `13-panel-zawodnika-mobile.md` | Panel zawodnika mobile | Do wdrożenia |
 | 14 | `14-landing-page.md` | Landing page | Do wdrożenia |
 

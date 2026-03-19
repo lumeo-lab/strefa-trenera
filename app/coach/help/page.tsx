@@ -415,7 +415,7 @@ const HELP_VOTES_KEY = 'coach-help-votes'
 export default function HelpPage() {
   const [open, setOpen] = useState<string | null>(FAQ[0]?.id ?? null)
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState<'top' | 'all' | HelpCategory>('top')
+  const [category, setCategory] = useState<'top' | HelpCategory>('top')
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
   const [formSubject, setFormSubject] = useState('')
@@ -495,7 +495,7 @@ export default function HelpPage() {
   const visibleFaq = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     return FAQ.filter((item) => {
-      const inCategory = category === 'top' ? !!item.featured : category === 'all' || item.category === category
+      const inCategory = category === 'top' ? !!item.featured : item.category === category
       const inSearch = !normalized
         || item.q.toLowerCase().includes(normalized)
         || item.a.toLowerCase().includes(normalized)
@@ -550,24 +550,18 @@ export default function HelpPage() {
 
           {/* Category pills only (removed duplicate select) */}
           <div className="flex flex-wrap gap-2">
-            {([
-              { key: 'top', label: 'Najczęstsze' },
-              { key: 'all', label: 'Wszystkie' },
-            ] as const).map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setCategory(key)}
-                className="rounded-xl px-3 py-2 text-sm cursor-pointer"
-                style={{
-                  background: category === key ? 'rgba(255,92,27,0.15)' : 'var(--bg-elevated)',
-                  border: category === key ? '1px solid rgba(255,92,27,0.25)' : '1px solid var(--border)',
-                  color: category === key ? '#FF5C1B' : 'var(--text-muted)',
-                }}
-              >
-                {label}
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={() => setCategory('top')}
+              className="rounded-xl px-3 py-2 text-sm cursor-pointer"
+              style={{
+                background: category === 'top' ? 'rgba(255,92,27,0.15)' : 'var(--bg-elevated)',
+                border: category === 'top' ? '1px solid rgba(255,92,27,0.25)' : '1px solid var(--border)',
+                color: category === 'top' ? '#FF5C1B' : 'var(--text-muted)',
+              }}
+            >
+              Najczęstsze
+            </button>
             {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
               <button
                 key={key}
