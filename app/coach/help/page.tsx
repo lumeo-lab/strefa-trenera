@@ -25,6 +25,7 @@ type FaqItem = {
   a: string
   href?: string
   cta?: string
+  featured?: boolean
 }
 
 const CATEGORY_LABELS: Record<HelpCategory, string> = {
@@ -39,7 +40,7 @@ const CATEGORY_LABELS: Record<HelpCategory, string> = {
 }
 
 const QUICK_ACTIONS = [
-  { label: 'Dodaj zawodnika', href: '/coach/athletes', icon: '👤' },
+  { label: 'Zawodnicy', href: '/coach/athletes', icon: '👤' },
   { label: 'Otwórz planer', href: '/coach/planner', icon: '📅' },
   { label: 'Sprawdź feedback', href: '/coach/feedback', icon: '📝' },
   { label: 'Przejdź do faktur', href: '/coach/invoices', icon: '💳' },
@@ -50,6 +51,7 @@ const FAQ: FaqItem[] = [
   {
     id: 'start-first-steps',
     category: 'start',
+    featured: true,
     q: 'Od czego zacząć pracę w panelu?',
     a: '1. Dodaj pierwszego zawodnika w zakładce „Zawodnicy". 2. Skopiuj jego link zaproszenia i wyślij mu go (SMS, email, WhatsApp). 3. Dodaj mu pierwszy plan treningowy w planerze. 4. Zawodnik otworzy link, zobaczy swój plan i będzie mógł wysyłać feedback po treningach.',
     href: '/coach/athletes',
@@ -78,6 +80,7 @@ const FAQ: FaqItem[] = [
   {
     id: 'start-dashboard-customize',
     category: 'start',
+    featured: true,
     q: 'Jak dostosować dashboard do swoich potrzeb?',
     a: 'Kliknij „⚙️ Dostosuj widok" w prawym górnym rogu dashboardu. Możesz: włączać i wyłączać karty KPI (np. schować „Szacowany przychód"), włączać i wyłączać sekcje (np. „Nadchodzące zawody"), zmieniać kolejność kart i sekcji strzałkami ▲▼. Zmiany zapisują się automatycznie. Przycisk „Przywróć domyślne" resetuje wszystko do ustawień fabrycznych.',
     href: '/coach/dashboard',
@@ -100,6 +103,7 @@ const FAQ: FaqItem[] = [
   {
     id: 'invite-link',
     category: 'zawodnicy',
+    featured: true,
     q: 'Jak wysłać zawodnikowi link do jego panelu?',
     a: 'Wejdź w profil zawodnika — w nagłówku zobaczysz przycisk „Skopiuj link zaproszenia". Wyślij go zawodnikowi dowolnym kanałem (SMS, WhatsApp, email). Link jest stały — można go używać wielokrotnie i nie wygasa.',
     href: '/coach/athletes',
@@ -186,6 +190,7 @@ const FAQ: FaqItem[] = [
   {
     id: 'plan-add',
     category: 'plan',
+    featured: true,
     q: 'Jak dodać trening do planu?',
     a: 'Masz dwa sposoby: 1. Planer — wybierz zawodnika z listy, kliknij na dzień i dodaj sesję. 2. Profil zawodnika → zakładka „Plan" — tu też możesz dodawać sesje. Każda sesja ma: typ treningu, tytuł, dystans, czas, notatki.',
     href: '/coach/planner',
@@ -242,6 +247,7 @@ const FAQ: FaqItem[] = [
   {
     id: 'feedback-signals',
     category: 'feedback',
+    featured: true,
     q: 'Co oznaczają kolory sygnałów (zielony/żółty/czerwony)?',
     a: 'Kolor zależy od emoji samopoczucia: 🟢 zielony = 😊 lub 🤩 (dobrze/świetnie). 🟡 żółty = 😐 (średnio). 🔴 czerwony = 😕 lub 😫 (słabo/fatalnie). Filtr „Wymaga reakcji" pokazuje żółte i czerwone feedbacki, które są nieprzeczytane lub bez odpowiedzi trenera.',
   },
@@ -302,6 +308,7 @@ const FAQ: FaqItem[] = [
   {
     id: 'invoice-create',
     category: 'faktury',
+    featured: true,
     q: 'Jak wystawić fakturę?',
     a: 'Kliknij „+ Nowa faktura" na górze strony Faktur. Wybierz zawodnika — kwota wypełni się automatycznie z ceny jego pakietu (możesz ją zmienić). Podaj opis, termin płatności i opcjonalnie załącz plik PDF. Numer faktury generuje się automatycznie.',
     href: '/coach/invoices',
@@ -397,6 +404,7 @@ const FAQ: FaqItem[] = [
   {
     id: 'account-athlete-no-password',
     category: 'konto',
+    featured: true,
     q: 'Zawodnik mówi, że nie może się zalogować — co zrobić?',
     a: 'Zawodnicy nie mają hasła ani konta. Dostęp uzyskują wyłącznie przez link zaproszenia. Wyślij mu link ponownie z jego profilu. Jeśli link nie działa — sprawdź, czy zawodnik nie został zarchiwizowany.',
   },
@@ -407,7 +415,7 @@ const HELP_VOTES_KEY = 'coach-help-votes'
 export default function HelpPage() {
   const [open, setOpen] = useState<string | null>(FAQ[0]?.id ?? null)
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState<'all' | HelpCategory>('all')
+  const [category, setCategory] = useState<'top' | 'all' | HelpCategory>('top')
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
   const [formSubject, setFormSubject] = useState('')
@@ -487,7 +495,7 @@ export default function HelpPage() {
   const visibleFaq = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     return FAQ.filter((item) => {
-      const inCategory = category === 'all' || item.category === category
+      const inCategory = category === 'top' ? !!item.featured : category === 'all' || item.category === category
       const inSearch = !normalized
         || item.q.toLowerCase().includes(normalized)
         || item.a.toLowerCase().includes(normalized)
@@ -542,18 +550,24 @@ export default function HelpPage() {
 
           {/* Category pills only (removed duplicate select) */}
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setCategory('all')}
-              className="rounded-xl px-3 py-2 text-sm cursor-pointer"
-              style={{
-                background: category === 'all' ? 'rgba(255,92,27,0.15)' : 'var(--bg-elevated)',
-                border: category === 'all' ? '1px solid rgba(255,92,27,0.25)' : '1px solid var(--border)',
-                color: category === 'all' ? '#FF5C1B' : 'var(--text-muted)',
-              }}
-            >
-              Wszystkie
-            </button>
+            {([
+              { key: 'top', label: 'Najczęstsze' },
+              { key: 'all', label: 'Wszystkie' },
+            ] as const).map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setCategory(key)}
+                className="rounded-xl px-3 py-2 text-sm cursor-pointer"
+                style={{
+                  background: category === key ? 'rgba(255,92,27,0.15)' : 'var(--bg-elevated)',
+                  border: category === key ? '1px solid rgba(255,92,27,0.25)' : '1px solid var(--border)',
+                  color: category === key ? '#FF5C1B' : 'var(--text-muted)',
+                }}
+              >
+                {label}
+              </button>
+            ))}
             {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
               <button
                 key={key}
