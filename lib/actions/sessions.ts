@@ -6,6 +6,9 @@ import { revalidatePath } from 'next/cache'
 import { AUTH_ERROR } from '@/lib/constants'
 import { assertCoachOwnsAthlete } from '@/lib/auth-guards'
 import { createSessionSchema, updateSessionSchema, validateFormData } from '@/lib/schemas'
+import { getStatusUpdateForExecution } from '@/lib/session-status'
+import { adminClient } from '@/lib/supabase/admin'
+import { getAthleteFromSession } from '@/lib/athlete-auth'
 
 export async function createSession(_: unknown, formData: FormData) {
   const supabase = await createClient()
@@ -48,12 +51,16 @@ export async function createSession(_: unknown, formData: FormData) {
     planned_pace: plannedPace,
     url,
     url_label: urlLabel,
-    completed,
+    ...getStatusUpdateForExecution(completed ? 'completed' : 'planned', completed ? 'coach' : null),
     actual_distance: actualDistance,
     actual_duration: actualDuration,
     actual_pace: actualPace,
     avg_hr: avgHr,
     max_hr: maxHr,
+    actual_data_source:
+      actualDistance != null || actualDuration != null || actualPace || avgHr != null || maxHr != null
+        ? 'coach'
+        : null,
   }).select('id').single()
 
   if (error) return { error: error.message }
@@ -71,9 +78,33 @@ export async function updateSession(_: unknown, formData: FormData) {
   if ('error' in parsed) return parsed
   const { id, athlete_id: athleteId, ...updates } = parsed.data
 
+  const nextUpdates: Record<string, unknown> = { ...updates }
+  if ('completed' in updates && typeof updates.completed === 'boolean') {
+    Object.assign(
+      nextUpdates,
+      getStatusUpdateForExecution(updates.completed ? 'completed' : 'planned', updates.completed ? 'coach' : null)
+    )
+  }
+  if (
+    'actual_distance' in updates
+    || 'actual_duration' in updates
+    || 'actual_pace' in updates
+    || 'avg_hr' in updates
+    || 'max_hr' in updates
+  ) {
+    nextUpdates.actual_data_source =
+      updates.actual_distance != null
+      || updates.actual_duration != null
+      || !!updates.actual_pace
+      || updates.avg_hr != null
+      || updates.max_hr != null
+        ? 'coach'
+        : null
+  }
+
   const { error } = await supabase
     .from('training_sessions')
-    .update(updates)
+    .update(nextUpdates)
     .eq('id', id)
     .eq('coach_id', user.id)
 
@@ -93,7 +124,7 @@ export async function markSessionCompleted(id: string, athleteId: string) {
 
   const { error } = await supabase
     .from('training_sessions')
-    .update({ completed: true })
+    .update(getStatusUpdateForExecution('completed', 'coach'))
     .eq('id', id)
     .eq('coach_id', user.id)
 
@@ -120,6 +151,45 @@ export async function deleteSession(id: string, athleteId: string) {
   if (error) return { error: error.message }
 
   revalidatePath(`/coach/athletes/${athleteId}`)
+  return { success: true }
+}
+
+export async function markSessionCompletedByAthlete(slug: string, sessionId: string) {
+  const athlete = await getAthleteFromSession(slug)
+  if (!athlete) return { error: AUTH_ERROR }
+
+  const { error } = await adminClient
+    .from('training_sessions')
+    .update(getStatusUpdateForExecution('completed', 'athlete'))
+    .eq('id', sessionId)
+    .eq('athlete_id', athlete.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/u/${slug}`)
+  revalidatePath(`/coach/athletes/${athlete.id}`)
+  revalidatePath('/coach/planner')
+  return { success: true }
+}
+
+export async function markSessionSkippedByAthlete(slug: string, sessionId: string, skippedReason?: string) {
+  const athlete = await getAthleteFromSession(slug)
+  if (!athlete) return { error: AUTH_ERROR }
+
+  const { error } = await adminClient
+    .from('training_sessions')
+    .update({
+      ...getStatusUpdateForExecution('skipped', 'athlete', null),
+      skipped_reason: skippedReason?.trim() ? skippedReason.trim().slice(0, 500) : null,
+    })
+    .eq('id', sessionId)
+    .eq('athlete_id', athlete.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/u/${slug}`)
+  revalidatePath(`/coach/athletes/${athlete.id}`)
+  revalidatePath('/coach/planner')
   return { success: true }
 }
 
@@ -165,7 +235,7 @@ export async function duplicateWeekSessions(athleteId: string, from: string, to:
     planned_pace: session.planned_pace,
     url: session.url,
     url_label: session.url_label,
-    completed: false,
+    ...getStatusUpdateForExecution('planned', null, null),
   }))
 
   const { data: insertedRows, error: insertError } = await supabase
@@ -299,7 +369,7 @@ export async function applyWeekTemplate(athleteId: string, templateId: string, w
     planned_pace: item.planned_pace,
     url: item.url,
     url_label: item.url_label,
-    completed: false,
+    ...getStatusUpdateForExecution('planned', null, null),
   }))
 
   const { error: insertError } = await supabase.from('training_sessions').insert(rows)

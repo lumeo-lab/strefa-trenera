@@ -139,7 +139,7 @@ export function NotificationBell() {
                       <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                         {n.athlete_name}
                       </span>
-                      <span className="text-xs shrink-0">{n.source === 'voice' ? '🎤' : '📝'}</span>
+                      <span className="text-xs shrink-0">{n.source === 'voice' ? '🎤' : n.source === 'both' ? '📝🎤' : '📝'}</span>
                     </div>
                     {n.transcript && (
                       <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>

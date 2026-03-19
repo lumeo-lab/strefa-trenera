@@ -1,9 +1,12 @@
 import { adminClient } from '@/lib/supabase/admin'
 import type { Database } from '@/lib/supabase/database.types'
-import type { SessionType } from '@/lib/types'
+import type { SessionActualDataSource, SessionCompletionSource, SessionExecutionStatus, SessionType } from '@/lib/types'
 
-export type AthleteTrainingSessionRow = Omit<Database['public']['Tables']['training_sessions']['Row'], 'type'> & {
+export type AthleteTrainingSessionRow = Omit<Database['public']['Tables']['training_sessions']['Row'], 'type' | 'status' | 'completion_source' | 'actual_data_source'> & {
   type: SessionType
+  status: SessionExecutionStatus
+  completion_source: SessionCompletionSource | null
+  actual_data_source: SessionActualDataSource | null
   url: string | null
   url_label: string | null
 }
@@ -44,7 +47,13 @@ export async function getAthleteHistoryData(athleteId: string): Promise<{
   stravaActivities: AthleteStravaActivityRow[]
 }> {
   const [{ data: sessions }, { data: stravaConn }, { data: stravaActivities }] = await Promise.all([
-    adminClient.from('training_sessions').select('*').eq('athlete_id', athleteId).eq('completed', true).order('date', { ascending: false }).limit(50),
+    adminClient
+      .from('training_sessions')
+      .select('*')
+      .eq('athlete_id', athleteId)
+      .in('status', ['completed', 'skipped', 'detected'])
+      .order('date', { ascending: false })
+      .limit(50),
     adminClient.from('strava_connections').select('connected_at').eq('athlete_id', athleteId).single(),
     adminClient.from('strava_activities').select('*').eq('athlete_id', athleteId).order('start_date', { ascending: false }).limit(50),
   ])

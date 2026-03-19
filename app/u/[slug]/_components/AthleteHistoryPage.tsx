@@ -37,23 +37,26 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [tab, setTab] = useState<'plan' | 'strava'>('plan')
   const [syncing, setSyncing] = useState(false)
-  const [syncError, setSyncError] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
   const [, startTransition] = useTransition()
   const router = useRouter()
 
   async function handleSync() {
     setSyncing(true)
-    setSyncError(false)
+    setSyncError(null)
     try {
       const res = await fetch('/api/strava/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slug: athlete.slug }),
       })
-      if (!res.ok) throw new Error('sync failed')
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null) as { error?: string } | null
+        throw new Error(payload?.error || 'sync failed')
+      }
       startTransition(() => router.refresh())
-    } catch {
-      setSyncError(true)
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : 'Nie udało się zsynchronizować aktywności.')
     } finally {
       setSyncing(false)
     }
@@ -131,7 +134,7 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
 
         {syncError && (
           <div className="px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }}>
-            Nie udało się zsynchronizować aktywności. Spróbuj ponownie.
+            {syncError}
           </div>
         )}
 

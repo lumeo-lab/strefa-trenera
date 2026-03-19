@@ -15,16 +15,15 @@ const FEELINGS = [
   { emoji: '😊', label: 'Dobrze' },
   { emoji: '🤩', label: 'Świetnie' },
 ]
-const INTENSITIES = ['Bardzo lekki', 'Lekki', 'Umiarkowany', 'Ciężki', 'Bardzo ciężki', 'Maksymalny']
-const TRAINING_TYPES = ['Easy / Rozbieganie', 'Interwały', 'Tempo', 'Long Run', 'Siłownia', 'Crosstraining', 'Inny']
 import { INPUT_STYLE } from '@/lib/styles'
 
 export interface FeedbackData {
   feeling?: string
-  trainingType?: string
+  rpe?: string
+  painFlag?: boolean
+  painNote?: string
   distanceKm?: string
   durationMin?: string
-  intensity?: string
   notes?: string
   voiceTranscript?: string
   watchLink?: string
@@ -33,13 +32,14 @@ export interface FeedbackData {
 export function dbRowToFeedback(fb: AthleteFeedbackRow): FeedbackData {
   const parsed = parseFeedbackTranscript(fb.transcript ?? '')
   return {
-    feeling: parsed.feeling || undefined,
-    trainingType: parsed.trainingType || undefined,
+    feeling: fb.feeling || parsed.feeling || undefined,
+    rpe: fb.rpe ? String(fb.rpe) : (parsed.rpe ? parsed.rpe.replace('/10', '') : undefined),
+    painFlag: fb.pain_flag || !!parsed.pain,
+    painNote: fb.pain_note || (parsed.pain && parsed.pain !== 'Tak' ? parsed.pain : undefined),
     distanceKm: parsed.distance ? parsed.distance.replace(' km', '') : undefined,
     durationMin: parsed.duration ? parsed.duration.replace(' min', '') : undefined,
-    intensity: parsed.intensity || undefined,
-    notes: parsed.notes || undefined,
-    voiceTranscript: parsed.voice || undefined,
+    notes: fb.notes_structured || parsed.notes || undefined,
+    voiceTranscript: fb.voice_transcript || parsed.voice || undefined,
     watchLink: fb.watch_link || undefined,
   }
 }
@@ -65,10 +65,11 @@ export function FeedbackModal({
   const [saveError, setSaveError] = useState<string | null>(null)
 
   const [feeling, setFeeling] = useState(initialData?.feeling ?? '')
-  const [trainingType, setTrainingType] = useState(initialData?.trainingType ?? '')
+  const [rpe, setRpe] = useState(initialData?.rpe ?? '')
+  const [painFlag, setPainFlag] = useState(initialData?.painFlag ?? false)
+  const [painNote, setPainNote] = useState(initialData?.painNote ?? '')
   const [distanceKm, setDistanceKm] = useState(initialData?.distanceKm ?? '')
   const [durationMin, setDurationMin] = useState(initialData?.durationMin ?? '')
-  const [intensity, setIntensity] = useState(initialData?.intensity ?? '')
   const [notes, setNotes] = useState(initialData?.notes ?? '')
   const [watchLink, setWatchLink] = useState(initialData?.watchLink ?? '')
   const [voiceTranscript, setVoiceTranscript] = useState(initialData?.voiceTranscript ?? '')
@@ -88,19 +89,21 @@ export function FeedbackModal({
 
       if (feedbackType === 'text') {
         fd.set('feeling', feeling)
-        fd.set('training_type', trainingType)
+        fd.set('rpe', rpe)
+        fd.set('pain_flag', painFlag ? 'true' : 'false')
+        fd.set('pain_note', painFlag ? painNote : '')
         fd.set('distance_km', distanceKm)
         fd.set('duration_min', durationMin)
-        fd.set('intensity', intensity)
         fd.set('notes', notes)
         fd.set('watch_link', watchLink)
         fd.set('voice_transcript', '')
       } else {
         fd.set('feeling', '')
-        fd.set('training_type', '')
+        fd.set('rpe', '')
+        fd.set('pain_flag', 'false')
+        fd.set('pain_note', '')
         fd.set('distance_km', '')
         fd.set('duration_min', '')
-        fd.set('intensity', '')
         fd.set('notes', '')
         fd.set('watch_link', '')
         fd.set('voice_transcript', voiceTranscript)
@@ -118,7 +121,7 @@ export function FeedbackModal({
       if (result && 'error' in result) { setSaveError(result.error ?? 'Nie udało się zapisać feedbacku.'); return }
 
       if (feedbackType === 'text') {
-        onSubmitted({ feeling, trainingType, distanceKm, durationMin, intensity, notes, watchLink: watchLink || undefined }, 'text')
+        onSubmitted({ feeling, rpe, painFlag, painNote, distanceKm, durationMin, notes, watchLink: watchLink || undefined }, 'text')
       } else {
         onSubmitted({ voiceTranscript: voiceTranscript || undefined }, 'voice')
       }
@@ -127,7 +130,7 @@ export function FeedbackModal({
     }
   }
 
-  const canSaveText = !!(feeling || trainingType || distanceKm || durationMin || intensity || notes.trim() || watchLink.trim())
+  const canSaveText = !!(feeling || rpe || painFlag || distanceKm || durationMin || notes.trim() || watchLink.trim())
   const canSaveVoice = !!(voiceTranscript.trim())
 
   const modalFooter = (
@@ -151,6 +154,9 @@ export function FeedbackModal({
       <div className="space-y-4">
         {feedbackType === 'text' && (
           <>
+            <p className="text-xs leading-5" style={{ color: 'var(--text-muted)' }}>
+              Ten feedback opisuje trening, który został już oznaczony jako wykonany.
+            </p>
             {/* Feeling */}
             <div>
               <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Samopoczucie</label>
@@ -170,14 +176,25 @@ export function FeedbackModal({
               </div>
             </div>
 
-            {/* Training type */}
+            {/* RPE */}
             <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Rodzaj treningu</label>
-              <select value={trainingType} onChange={e => setTrainingType(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl text-sm cursor-pointer" style={INPUT_STYLE}>
-                <option value="">— wybierz —</option>
-                {TRAINING_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Odczuwana trudność (RPE)</label>
+              <div className="grid grid-cols-5 gap-2">
+                {Array.from({ length: 10 }, (_, index) => String(index + 1)).map(value => (
+                  <button
+                    key={value}
+                    onClick={() => setRpe(rpe === value ? '' : value)}
+                    className="py-2 rounded-xl text-sm font-semibold cursor-pointer transition-all"
+                    style={{
+                      background: rpe === value ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                      border: rpe === value ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
+                      color: rpe === value ? '#FF5C1B' : 'var(--text-muted)',
+                    }}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Distance + duration */}
@@ -196,20 +213,29 @@ export function FeedbackModal({
               </div>
             </div>
 
-            {/* Intensity */}
+            {/* Pain / issue */}
             <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Jak ciężki był trening?</label>
-              <div className="grid grid-cols-3 gap-2">
-                {INTENSITIES.map(lvl => (
-                  <button key={lvl} onClick={() => setIntensity(intensity === lvl ? '' : lvl)}
-                    className="py-2 px-1 rounded-xl text-xs font-medium cursor-pointer transition-all text-center"
+              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Czy pojawił się ból albo problem?</label>
+              <div className="flex gap-2">
+                {[
+                  { value: false, label: 'Nie' },
+                  { value: true, label: 'Tak' },
+                ].map(option => (
+                  <button key={option.label} onClick={() => setPainFlag(option.value)}
+                    className="flex-1 py-2 px-3 rounded-xl text-sm font-medium cursor-pointer transition-all text-center"
                     style={{
-                      background: intensity === lvl ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                      border: intensity === lvl ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
-                      color: intensity === lvl ? '#FF5C1B' : 'var(--text-muted)',
-                    }}>{lvl}</button>
+                      background: painFlag === option.value ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                      border: painFlag === option.value ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
+                      color: painFlag === option.value ? '#FF5C1B' : 'var(--text-muted)',
+                    }}>{option.label}</button>
                 ))}
               </div>
+              {painFlag && (
+                <textarea value={painNote} onChange={e => setPainNote(e.target.value)}
+                  placeholder="Krótko opisz problem"
+                  rows={2}
+                  className="w-full mt-2 px-3 py-2.5 rounded-xl text-sm resize-none" style={INPUT_STYLE} />
+              )}
             </div>
 
             {/* Notes */}

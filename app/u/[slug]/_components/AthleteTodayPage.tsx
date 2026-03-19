@@ -9,6 +9,8 @@ import { PWAInstallBanner } from '@/components/ui/PWAInstallBanner'
 import type { AthleteFeedbackByDay, AthleteTrainingSessionRow } from '@/lib/athlete-data'
 import { dbRowToFeedback, FeedbackData, FeedbackModal } from './FeedbackModal'
 import { FEELING_LABELS } from '@/lib/constants'
+import { getSessionExecutionLabel, getSessionExecutionStatus, getSessionExecutionTone, isSessionCompleted, isSessionSkipped } from '@/lib/session-status'
+import { markSessionCompletedByAthlete, markSessionSkippedByAthlete } from '@/lib/actions/sessions'
 
 interface Props {
   athlete: AthleteSession
@@ -39,7 +41,7 @@ function fullDate(dateStr: string): string {
 const FEELING_LABEL = FEELING_LABELS
 
 function TextFeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit: () => void }) {
-  const hasText = !!(feedback.feeling || feedback.trainingType || feedback.distanceKm || feedback.durationMin || feedback.intensity || feedback.notes)
+  const hasText = !!(feedback.feeling || feedback.rpe || feedback.painFlag || feedback.distanceKm || feedback.durationMin || feedback.notes)
   return (
     <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
       <div className="flex items-center justify-between mb-3">
@@ -49,17 +51,21 @@ function TextFeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdit
       </div>
       {hasText && (
         <div className="space-y-2">
-          {(feedback.feeling || feedback.intensity) && (
+          {(feedback.feeling || feedback.rpe) && (
             <div className="flex flex-wrap items-center gap-2">
               {feedback.feeling && <span className="text-sm font-medium">{feedback.feeling} {FEELING_LABEL[feedback.feeling]}</span>}
-              {feedback.intensity && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>{feedback.intensity}</span>}
+              {feedback.rpe && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>RPE {feedback.rpe}/10</span>}
             </div>
           )}
-          {(feedback.trainingType || feedback.distanceKm || feedback.durationMin) && (
+          {(feedback.distanceKm || feedback.durationMin) && (
             <div className="flex flex-wrap gap-3 text-sm" style={{ color: 'var(--text-muted)' }}>
-              {feedback.trainingType && <span>🏃 {feedback.trainingType}</span>}
               {feedback.distanceKm && <span>📏 {feedback.distanceKm} km</span>}
               {feedback.durationMin && <span>⏱️ {feedback.durationMin} min</span>}
+            </div>
+          )}
+          {feedback.painFlag && (
+            <div className="text-sm" style={{ color: '#f59e0b' }}>
+              ⚠️ {feedback.painNote ? `Ból/problem: ${feedback.painNote}` : 'Zgłoszono ból lub problem'}
             </div>
           )}
           {feedback.notes && <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>&ldquo;{feedback.notes}&rdquo;</p>}
@@ -100,6 +106,9 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
   const [feedbackType, setFeedbackType] = useState<'text' | 'voice'>('text')
   const [modalKey, setModalKey] = useState(0)
   const [modalInitialData, setModalInitialData] = useState<FeedbackData | null>(null)
+  const [statusSubmitting, setStatusSubmitting] = useState<'completed' | 'skipped' | null>(null)
+  const [optimisticSessionStatus, setOptimisticSessionStatus] = useState<'planned' | 'completed' | 'skipped' | 'detected' | null>(null)
+  const [statusError, setStatusError] = useState<string | null>(null)
 
   const daySession = sessions.find(s => s.date === selectedDate)
   const dayFeedbacks = feedbacks[selectedDate] ?? { text: null, voice: null }
@@ -110,10 +119,14 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
   const isPastOrToday = selectedDate <= today
   const weekDays = getWeekDays(0)
   const coachReply = textFeedback?.coach_reply || voiceFeedback?.coach_reply || null
+  const sessionStatus = daySession ? (optimisticSessionStatus ?? getSessionExecutionStatus(daySession)) : null
+  const sessionTone = daySession ? getSessionExecutionTone({ ...daySession, status: sessionStatus ?? undefined }) : 'muted'
 
   function resetDayState() {
     setOptimisticTextFeedback(null)
     setOptimisticVoiceFeedback(null)
+    setOptimisticSessionStatus(null)
+    setStatusError(null)
   }
 
   function navigate(delta: number) {
@@ -147,6 +160,35 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
       setOptimisticVoiceFeedback(feedbackData)
     }
     setFeedbackOpen(false)
+    startTransition(() => router.refresh())
+  }
+
+  async function handleMarkCompleted() {
+    if (!daySession || statusSubmitting) return
+    setStatusSubmitting('completed')
+    setStatusError(null)
+    const result = await markSessionCompletedByAthlete(athlete.slug, daySession.id)
+    setStatusSubmitting(null)
+    if (result && 'error' in result) {
+      setStatusError(result.error ?? 'Nie udało się oznaczyć treningu jako wykonanego.')
+      return
+    }
+    setOptimisticSessionStatus('completed')
+    openModal('text', !!textFeedback)
+    startTransition(() => router.refresh())
+  }
+
+  async function handleMarkSkipped() {
+    if (!daySession || statusSubmitting) return
+    setStatusSubmitting('skipped')
+    setStatusError(null)
+    const result = await markSessionSkippedByAthlete(athlete.slug, daySession.id)
+    setStatusSubmitting(null)
+    if (result && 'error' in result) {
+      setStatusError(result.error ?? 'Nie udało się oznaczyć treningu jako pominiętego.')
+      return
+    }
+    setOptimisticSessionStatus('skipped')
     startTransition(() => router.refresh())
   }
 
@@ -196,15 +238,44 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
                 {daySession.planned_duration && <span>⏱️ {daySession.planned_duration} min</span>}
                 {daySession.planned_pace && <span>⚡ {daySession.planned_pace}/km</span>}
               </div>
-              {daySession.completed && (
+              {daySession && (
                 <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }}>
-                  <div className="text-xs font-semibold mb-2 opacity-60">✓ Wyniki</div>
-                  <div className="flex flex-wrap gap-4 text-sm font-medium">
-                    {daySession.actual_distance && <span>📏 {daySession.actual_distance} km</span>}
-                    {daySession.actual_duration && <span>⏱️ {daySession.actual_duration} min</span>}
-                    {daySession.actual_pace && <span>⚡ {daySession.actual_pace}/km</span>}
-                    {daySession.avg_hr && <span>❤️ {daySession.avg_hr} bpm</span>}
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="text-xs font-semibold opacity-70">
+                      {sessionStatus ? `${getSessionExecutionLabel({ ...daySession, status: sessionStatus })}` : 'Zaplanowany'}
+                    </div>
+                    <div
+                      className="text-xs px-2 py-1 rounded-full"
+                      style={{
+                        background:
+                          sessionTone === 'success'
+                            ? 'rgba(46,204,113,0.15)'
+                            : sessionTone === 'warning'
+                              ? 'rgba(245,158,11,0.15)'
+                              : sessionTone === 'info'
+                                ? 'rgba(59,130,246,0.15)'
+                                : 'rgba(255,255,255,0.08)',
+                        color:
+                          sessionTone === 'success'
+                            ? '#2ECC71'
+                            : sessionTone === 'warning'
+                              ? '#f59e0b'
+                              : sessionTone === 'info'
+                                ? '#60a5fa'
+                                : 'rgba(255,255,255,0.75)',
+                      }}
+                    >
+                      {sessionStatus ?? 'planned'}
+                    </div>
                   </div>
+                  {sessionStatus === 'completed' && (
+                    <div className="mt-3 flex flex-wrap gap-4 text-sm font-medium">
+                      {daySession.actual_distance && <span>📏 {daySession.actual_distance} km</span>}
+                      {daySession.actual_duration && <span>⏱️ {daySession.actual_duration} min</span>}
+                      {daySession.actual_pace && <span>⚡ {daySession.actual_pace}/km</span>}
+                      {daySession.avg_hr && <span>❤️ {daySession.avg_hr} bpm</span>}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -218,27 +289,87 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today }: Props)
 
           {isPastOrToday && (
             <div className="space-y-2">
+              {daySession && sessionStatus === 'planned' && (
+                <div className="space-y-2">
+                  <button
+                    onClick={handleMarkCompleted}
+                    disabled={statusSubmitting !== null}
+                    className="w-full py-3.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95 disabled:opacity-60"
+                    style={{ background: '#FF5C1B', color: '#fff', border: '1px solid rgba(255,92,27,0.6)' }}
+                  >
+                    {statusSubmitting === 'completed' ? 'Zapisywanie...' : '✓ Wykonałem trening'}
+                  </button>
+                  <button
+                    onClick={handleMarkSkipped}
+                    disabled={statusSubmitting !== null}
+                    className="w-full py-3.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95 disabled:opacity-60"
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+                  >
+                    {statusSubmitting === 'skipped' ? 'Zapisywanie...' : '— Nie zrobiłem'}
+                  </button>
+                  {statusError && (
+                    <div className="text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
+                      {statusError}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {daySession && sessionStatus === 'skipped' && (
+                <div className="p-4 rounded-2xl" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                  <div className="text-sm font-semibold mb-1" style={{ color: '#f59e0b' }}>Trening oznaczony jako pominięty</div>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    Jeśli jednak go wykonałeś, możesz zmienić status i dodać feedback.
+                  </div>
+                  <button
+                    onClick={handleMarkCompleted}
+                    disabled={statusSubmitting !== null}
+                    className="mt-3 w-full py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all active:scale-95 disabled:opacity-60"
+                    style={{ background: '#FF5C1B', color: '#fff', border: '1px solid rgba(255,92,27,0.6)' }}
+                  >
+                    {statusSubmitting === 'completed' ? 'Zapisywanie...' : 'Zmień na wykonany'}
+                  </button>
+                </div>
+              )}
+
+              {daySession && sessionStatus === 'detected' && (
+                <div className="p-4 rounded-2xl" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                  <div className="text-sm font-semibold mb-1" style={{ color: '#60a5fa' }}>Wykryliśmy aktywność</div>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    Potwierdź wykonanie treningu, żeby dodać feedback i zsynchronizować historię.
+                  </div>
+                  <button
+                    onClick={handleMarkCompleted}
+                    disabled={statusSubmitting !== null}
+                    className="mt-3 w-full py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all active:scale-95 disabled:opacity-60"
+                    style={{ background: '#FF5C1B', color: '#fff', border: '1px solid rgba(255,92,27,0.6)' }}
+                  >
+                    {statusSubmitting === 'completed' ? 'Zapisywanie...' : 'Potwierdź wykonanie'}
+                  </button>
+                </div>
+              )}
+
               {/* Text feedback */}
-              {activeTextFeedback ? (
+              {daySession && sessionStatus === 'completed' && activeTextFeedback ? (
                 <TextFeedbackCard feedback={activeTextFeedback} onEdit={() => openModal('text', true)} />
-              ) : (
+              ) : daySession && sessionStatus === 'completed' ? (
                 <button onClick={() => openModal('text', false)}
                   className="w-full py-3.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95"
                   style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: '#FF5C1B' }}>
                   📝 Dodaj feedback po treningu
                 </button>
-              )}
+              ) : null}
 
               {/* Voice feedback */}
-              {activeVoiceFeedback ? (
+              {daySession && sessionStatus === 'completed' && activeVoiceFeedback ? (
                 <VoiceFeedbackCard feedback={activeVoiceFeedback} onEdit={() => openModal('voice', true)} />
-              ) : (
+              ) : daySession && sessionStatus === 'completed' ? (
                 <button onClick={() => openModal('voice', false)}
                   className="w-full py-3.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95"
                   style={{ background: 'var(--bg-card)', border: '1px dashed var(--border)', color: 'var(--text-muted)' }}>
                   🎤 Nagraj komentarz głosowy
                 </button>
-              )}
+              ) : null}
 
               {/* Coach reply */}
               {coachReply && (

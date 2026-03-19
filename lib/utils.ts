@@ -162,6 +162,8 @@ export function sesjaLabel(n: number): string {
 
 export interface ParsedFeedback {
   feeling: string
+  rpe: string
+  pain: string
   trainingType: string
   distance: string
   duration: string
@@ -171,9 +173,11 @@ export interface ParsedFeedback {
 }
 
 export function parseFeedbackTranscript(transcript: string): ParsedFeedback {
-  const result: ParsedFeedback = { feeling: '', trainingType: '', distance: '', duration: '', intensity: '', notes: '', voice: '' }
+  const result: ParsedFeedback = { feeling: '', rpe: '', pain: '', trainingType: '', distance: '', duration: '', intensity: '', notes: '', voice: '' }
   for (const part of (transcript ?? '').split(' | ')) {
     if (part.startsWith('Samopoczucie: ')) result.feeling = part.slice(14)
+    else if (part.startsWith('RPE: ')) result.rpe = part.slice(5)
+    else if (part.startsWith('Ból/problem: ')) result.pain = part.slice(13)
     else if (part.startsWith('Typ: ')) result.trainingType = part.slice(5)
     else if (part.startsWith('Dystans: ')) result.distance = part.slice(9)
     else if (part.startsWith('Czas: ')) result.duration = part.slice(6)
@@ -185,7 +189,7 @@ export function parseFeedbackTranscript(transcript: string): ParsedFeedback {
 }
 
 export function hasParsedContent(p: ParsedFeedback): boolean {
-  return !!(p.feeling || p.trainingType || p.distance || p.duration || p.intensity || p.notes)
+  return !!(p.feeling || p.rpe || p.pain || p.trainingType || p.distance || p.duration || p.intensity || p.notes)
 }
 
 export function getInitials(name: string): string {

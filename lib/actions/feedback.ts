@@ -11,20 +11,24 @@ import { createFeedbackSchema, replyFeedbackSchema, updateFeedbackSchema, valida
 const VALID_FEELINGS = ['😫', '😕', '😐', '😊', '🤩', '']
 const MAX_NOTES_LENGTH = 2000
 const MAX_TRANSCRIPT_LENGTH = 5000
+const MAX_PAIN_NOTE_LENGTH = 500
+const VALID_RPE = new Set(Array.from({ length: 10 }, (_, index) => String(index + 1)))
 
 function buildFeedbackFields(formData: FormData) {
   const feeling = formData.get('feeling') as string || ''
-  const trainingType = formData.get('training_type') as string || ''
   const distanceKm = formData.get('distance_km') as string || ''
   const durationMin = formData.get('duration_min') as string || ''
-  const intensity = formData.get('intensity') as string || ''
+  const rpeRaw = (formData.get('rpe') as string || '').trim()
+  const rpe = VALID_RPE.has(rpeRaw) ? parseInt(rpeRaw, 10) : null
+  const painFlag = (formData.get('pain_flag') as string || '') === 'true'
+  const painNote = (formData.get('pain_note') as string || '').slice(0, MAX_PAIN_NOTE_LENGTH).trim()
   const notes = (formData.get('notes') as string || '').slice(0, MAX_NOTES_LENGTH)
   const voiceTranscript = (formData.get('voice_transcript') as string || '').slice(0, MAX_TRANSCRIPT_LENGTH)
 
   // Validate feeling emoji
   const validFeeling = VALID_FEELINGS.includes(feeling) ? feeling : ''
 
-  const hasText = !!(feeling || trainingType || distanceKm || durationMin || intensity || notes.trim())
+  const hasText = !!(feeling || distanceKm || durationMin || rpe || painFlag || notes.trim() || painNote)
   const hasVoice = !!voiceTranscript.trim()
   const source = hasText && hasVoice ? 'both' : hasVoice ? 'voice' : 'text'
 
@@ -36,10 +40,10 @@ function buildFeedbackFields(formData: FormData) {
   // Build transcript: structured text parts + optional voice note at the end
   const parts: string[] = []
   if (validFeeling) parts.push(`Samopoczucie: ${validFeeling}`)
-  if (trainingType) parts.push(`Typ: ${trainingType}`)
+  if (rpe) parts.push(`RPE: ${rpe}/10`)
   if (distanceKm) parts.push(`Dystans: ${distanceKm} km`)
   if (durationMin) parts.push(`Czas: ${durationMin} min`)
-  if (intensity) parts.push(`Intensywność: ${intensity}`)
+  if (painFlag) parts.push(`Ból/problem: ${painNote || 'Tak'}`)
   if (notes) parts.push(`Notatka: ${notes}`)
   if (voiceTranscript) parts.push(`Głos: ${voiceTranscript}`)
   const transcript = parts.join(' | ')
@@ -55,7 +59,22 @@ function buildFeedbackFields(formData: FormData) {
     }
   }
 
-  return { source, signal, transcript, ai_analysis: '', ai_summary: '', watch_link: watchLink }
+  return {
+    source,
+    signal,
+    transcript,
+    feeling: validFeeling || null,
+    rpe,
+    pain_flag: painFlag,
+    pain_note: painFlag ? (painNote || null) : null,
+    notes_structured: notes || null,
+    voice_transcript: voiceTranscript || null,
+    actual_distance: distanceKm ? parseFloat(distanceKm) || null : null,
+    actual_duration: durationMin ? parseInt(durationMin, 10) || null : null,
+    ai_analysis: '',
+    ai_summary: '',
+    watch_link: watchLink,
+  }
 }
 
 export async function createFeedback(formData: FormData) {
@@ -89,11 +108,10 @@ export async function createFeedback(formData: FormData) {
 
   if (error) return { error: error.message }
 
-  // Auto-mark linked session as completed + copy actual metrics from feedback
-  // Only populate actual_distance/duration if coach hasn't already set them manually
+  // Feedback updates actual metrics on the linked session, but no longer defines execution status.
   if (sessionId) {
     const { data: session } = await adminClient.from('training_sessions')
-      .select('completed, actual_distance, actual_duration')
+      .select('actual_distance, actual_duration')
       .eq('id', sessionId)
       .eq('athlete_id', athlete.id)
       .single()
@@ -101,14 +119,16 @@ export async function createFeedback(formData: FormData) {
     if (session) {
       const distanceKm = formData.get('distance_km') as string || ''
       const durationMin = formData.get('duration_min') as string || ''
-      const sessionUpdate: Record<string, unknown> = { completed: true }
-      // Only fill actual metrics if coach hasn't set them manually
+      const sessionUpdate: Record<string, unknown> = {}
       if (!session.actual_distance && distanceKm) sessionUpdate.actual_distance = parseFloat(distanceKm) || null
       if (!session.actual_duration && durationMin) sessionUpdate.actual_duration = parseInt(durationMin, 10) || null
-      await adminClient.from('training_sessions')
-        .update(sessionUpdate)
-        .eq('id', sessionId)
-        .eq('athlete_id', athlete.id)
+      if (Object.keys(sessionUpdate).length > 0) sessionUpdate.actual_data_source = 'athlete'
+      if (Object.keys(sessionUpdate).length > 0) {
+        await adminClient.from('training_sessions')
+          .update(sessionUpdate)
+          .eq('id', sessionId)
+          .eq('athlete_id', athlete.id)
+      }
     }
   }
 

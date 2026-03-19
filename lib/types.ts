@@ -1,8 +1,12 @@
 export type SessionType = 'easy' | 'interval' | 'tempo' | 'long' | 'rest' | 'gym' | 'bike'
-export type FeedbackSource = 'voice' | 'text' | 'auto'
+export type FeedbackSource = 'voice' | 'text' | 'both' | 'auto'
 export type FeedbackSignal = 'green' | 'yellow' | 'red'
 export type InvoiceStatus = 'pending' | 'paid' | 'overdue' | 'cancelled'
 export type AthleteStatus = 'ok' | 'warning' | 'alert' | 'inactive'
+export type SessionExecutionStatus = 'planned' | 'completed' | 'skipped' | 'detected'
+export type SessionCompletionSource = 'athlete' | 'coach' | 'strava' | 'imported'
+export type SessionActualDataSource = 'athlete' | 'coach' | 'strava' | 'imported'
+export type SessionComplianceState = 'completed' | 'skipped' | 'detected' | 'past_unresolved' | 'upcoming'
 
 export interface Athlete {
   id: string
@@ -42,6 +46,12 @@ export interface Session {
   avgHR?: number
   maxHR?: number
   completed: boolean
+  status?: SessionExecutionStatus
+  completionSource?: SessionCompletionSource | null
+  actualDataSource?: SessionActualDataSource | null
+  completedAt?: string | null
+  linkedStravaActivityId?: number | null
+  skippedReason?: string | null
   feedbackId?: string
 }
 

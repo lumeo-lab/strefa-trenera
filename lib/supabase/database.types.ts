@@ -198,6 +198,12 @@ export type Database = {
           avg_hr: number | null
           max_hr: number | null
           completed: boolean
+          status: string
+          completion_source: string | null
+          actual_data_source: string | null
+          completed_at: string | null
+          linked_strava_activity_id: number | null
+          skipped_reason: string | null
           created_at: string
         }
         Insert: {
@@ -217,6 +223,12 @@ export type Database = {
           avg_hr?: number | null
           max_hr?: number | null
           completed?: boolean
+          status?: string
+          completion_source?: string | null
+          actual_data_source?: string | null
+          completed_at?: string | null
+          linked_strava_activity_id?: number | null
+          skipped_reason?: string | null
         }
         Update: Partial<Database['public']['Tables']['training_sessions']['Insert']>
       }
@@ -230,6 +242,14 @@ export type Database = {
           source: string
           signal: string
           transcript: string
+          feeling: string | null
+          rpe: number | null
+          pain_flag: boolean
+          pain_note: string | null
+          notes_structured: string | null
+          voice_transcript: string | null
+          actual_distance: number | null
+          actual_duration: number | null
           ai_summary: string
           ai_analysis: string
           watch_data: Record<string, unknown> | null
@@ -247,6 +267,14 @@ export type Database = {
           source?: string
           signal?: string
           transcript?: string
+          feeling?: string | null
+          rpe?: number | null
+          pain_flag?: boolean
+          pain_note?: string | null
+          notes_structured?: string | null
+          voice_transcript?: string | null
+          actual_distance?: number | null
+          actual_duration?: number | null
           ai_summary?: string
           ai_analysis?: string
           watch_data?: Record<string, unknown> | null
@@ -422,12 +450,17 @@ export type Database = {
           name: string | null
           distance: number | null
           moving_time: number | null
+          elapsed_time: number | null
           start_date: string | null
           type: string | null
+          sport_type: string | null
           average_speed: number | null
+          max_speed: number | null
+          average_cadence: number | null
           average_heartrate: number | null
           max_heartrate: number | null
           total_elevation_gain: number | null
+          device_name: string | null
           synced_at: string
         }
         Insert: {
@@ -437,12 +470,18 @@ export type Database = {
           name?: string | null
           distance?: number | null
           moving_time?: number | null
+          elapsed_time?: number | null
           start_date?: string | null
           type?: string | null
+          sport_type?: string | null
           average_speed?: number | null
+          max_speed?: number | null
+          average_cadence?: number | null
           average_heartrate?: number | null
           max_heartrate?: number | null
           total_elevation_gain?: number | null
+          device_name?: string | null
+          synced_at?: string
         }
         Update: Partial<Database['public']['Tables']['strava_activities']['Insert']>
       }

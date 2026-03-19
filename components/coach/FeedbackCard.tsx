@@ -18,6 +18,7 @@ export type FeedbackCardData = FeedbackRow & {
 export function feedbackLabel(parsed: ReturnType<typeof parseFeedbackTranscript>): string {
   const parts: string[] = []
   if (parsed.feeling) parts.push(parsed.feeling)
+  if (parsed.rpe) parts.push(parsed.rpe)
   if (parsed.trainingType) parts.push(parsed.trainingType)
   if (!parts.length && parsed.voice) return 'Komentarz głosowy'
   if (!parts.length && parsed.notes) return 'Notatka'
@@ -50,7 +51,7 @@ export function FeedbackCard({
   const signalDot = fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'
 
   // Better source label
-  const hasText = !!(parsed.feeling || parsed.trainingType || parsed.distance || parsed.duration || parsed.intensity || parsed.notes)
+  const hasText = !!(parsed.feeling || parsed.rpe || parsed.pain || parsed.trainingType || parsed.distance || parsed.duration || parsed.intensity || parsed.notes)
   const sourceLabel = hasText && parsed.voice
     ? '📝🎤 Tekst + głos'
     : parsed.voice
@@ -130,10 +131,12 @@ export function FeedbackCard({
                     <span className="ml-1" style={{ color: 'var(--text-muted)' }}>{FEELING_LABELS[parsed.feeling] ?? ''}</span>
                   </FieldRow>
                 )}
+                {parsed.rpe && <FieldRow label="RPE">{parsed.rpe}</FieldRow>}
                 {parsed.trainingType && <FieldRow label="Typ treningu">{parsed.trainingType}</FieldRow>}
                 {parsed.distance && <FieldRow label="Dystans">{parsed.distance}</FieldRow>}
                 {parsed.duration && <FieldRow label="Czas">{parsed.duration}</FieldRow>}
                 {parsed.intensity && <FieldRow label="Intensywność">{parsed.intensity}</FieldRow>}
+                {parsed.pain && <FieldRow label="Ból / problem">{parsed.pain}</FieldRow>}
                 {parsed.notes && (
                   <div className="pt-1" style={{ borderTop: '1px solid var(--border)' }}>
                     <p className="text-sm italic" style={{ color: 'var(--text-primary)' }}>&ldquo;{parsed.notes}&rdquo;</p>
@@ -246,6 +249,7 @@ export function FeedbackDetail({ fb }: { fb: FeedbackCardData }) {
             <div className="flex items-center gap-2">
               <span>{parsed.feeling}</span>
               <span style={{ color: 'var(--text-muted)' }}>{FEELING_LABELS[parsed.feeling]}</span>
+              {parsed.rpe && <span className="text-xs px-2 py-0.5 rounded-full ml-1" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>{parsed.rpe}</span>}
               {parsed.intensity && <span className="text-xs px-2 py-0.5 rounded-full ml-1" style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>{parsed.intensity}</span>}
             </div>
           )}
