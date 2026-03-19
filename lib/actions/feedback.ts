@@ -90,16 +90,26 @@ export async function createFeedback(formData: FormData) {
   if (error) return { error: error.message }
 
   // Auto-mark linked session as completed + copy actual metrics from feedback
+  // Only populate actual_distance/duration if coach hasn't already set them manually
   if (sessionId) {
-    const distanceKm = formData.get('distance_km') as string || ''
-    const durationMin = formData.get('duration_min') as string || ''
-    const sessionUpdate: Record<string, unknown> = { completed: true }
-    if (distanceKm) sessionUpdate.actual_distance = parseFloat(distanceKm) || null
-    if (durationMin) sessionUpdate.actual_duration = parseInt(durationMin, 10) || null
-    await adminClient.from('training_sessions')
-      .update(sessionUpdate)
+    const { data: session } = await adminClient.from('training_sessions')
+      .select('completed, actual_distance, actual_duration')
       .eq('id', sessionId)
       .eq('athlete_id', athlete.id)
+      .single()
+
+    if (session) {
+      const distanceKm = formData.get('distance_km') as string || ''
+      const durationMin = formData.get('duration_min') as string || ''
+      const sessionUpdate: Record<string, unknown> = { completed: true }
+      // Only fill actual metrics if coach hasn't set them manually
+      if (!session.actual_distance && distanceKm) sessionUpdate.actual_distance = parseFloat(distanceKm) || null
+      if (!session.actual_duration && durationMin) sessionUpdate.actual_duration = parseInt(durationMin, 10) || null
+      await adminClient.from('training_sessions')
+        .update(sessionUpdate)
+        .eq('id', sessionId)
+        .eq('athlete_id', athlete.id)
+    }
   }
 
   revalidatePath(`/u/${slug}`)
