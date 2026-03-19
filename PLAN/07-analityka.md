@@ -457,3 +457,49 @@ Jeśli chcemy szybki, mocny upgrade `Analityki`, największy efekt dadzą:
 
 ---
 
+### Uzupełnienie techniczne (z audytu kodu — plan2.md)
+
+Poniższe punkty zostały wykryte podczas audytu kodu i uzupełniają plan produktowy o konkretne detale implementacyjne.
+
+#### A1: Deduplikacja helperów + import calendar utils
+- `isInvoiceOverdue` i `isInvoicePending` zduplikowane w `InvoicesClient.tsx` i `analytics/page.tsx`
+- `prevYM` obliczany inline — identyczny `shiftMonth` jest w `lib/calendar.ts`
+- Wydzielić do wspólnego `lib/invoice-helpers.ts`, zaimportować `shiftMonth`
+- **Wpada do:** Etap 1 (semantyka) + Etap 9 (architektura)
+
+#### A2: Limity na tabele + empty state
+- Tabela miesięczna renderuje PEŁNĄ historię bez limitu (może być 60+ wierszy)
+- Top zawodnicy renderuje WSZYSTKICH z fakturami (50+)
+- Brak ogólnego empty state dla nowego trenera
+- Tabela miesięczna: domyślnie 12, przycisk "Pokaż pełną historię"
+- Top zawodnicy: domyślnie top 10, przycisk "Pokaż wszystkich"
+- EmptyState gdy brak faktur
+- **Wpada do:** Etap 4 (tabela) + Etap 10 (polish)
+
+#### A3: Wykres — oś Y + linie siatki
+- Wykres słupkowy nie ma osi Y ani linii siatki
+- Dodać 3-4 horyzontalnych linii z wartościami
+- **Wpada do:** Etap 3 (wykresy)
+
+#### A4: Wybór zakresu dat
+- "Ostatnie 12 miesięcy" hardcoded
+- Dodać select: Ostatnie 12 mies. / Rok / Wszystko
+- Wymaga wydzielenia Client Component
+- **Wpada do:** Etap 8 (filtry czasu) — większa zmiana architektoniczna
+
+#### A5: Suma pod tabelą top zawodników
+- Brak wiersza "Razem" w tabeli top zawodników
+- Dodać `<tfoot>` z sumą przychodu i liczbą faktur
+- **Wpada do:** Etap 5 (analityka zawodników)
+
+#### Pliki dotyczące tej sekcji
+- `app/coach/analytics/page.tsx` (312 linii, Server Component)
+
+#### Poza zakresem (z plan2)
+- Analityka treningowa (km, sesje, compliance, feedback trend)
+- Drill-down (kliknięcie → filtrowanie faktur)
+- Porównanie rok do roku (Y-o-Y)
+- Eksport CSV/PDF
+
+---
+

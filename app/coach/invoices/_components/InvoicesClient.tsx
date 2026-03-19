@@ -8,6 +8,7 @@ import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { StatusMessage } from '@/components/ui/StatusMessage'
 import { InvoiceStatusDropdown } from '@/components/ui/InvoiceStatusDropdown'
 import { getBusinessToday } from '@/lib/date'
@@ -15,6 +16,7 @@ import { formatCurrency, formatDate, invoiceStatusLabel } from '@/lib/utils'
 import { getInvoiceAttachmentUrl, updateInvoiceStatus } from '@/lib/actions/invoices'
 import { InvoiceStatus } from '@/lib/types'
 import type { InvoiceRow } from '@/lib/supabase/database.types'
+import { isInvoiceOverdue, isInvoicePending, overdueDays } from '@/lib/invoice-helpers'
 import { SELECT_STYLE } from '@/lib/styles'
 import { InvoiceCreateModal } from './InvoiceCreateModal'
 import { InvoiceEditModal } from './InvoiceEditModal'
@@ -30,26 +32,15 @@ type AthleteOption = {
   package_price: number
 }
 
-type Filter = 'all' | 'pending' | 'paid' | 'overdue'
+type Filter = 'all' | 'pending' | 'paid' | 'overdue' | 'cancelled'
 type SortKey = 'number' | 'athlete' | 'date' | 'due_date' | 'amount' | 'status'
 
-function isInvoiceOverdue(invoice: InvoiceWithJoins, today: string) {
-  if (invoice.status === 'paid' || invoice.status === 'cancelled') return false
-  if (invoice.status === 'overdue') return true
-  return !!invoice.due_date && invoice.due_date < today
-}
-
-function isInvoicePending(invoice: InvoiceWithJoins, today: string) {
-  return invoice.status !== 'paid' && invoice.status !== 'cancelled' && !isInvoiceOverdue(invoice, today)
-}
+const VALID_FILTERS: Filter[] = ['all', 'pending', 'paid', 'overdue', 'cancelled']
 
 function overdueMeta(dueDate: string | null, today: string) {
-  if (!dueDate || dueDate >= today) return null
-  const due = new Date(`${dueDate}T12:00:00Z`)
-  const now = new Date(`${today}T12:00:00Z`)
-  const diff = Math.floor((now.getTime() - due.getTime()) / 86400000)
-  if (diff <= 0) return null
-  return `${diff} ${diff === 1 ? 'dzień' : 'dni'} po terminie`
+  const days = overdueDays(dueDate, today)
+  if (days <= 0) return null
+  return { days, label: `${days} ${days === 1 ? 'dzień' : 'dni'} po terminie` }
 }
 
 export function InvoicesClient({
@@ -69,7 +60,7 @@ export function InvoicesClient({
   const filtersMeasureRef = useRef<HTMLDivElement>(null)
 
   // ── Filter & sort ────────────────────────────────────────────────
-  const normalizedInitialFilter = (['all', 'pending', 'paid', 'overdue'].includes(initialFilter) ? initialFilter : 'all') as Filter
+  const normalizedInitialFilter = (VALID_FILTERS.includes(initialFilter as Filter) ? initialFilter : 'all') as Filter
   const [filter, setFilter] = useState<Filter>(normalizedInitialFilter)
   const [athleteFilter, setAthleteFilter] = useState<string>(initialAthleteId || 'all')
   const [search, setSearch] = useState('')
@@ -81,6 +72,16 @@ export function InvoicesClient({
   function handleSort(key: SortKey) {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('asc') }
+  }
+
+  // URL sync
+  function updateUrl(newFilter: Filter, newAthlete: string) {
+    const url = new URL(window.location.href)
+    if (newFilter !== 'all') url.searchParams.set('filter', newFilter)
+    else url.searchParams.delete('filter')
+    if (newAthlete !== 'all') url.searchParams.set('athlete', newAthlete)
+    else url.searchParams.delete('athlete')
+    window.history.replaceState(null, '', url.toString())
   }
 
   // ── Local invoice state (optimistic status updates) ───────────────
@@ -97,7 +98,6 @@ export function InvoicesClient({
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   async function handleStatusChange(invId: string, athleteId: string | undefined, next: InvoiceStatus) {
-    // Confirm before cancelling
     if (next === 'cancelled') {
       setConfirmCancelId(invId)
       return
@@ -117,7 +117,7 @@ export function InvoicesClient({
         setLocalInvoices(ls => ls.map(i => i.id === invId ? { ...i, status: prev } : i))
         showStatus('error', result.error ?? 'Nie udało się zmienić statusu faktury.')
       } else {
-        showStatus('success', `Status faktury został zmieniony na „${invoiceStatusLabel(next)}”.`)
+        showStatus('success', `Status faktury został zmieniony na „${invoiceStatusLabel(next)}".`)
         startTransition(() => router.refresh())
       }
     } finally {
@@ -134,7 +134,7 @@ export function InvoicesClient({
       if (result?.success && result.url) {
         window.open(result.url, '_blank', 'noopener,noreferrer')
       } else {
-        showStatus('error', 'Nie udało się pobrać załącznika.')
+        showStatus('error', 'Załącznik nie został znaleziony.')
       }
     } finally {
       setDownloadingId(null)
@@ -156,6 +156,7 @@ export function InvoicesClient({
     if (filter === 'pending') list = list.filter(inv => isInvoicePending(inv, today))
     else if (filter === 'paid') list = list.filter(inv => inv.status === 'paid')
     else if (filter === 'overdue') list = list.filter(inv => isInvoiceOverdue(inv, today))
+    else if (filter === 'cancelled') list = list.filter(inv => inv.status === 'cancelled')
     return list
   }, [localInvoices, filter, athleteFilter, search, today])
 
@@ -177,8 +178,12 @@ export function InvoicesClient({
     paid: filtered.filter(i => i.status === 'paid').reduce((s, i) => s + i.amount, 0),
     pending: filtered.filter(i => isInvoicePending(i, today)).reduce((s, i) => s + i.amount, 0),
     overdue: filtered.filter(i => isInvoiceOverdue(i, today)).reduce((s, i) => s + i.amount, 0),
+    overdueCount: filtered.filter(i => isInvoiceOverdue(i, today)).length,
   }), [filtered, today])
   const totalDue = totals.pending + totals.overdue
+
+  // Summary of visible invoices
+  const visibleTotal = useMemo(() => sorted.reduce((s, i) => s + i.amount, 0), [sorted])
 
   // Unique athletes that have invoices (for dropdown)
   const invoiceAthletes = useMemo(() => {
@@ -205,7 +210,7 @@ export function InvoicesClient({
     { label: 'Zawodnik', key: 'athlete' },
     { label: 'Opis', key: null },
     { label: 'Data', key: 'date' },
-    { label: 'Termin / stan', key: 'due_date' },
+    { label: 'Termin płatności', key: 'due_date' },
     { label: 'Kwota', key: 'amount' },
     { label: 'Status', key: 'status' },
     { label: 'Załącznik', key: null },
@@ -215,8 +220,9 @@ export function InvoicesClient({
   const filters: { id: Filter; label: string }[] = [
     { id: 'all', label: 'Wszystkie' },
     { id: 'pending', label: 'Oczekujące' },
-    { id: 'paid', label: 'Opłacone' },
     { id: 'overdue', label: 'Przeterminowane' },
+    { id: 'paid', label: 'Opłacone' },
+    { id: 'cancelled', label: 'Anulowane' },
   ]
 
   // Memoized filter counts (respecting athlete filter)
@@ -239,6 +245,7 @@ export function InvoicesClient({
       pending: searchable.filter(i => isInvoicePending(i, today)).length,
       paid: searchable.filter(i => i.status === 'paid').length,
       overdue: searchable.filter(i => isInvoiceOverdue(i, today)).length,
+      cancelled: searchable.filter(i => i.status === 'cancelled').length,
     }
   }, [localInvoices, athleteFilter, search, today])
 
@@ -262,13 +269,22 @@ export function InvoicesClient({
       observer.disconnect()
       window.removeEventListener('resize', updateLayout)
     }
-  }, [filterCounts.all, filterCounts.pending, filterCounts.paid, filterCounts.overdue])
+  }, [filterCounts.all, filterCounts.pending, filterCounts.paid, filterCounts.overdue, filterCounts.cancelled])
 
   return (
     <div>
       <CoachTopbar
         title="Faktury"
-        actions={<Button size="sm" onClick={() => setCreateOpen(true)}>+ Nowa faktura</Button>}
+        actions={
+          <Button
+            size="sm"
+            onClick={() => setCreateOpen(true)}
+            disabled={athletes.length === 0}
+            title={athletes.length === 0 ? 'Dodaj zawodnika, żeby wystawiać faktury' : undefined}
+          >
+            + Nowa faktura
+          </Button>
+        }
       />
       <div className="p-6">
         {statusMessage && (
@@ -287,11 +303,11 @@ export function InvoicesClient({
             <div className="text-2xl font-bold text-yellow-400">{formatCurrency(totals.pending)}</div>
             <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>W terminie płatności</div>
           </Card>
-          <Card className="p-4">
+          <Card className={`p-4 ${totals.overdueCount > 0 ? 'border-l-3 border-l-red-500' : ''}`}>
             <div className="text-xs mb-1 uppercase tracking-[0.12em]" style={{ color: 'var(--text-muted)' }}>Przeterminowane</div>
             <div className="text-2xl font-bold text-red-400">{formatCurrency(totals.overdue)}</div>
-            <div className="text-xs mt-1" style={{ color: totals.overdue > 0 ? '#E74C3C' : 'var(--text-muted)' }}>
-              {totals.overdue > 0 ? 'Wymagają kontaktu' : 'Brak zaległości'}
+            <div className="text-xs mt-1" style={{ color: totals.overdueCount > 0 ? '#E74C3C' : 'var(--text-muted)' }}>
+              {totals.overdueCount > 0 ? `${totals.overdueCount} ${totals.overdueCount === 1 ? 'faktura wymaga' : 'faktur wymaga'} kontaktu` : 'Brak zaległości'}
             </div>
           </Card>
           <Card className="p-4">
@@ -319,7 +335,7 @@ export function InvoicesClient({
               {compactFilters ? (
                 <select
                   value={filter}
-                  onChange={e => setFilter(e.target.value as Filter)}
+                  onChange={e => { const f = e.target.value as Filter; setFilter(f); updateUrl(f, athleteFilter) }}
                   className="w-full max-w-[260px] rounded-xl px-3 py-2 text-sm cursor-pointer"
                   style={SELECT_STYLE}
                 >
@@ -332,7 +348,7 @@ export function InvoicesClient({
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {filters.map(f => (
-                    <button key={f.id} onClick={() => setFilter(f.id)}
+                    <button key={f.id} onClick={() => { setFilter(f.id); updateUrl(f.id, athleteFilter) }}
                       className="px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer"
                       style={{
                         background: filter === f.id ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
@@ -345,7 +361,7 @@ export function InvoicesClient({
                 </div>
               )}
             </div>
-            <div className="grid gap-3 md:grid-cols-[minmax(280px,1fr)_260px] xl:w-[560px]">
+            <div className="grid gap-3 md:grid-cols-[1fr_220px] xl:w-[560px]">
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
@@ -355,7 +371,7 @@ export function InvoicesClient({
               />
               <select
                 value={athleteFilter}
-                onChange={e => setAthleteFilter(e.target.value)}
+                onChange={e => { const a = e.target.value; setAthleteFilter(a); updateUrl(filter, a) }}
                 className="px-3 py-2 rounded-xl text-sm cursor-pointer"
                 style={SELECT_STYLE}
               >
@@ -369,106 +385,133 @@ export function InvoicesClient({
         </Card>
 
         {/* Table */}
-        <div className="rounded-2xl overflow-hidden overflow-x-auto" style={{ border: '1px solid var(--border)' }}>
-          <table className="w-full text-sm min-w-[920px]">
-            <thead>
-              <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
-                {columns.map((col) => (
-                  <th
-                    key={col.label}
-                    onClick={() => col.key && handleSort(col.key)}
-                    className="text-left px-5 py-4 font-medium text-xs select-none"
-                    style={{
-                      color: sortKey === col.key && col.key ? '#FF5C1B' : 'var(--text-muted)',
-                      cursor: col.key ? 'pointer' : 'default',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {col.label}
-                    {col.key && (
-                      <span className="ml-1" style={{ opacity: sortKey === col.key ? 1 : 0.3 }}>
-                        {sortKey === col.key ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
-                      </span>
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.length === 0 && (
-                <tr>
-                  <td colSpan={columns.length} className="px-5 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                    Brak faktur
-                  </td>
-                </tr>
-              )}
-              {sorted.map((inv, i) => {
-                const overdue = isInvoiceOverdue(inv, today)
-                const overdueText = overdueMeta(inv.due_date, today)
-                return (
-                <tr
-                  key={inv.id}
-                  className="transition-colors hover:bg-[var(--bg-hover)]"
-                  style={{ borderBottom: i < sorted.length - 1 ? '1px solid var(--bg-subtle)' : 'none' }}
-                >
-                  <td className="px-5 py-4 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{inv.number}</td>
-                  <td className="px-5 py-4 text-xs font-medium">
-                    {inv.athletes?.id ? (
-                      <Link href={`/coach/athletes/${inv.athletes.id}`} className="hover:opacity-75 transition-opacity">
-                        {inv.athletes.name}
-                      </Link>
-                    ) : '—'}
-                  </td>
-                  <td className="px-5 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>{inv.description || '—'}</td>
-                  <td className="px-5 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {formatDate(inv.date, { day: 'numeric', month: 'short' })}
-                  </td>
-                  <td className="px-5 py-4 text-xs" style={{ color: overdue ? '#E74C3C' : 'var(--text-muted)' }}>
-                    <div>{inv.due_date ? formatDate(inv.due_date, { day: 'numeric', month: 'short' }) : '—'}</div>
-                    {overdueText && (
-                      <div className="mt-1 inline-flex rounded-full px-2 py-0.5 font-medium" style={{ color: '#E74C3C', background: 'rgba(231,76,60,0.12)' }}>
-                        {overdueText}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-5 py-4 text-xs font-semibold">{formatCurrency(inv.amount)}</td>
-                  <td className="px-5 py-4">
-                    <InvoiceStatusDropdown
-                      status={inv.status as InvoiceStatus}
-                      onChange={next => handleStatusChange(inv.id, inv.athlete_id, next)}
-                      loading={statusChangingId === inv.id}
-                    />
-                  </td>
-                  <td className="px-5 py-4 text-xs">
-                    {inv.attachment_url
-                      ? (
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadAttachment(inv.id)}
-                          className="text-orange-400 hover:underline cursor-pointer disabled:opacity-60"
-                          disabled={downloadingId === inv.id}
-                        >
-                          {downloadingId === inv.id ? 'Pobieranie…' : 'Pobierz'}
-                        </button>
-                      )
-                      : <span style={{ color: 'var(--text-muted)' }}>—</span>
-                    }
-                  </td>
-                  <td className="px-5 py-4">
-                    <button
-                      onClick={() => openEdit(inv)}
-                      className="text-xs px-2 py-1 rounded-lg cursor-pointer transition-opacity hover:opacity-80"
-                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+        {localInvoices.length === 0 ? (
+          <EmptyState
+            icon="🧾"
+            title={athletes.length === 0 ? 'Dodaj zawodnika, żeby wystawiać faktury' : 'Nie ma jeszcze żadnych faktur'}
+            description={athletes.length === 0
+              ? 'Zanim wystawisz pierwszą fakturę, dodaj przynajmniej jednego zawodnika do panelu.'
+              : 'Kliknij „+ Nowa faktura", żeby wystawić pierwszy dokument.'
+            }
+            actionLabel={athletes.length > 0 ? 'Utwórz pierwszą fakturę' : undefined}
+            onAction={athletes.length > 0 ? () => setCreateOpen(true) : undefined}
+          />
+        ) : sorted.length === 0 ? (
+          <EmptyState
+            icon="🔍"
+            title="Brak faktur w tym widoku"
+            description="Zmień filtry, wyczyść wyszukiwanie lub wybierz innego zawodnika."
+          />
+        ) : (
+          <>
+            <div className="rounded-2xl overflow-hidden overflow-x-auto" style={{ border: '1px solid var(--border)' }}>
+              <table className="w-full text-sm min-w-[920px]">
+                <thead>
+                  <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
+                    {columns.map((col) => (
+                      <th
+                        key={col.label || 'actions'}
+                        onClick={() => col.key && handleSort(col.key)}
+                        className="text-left px-5 py-4 font-medium text-xs select-none"
+                        style={{
+                          color: sortKey === col.key && col.key ? '#FF5C1B' : 'var(--text-muted)',
+                          cursor: col.key ? 'pointer' : 'default',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {col.label}
+                        {col.key && (
+                          <span className="ml-1" style={{ opacity: sortKey === col.key ? 1 : 0.3 }}>
+                            {sortKey === col.key ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                          </span>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((inv, i) => {
+                    const overdue = isInvoiceOverdue(inv, today)
+                    const meta = overdueMeta(inv.due_date, today)
+                    const isCritical = meta && meta.days >= 14
+                    return (
+                    <tr
+                      key={inv.id}
+                      className="transition-colors hover:bg-[var(--bg-hover)]"
+                      style={{
+                        borderBottom: i < sorted.length - 1 ? '1px solid var(--bg-subtle)' : 'none',
+                        background: overdue ? 'rgba(231,76,60,0.04)' : undefined,
+                      }}
                     >
-                      Edytuj
-                    </button>
-                  </td>
-                </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                      <td className="px-5 py-4 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{inv.number}</td>
+                      <td className="px-5 py-4 text-xs font-medium">
+                        {inv.athletes?.id ? (
+                          <Link href={`/coach/athletes/${inv.athletes.id}`} className="hover:opacity-75 transition-opacity">
+                            {inv.athletes.name}
+                          </Link>
+                        ) : '—'}
+                      </td>
+                      <td className="px-5 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>{inv.description || '—'}</td>
+                      <td className="px-5 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {formatDate(inv.date, { day: 'numeric', month: 'short' })}
+                      </td>
+                      <td className="px-5 py-4 text-xs" style={{ color: overdue ? '#E74C3C' : 'var(--text-muted)' }}>
+                        <div>{inv.due_date ? formatDate(inv.due_date, { day: 'numeric', month: 'short' }) : '—'}</div>
+                        {meta && (
+                          <div className="mt-1 inline-flex rounded-full px-2 py-0.5 font-medium" style={{
+                            color: isCritical ? 'white' : '#E74C3C',
+                            background: isCritical ? '#E74C3C' : 'rgba(231,76,60,0.12)',
+                          }}>
+                            {meta.label}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-xs font-semibold">{formatCurrency(inv.amount)}</td>
+                      <td className="px-5 py-4">
+                        <InvoiceStatusDropdown
+                          status={inv.status as InvoiceStatus}
+                          onChange={next => handleStatusChange(inv.id, inv.athlete_id, next)}
+                          loading={statusChangingId === inv.id}
+                        />
+                      </td>
+                      <td className="px-5 py-4 text-xs">
+                        {inv.attachment_url
+                          ? (
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadAttachment(inv.id)}
+                              className="text-orange-400 hover:underline cursor-pointer disabled:opacity-60"
+                              disabled={downloadingId === inv.id}
+                            >
+                              {downloadingId === inv.id ? 'Pobieranie…' : 'Pobierz'}
+                            </button>
+                          )
+                          : <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        }
+                      </td>
+                      <td className="px-5 py-4">
+                        <button
+                          onClick={() => openEdit(inv)}
+                          className="text-xs px-2 py-1 rounded-lg cursor-pointer transition-opacity hover:opacity-80"
+                          style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+                        >
+                          Edytuj
+                        </button>
+                      </td>
+                    </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Summary row below table */}
+            <div className="flex items-center justify-between mt-3 px-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+              <span>Wyświetlono {sorted.length} {sorted.length === 1 ? 'fakturę' : sorted.length < 5 ? 'faktury' : 'faktur'}</span>
+              <span className="font-medium">Łącznie: {formatCurrency(visibleTotal)}</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Confirm cancel modal */}
@@ -498,6 +541,7 @@ export function InvoicesClient({
 
       {editingInvoice && (
         <InvoiceEditModal
+          key={editingInvoice.id}
           open={!!editingInvoice}
           onClose={() => setEditingInvoice(null)}
           invoiceId={editingInvoice.id}

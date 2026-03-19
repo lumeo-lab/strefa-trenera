@@ -474,3 +474,52 @@ To podniesie ekran bardzo mocno bez pełnej przebudowy wszystkiego naraz.
 
 ---
 
+### Uzupełnienie techniczne (z audytu kodu — plan2.md)
+
+Poniższe punkty zostały wykryte podczas audytu kodu i uzupełniają plan produktowy o konkretne detale implementacyjne.
+
+#### I1: KPI reagujące na filtry — ✅ Już naprawione
+- `totals` useMemo już używa `filtered` — naprawione wcześniej.
+
+#### I2: Fix reset stanu modali
+- Edit modal: `useState(initialValues)` nie resetuje się gdy otworzymy inną fakturę (React nie resetuje useState przy zmianie props). Trener klika "Edytuj" na A → zamyka → klika na B → widzi dane A.
+- Create modal: zamknięcie bez zapisu nie resetuje formularza.
+- Fix: dodać `key={editingInvoice?.id}` na `<InvoiceEditModal>` + resetować `form` w `handleClose` create modal.
+- **Wpada do:** Etap 7 (edycja i bezpieczeństwo operacji)
+
+#### I3: Empty state z CTA + brak zawodników
+- Pusty stan w tabeli to gołowy tekst "Brak faktur" w `<td>` — brak ikony, brak CTA.
+- Gdy `athletes.length === 0`, przycisk "+ Nowa faktura" otwiera modal z pustym selectem.
+- Zamienić empty state na `EmptyState` z ikoną 🧾 i CTA.
+- Wyłączyć przycisk gdy brak zawodników.
+- **Wpada do:** Etap 5 (empty states)
+
+#### I4: Nagłówek kolumny + filtr Anulowane
+- Nagłówek "Termin / stan" mylący — "stan" sugeruje status ale status jest w osobnej kolumnie.
+- Brak filtra "Anulowane" — anulowane widać tylko w "Wszystkie".
+- Zmienić nagłówek na "Termin płatności", dodać filtr "Anulowane".
+- **Wpada do:** Etap 3 (filtry) + Etap 4 (tabela)
+
+#### I5: Suma widocznych faktur pod tabelą
+- Trener filtruje po zawodniku i chce wiedzieć łączną kwotę. KPI na górze mają sumę, ale po filtrowaniu brak podsumowania pod tabelą.
+- Dodać kompaktowy wiersz: "Wyświetlono X faktur na łącznie Y zł".
+- **Wpada do:** Etap 4 (tabela)
+
+#### I6: Obsługa brakującego załącznika
+- `handleDownloadAttachment` otwiera `window.open(url)` bez walidacji. Gdy plik usunięty ze storage — pusta strona.
+- Sprawdzić `result.url` i pokazać error status zamiast otwierać puste okno.
+- **Wpada do:** Etap 5 (stany błędu)
+
+#### Pliki dotyczące tej sekcji
+- `app/coach/invoices/page.tsx`
+- `app/coach/invoices/_components/InvoicesClient.tsx`
+- `app/coach/invoices/_components/InvoiceCreateModal.tsx`
+- `app/coach/invoices/_components/InvoiceEditModal.tsx`
+- `components/ui/InvoiceStatusDropdown.tsx`
+- `lib/actions/invoices.ts`
+
+#### Poza zakresem (z plan2)
+- Brak dodatkowych punktów — wszystkie z plan2 zmapowane powyżej
+
+---
+
