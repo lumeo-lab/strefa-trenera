@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useSyncExternalStore } from 'react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { INPUT_STYLE } from '@/lib/styles'
 import { SUPPORT_EMAIL } from '@/lib/constants'
@@ -11,25 +11,26 @@ import type { HelpCategory } from './faq-data'
 const HELP_VOTES_KEY = 'coach-help-votes'
 
 export function HelpFaq() {
+  const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false)
   const [open, setOpen] = useState<string | null>(FAQ[0]?.id ?? null)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<'top' | HelpCategory>('top')
-  const [votes, setVotes] = useState<Record<string, 'yes' | 'no'>>(() => {
-    if (typeof window === 'undefined') return {}
-    const raw = window.localStorage.getItem(HELP_VOTES_KEY)
-    if (!raw) return {}
+  const [votesOverride, setVotesOverride] = useState<Record<string, 'yes' | 'no'> | null>(null)
+
+  const storedVotes: Record<string, 'yes' | 'no'> = hydrated ? (() => {
     try {
-      return JSON.parse(raw) as Record<string, 'yes' | 'no'>
-    } catch {
-      window.localStorage.removeItem(HELP_VOTES_KEY)
-      return {}
-    }
-  })
+      const raw = localStorage.getItem(HELP_VOTES_KEY)
+      if (raw) return JSON.parse(raw) as Record<string, 'yes' | 'no'>
+    } catch { /* ignore */ }
+    return {}
+  })() : {}
+
+  const votes = votesOverride ?? storedVotes
 
   function saveVote(id: string, vote: 'yes' | 'no') {
-    const next = { ...votes, [id]: vote }
-    setVotes(next)
-    window.localStorage.setItem(HELP_VOTES_KEY, JSON.stringify(next))
+    const next: Record<string, 'yes' | 'no'> = { ...votes, [id]: vote }
+    setVotesOverride(next)
+    try { localStorage.setItem(HELP_VOTES_KEY, JSON.stringify(next)) } catch { /* ignore */ }
   }
 
   const visibleFaq = useMemo(() => {

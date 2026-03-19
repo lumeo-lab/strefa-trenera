@@ -110,6 +110,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [inviteError, setInviteError] = useState<string | null>(null)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Cleanup timer on unmount to prevent memory leak
+  useEffect(() => {
+    return () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current) }
+  }, [])
+
   async function copyInviteLink() {
     setInviteError(null)
     try {
