@@ -20,8 +20,8 @@ Kolejność wdrażania ustalona na podstawie analizy zależności między moduł
 | 6 | `06-faktury.md` | Faktury | ✅ Ukończony |
 | 7 | `07-analityka.md` | Analityka | ✅ Ukończony |
 | 8 | `08-dashboard.md` | Dashboard (plan w plan2.md) | ✅ Ukończony |
-| 9 | `09-zawodnicy.md` | Lista zawodników | Do wdrożenia |
-| 10 | `10-profil-zawodnika.md` | Profil zawodnika (coach view) | Do wdrożenia |
+| 9 | `09-zawodnicy.md` | Lista zawodników | ✅ Ukończony |
+| 10 | `10-profil-zawodnika.md` | Profil zawodnika (coach view) | ✅ Ukończony |
 | 11 | `11-ustawienia.md` | Ustawienia | ✅ Ukończony |
 | 12 | `12-pomoc.md` | Pomoc | ✅ Ukończony |
 | 13 | `13-panel-zawodnika-mobile.md` | Panel zawodnika mobile | Do wdrożenia |

@@ -1,19 +1,19 @@
 'use client'
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
-import { Avatar } from '@/components/ui/Avatar'
-import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { SelectField } from '@/components/ui/SelectField'
 import { formatDate, getInitials } from '@/lib/utils'
 import { loadThreadMessages, markCoachThreadRead, sendMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 import type { MessageRow } from '@/lib/supabase/database.types'
+import { ChatSidebar } from './ChatSidebar'
+import { ChatThread } from './ChatThread'
 
-type ChatAthlete = {
+// ── Exported types used by child components ──
+
+export type ChatAthlete = {
   id: string
   name: string
   avatar: string
@@ -22,37 +22,26 @@ type ChatAthlete = {
   slug: string
 }
 
-type ThreadSummary = {
+export type ThreadSummary = {
   athlete: ChatAthlete
   lastMessage: { id: string; sender_type: string; content: string; created_at: string } | null
   unreadCount: number
 }
 
-type ThreadFilter = 'all' | 'unread' | 'needs_reply'
+export type ThreadFilter = 'all' | 'unread' | 'needs_reply'
+
+// Optimistic message placeholder
+export type OptimisticMessage = MessageRow & { _optimistic?: boolean }
+
+export type MessageWithSeparator =
+  | { type: 'separator'; label: string; key: string }
+  | { type: 'message'; msg: OptimisticMessage }
+
+// ── Helper functions ──
 
 /** Thread awaits coach reply: last message is from athlete */
 function awaitingReply(t: ThreadSummary): boolean {
   return !!t.lastMessage && t.lastMessage.sender_type === 'athlete'
-}
-
-/** Format time for sidebar: short and contextual */
-function sidebarTime(isoDate: string): string {
-  const now = new Date()
-  const d = new Date(isoDate)
-  const diffMs = now.getTime() - d.getTime()
-  const diffMin = Math.floor(diffMs / 60000)
-
-  if (diffMin < 1) return 'teraz'
-  if (diffMin < 60) return `${diffMin} min`
-
-  const isToday = d.toDateString() === now.toDateString()
-  if (isToday) return d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
-
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (d.toDateString() === yesterday.toDateString()) return 'Wczoraj'
-
-  return formatDate(isoDate, { day: 'numeric', month: 'short' })
 }
 
 /** Format date separator label */
@@ -74,8 +63,7 @@ function dateKey(isoDate: string): string {
   return isoDate.slice(0, 10)
 }
 
-// Optimistic message placeholder
-type OptimisticMessage = MessageRow & { _optimistic?: boolean }
+// ── Main coordinator component ──
 
 export function ChatClient({ threadSummaries, coachId, coachName, initialAthleteId, initialFilter }: {
   threadSummaries: ThreadSummary[]
@@ -321,6 +309,11 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     }
   }
 
+  function handleInputChange(value: string) {
+    setInput(value)
+    setSendError(false)
+  }
+
   const coachInitials = getInitials(coachName) || '?'
 
   if (threadSummaries.length === 0) {
@@ -338,7 +331,7 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   }
 
   // Build date separators for messages
-  const messagesWithSeparators: Array<{ type: 'separator'; label: string; key: string } | { type: 'message'; msg: OptimisticMessage }> = []
+  const messagesWithSeparators: MessageWithSeparator[] = []
   let lastDate = ''
   for (const msg of threadMessages) {
     const msgDate = dateKey(msg.created_at)
@@ -354,227 +347,38 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
       <CoachTopbar title="Czat" subtitle={totalUnread > 0 ? `${totalUnread} nieprzeczytanych` : `${threadSummaries.length} zawodników`} />
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
+        <ChatSidebar
+          threadSummaries={filteredThreads}
+          filter={filter}
+          search={search}
+          selectedAthleteId={selectedAthleteId}
+          totalUnread={totalUnread}
+          needsReplyCount={needsReplyCount}
+          totalCount={localSummaries.length}
+          onFilterChange={setFilter}
+          onSearchChange={setSearch}
+          onSelectAthlete={selectAthlete}
+        />
 
-        {/* ── Sidebar: thread list ── */}
-        <div className="w-72 border-r flex flex-col shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
-          {/* Filters + search */}
-          <div className="px-3 py-3 border-b space-y-3" style={{ borderColor: 'var(--border)' }}>
-            <SelectField value={filter} onChange={(value) => setFilter(value as ThreadFilter)}>
-              <option value="all">Wszystkie rozmowy ({localSummaries.length})</option>
-              <option value="needs_reply">Wymaga odpowiedzi{needsReplyCount > 0 ? ` (${needsReplyCount})` : ''}</option>
-              <option value="unread">Nieprzeczytane{totalUnread > 0 ? ` (${totalUnread})` : ''}</option>
-            </SelectField>
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Szukaj zawodnika..."
-              className="w-full px-3 py-2 rounded-xl text-sm"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-            />
-          </div>
-
-          {/* Thread list */}
-          <div className="overflow-y-auto flex-1">
-            {filteredThreads.length === 0 && (
-              <div className="p-3">
-                <EmptyState
-                  title="Brak rozmów w tym widoku"
-                  description="Zmień filtr lub wyczyść wyszukiwanie."
-                />
-              </div>
-            )}
-            {filteredThreads.map(({ athlete, lastMessage, unreadCount }) => {
-              const isActive = athlete.id === selectedAthleteId
-              const waiting = lastMessage && lastMessage.sender_type === 'athlete' && unreadCount === 0
-              return (
-                <button key={athlete.id} onClick={() => selectAthlete(athlete.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-all cursor-pointer"
-                  style={{
-                    background: isActive ? 'rgba(255,92,27,0.08)' : undefined,
-                    borderLeft: isActive ? '3px solid #FF5C1B' : '3px solid transparent',
-                  }}>
-                  <div className="relative shrink-0">
-                    <Avatar initials={athlete.avatar} size="sm" />
-                    {unreadCount > 0 && (
-                      <span
-                        className="absolute -top-1 -right-1 flex items-center justify-center text-white font-bold rounded-full"
-                        style={{ minWidth: 18, height: 18, fontSize: 10, background: '#FF5C1B', padding: '0 4px' }}
-                      >
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`text-sm truncate ${unreadCount > 0 ? 'font-bold' : 'font-medium'}`}>
-                        {athlete.name}
-                      </span>
-                      {lastMessage && (
-                        <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>
-                          {sidebarTime(lastMessage.created_at)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-xs truncate flex-1 ${unreadCount > 0 ? 'font-semibold' : ''}`}
-                        style={{ color: unreadCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                        {lastMessage
-                          ? `${lastMessage.sender_type === 'coach' ? 'Ty: ' : ''}${lastMessage.content.slice(0, 50)}${lastMessage.content.length > 50 ? '…' : ''}`
-                          : 'Brak wiadomości'}
-                      </span>
-                      {waiting && (
-                        <span className="text-[10px] shrink-0 px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-                          Czeka
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* ── Chat area ── */}
-        <div className="flex-1 flex flex-col min-w-0" style={{ background: 'var(--bg-base)' }}>
-          {/* Thread header */}
-          <div className="flex items-center gap-3 px-6 py-3 border-b shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
-            {selectedAthlete && (
-              <>
-                <Avatar initials={selectedAthlete.avatar} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm">{selectedAthlete.name}</div>
-                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {selectedAthlete.package}{selectedAthlete.goal ? ` · ${selectedAthlete.goal}` : ''}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/coach/athletes/${selectedAthlete.id}?tab=feedback`}
-                    className="px-3 py-2 rounded-xl text-xs font-medium transition-opacity hover:opacity-80"
-                    style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)' }}
-                  >
-                    Feedback
-                  </Link>
-                  <Link
-                    href={`/coach/athletes/${selectedAthlete.id}`}
-                    className="px-3 py-2 rounded-xl text-xs font-medium transition-opacity hover:opacity-80"
-                    style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
-                  >
-                    Profil
-                  </Link>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Push notification prompt */}
-          {permission === 'default' && (
-            <div className="px-6 pt-3 shrink-0">
-              <button onClick={subscribe}
-                className="px-4 py-2.5 rounded-xl text-sm cursor-pointer w-full text-left transition-opacity hover:opacity-80"
-                style={{ background: 'rgba(255,92,27,0.1)', border: '1px solid rgba(255,92,27,0.3)', color: '#FF5C1B' }}>
-                🔔 Włącz powiadomienia o nowych wiadomościach
-              </button>
-            </div>
-          )}
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-h-0">
-            {/* Limit 200 info */}
-            {threadMessages.length >= 200 && (
-              <div className="text-center text-xs py-2 rounded-xl mb-2" style={{ color: 'var(--text-muted)', background: 'var(--bg-subtle)' }}>
-                Wyświetlono ostatnie 200 wiadomości
-              </div>
-            )}
-
-            {loadingThread && threadMessages.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: '#FF5C1B' }} />
-                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Wczytywanie rozmowy...</span>
-              </div>
-            )}
-            {loadError && (
-              <EmptyState
-                title="Nie udało się wczytać rozmowy"
-                description="Sprawdź połączenie i spróbuj ponownie."
-                actionLabel="Spróbuj ponownie"
-                onAction={() => loadMessages(selectedAthleteId)}
-              />
-            )}
-            {!loadingThread && !loadError && threadMessages.length === 0 && (
-              <EmptyState
-                title="Ta rozmowa jest jeszcze pusta"
-                description="Wyślij pierwszą wiadomość, a wątek zacznie się budować tutaj."
-              />
-            )}
-            {!loadingThread && !loadError && threadMessages.length === 0 && (
-              <div ref={bottomRef} />
-            )}
-            {threadMessages.length > 0 && messagesWithSeparators.map(item => {
-              if (item.type === 'separator') {
-                return (
-                  <div key={item.key} className="flex items-center gap-3 py-2">
-                    <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-                    <span className="text-xs font-medium shrink-0" style={{ color: 'var(--text-muted)' }}>{item.label}</span>
-                    <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-                  </div>
-                )
-              }
-              const msg = item.msg
-              const isCoach = msg.sender_type === 'coach'
-              const isOptimistic = msg._optimistic
-              return (
-                <div key={msg.id} className={`flex gap-3 ${isCoach ? 'flex-row-reverse' : ''}`} style={{ opacity: isOptimistic ? 0.6 : 1 }}>
-                  <Avatar initials={isCoach ? coachInitials : (selectedAthlete?.avatar || '?')} size="sm" />
-                  <div className={`flex flex-col gap-1 ${isCoach ? 'items-end' : 'items-start'}`} style={{ maxWidth: '65%' }}>
-                    <div className="px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
-                      style={{
-                        background: isCoach ? '#FF5C1B' : 'var(--bg-elevated)',
-                        color: isCoach ? 'white' : 'var(--text-primary)',
-                        borderRadius: isCoach ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                      }}>
-                      {msg.content}
-                    </div>
-                    <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
-                      {isOptimistic ? 'Wysyłanie...' : formatDate(msg.created_at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-            {threadMessages.length > 0 && <div ref={bottomRef} />}
-          </div>
-
-          {/* Input */}
-          <div className="px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
-            {sendError && (
-              <div className="text-xs mb-2 px-1 flex items-center gap-2" style={{ color: '#E74C3C' }}>
-                <span>Nie udało się wysłać wiadomości.</span>
-                <button onClick={handleSend} className="underline cursor-pointer hover:opacity-80">Spróbuj ponownie</button>
-              </div>
-            )}
-            <div className="flex items-end gap-3">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={e => { setInput(e.target.value); setSendError(false) }}
-                onKeyDown={handleTextareaKeyDown}
-                placeholder={`Napisz do ${selectedAthlete?.name ?? 'zawodnika'}…`}
-                rows={1}
-                className="flex-1 px-4 py-3 rounded-2xl text-sm resize-none overflow-hidden"
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', maxHeight: 120 }}
-              />
-              <Button onClick={handleSend} disabled={!input.trim() || sending}>
-                {sending ? '…' : 'Wyślij'}
-              </Button>
-            </div>
-            <div className="text-xs mt-1.5 px-1" style={{ color: 'var(--text-muted)' }}>
-              Enter — wyślij · Shift+Enter — nowa linia
-            </div>
-          </div>
-        </div>
-
+        <ChatThread
+          selectedAthlete={selectedAthlete}
+          messagesWithSeparators={messagesWithSeparators}
+          messageCount={threadMessages.length}
+          coachInitials={coachInitials}
+          loading={loadingThread}
+          loadError={loadError}
+          permission={permission}
+          sendError={sendError}
+          input={input}
+          sending={sending}
+          onSend={handleSend}
+          onInputChange={handleInputChange}
+          onKeyDown={handleTextareaKeyDown}
+          onSubscribe={subscribe}
+          onRetry={() => loadMessages(selectedAthleteId)}
+          textareaRef={textareaRef}
+          bottomRef={bottomRef}
+        />
       </div>
     </div>
   )

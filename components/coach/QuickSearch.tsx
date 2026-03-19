@@ -54,13 +54,12 @@ export function QuickSearch() {
     return (
       <button
         onClick={() => { setQuery(''); setOpen(true) }}
-        className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs cursor-pointer transition-opacity hover:opacity-80"
-        style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+        className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm cursor-pointer transition-opacity hover:opacity-80"
+        style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)', minWidth: 180 }}
         title="Szybkie przejście (Ctrl+K)"
       >
         <span>🔍</span>
         <span className="hidden lg:inline">Szukaj...</span>
-        <kbd className="hidden lg:inline text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>⌘K</kbd>
       </button>
     )
   }
@@ -68,10 +67,10 @@ export function QuickSearch() {
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setOpen(false)} />
+      <div className="fixed inset-0 z-50 bg-black/50 cursor-pointer" onClick={() => setOpen(false)} />
 
       {/* Modal */}
-      <div className="fixed top-[20%] left-1/2 -translate-x-1/2 z-50 w-full max-w-md">
+      <div className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[51] w-full max-w-md">
         <div className="rounded-2xl overflow-hidden shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
           <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
             <input
