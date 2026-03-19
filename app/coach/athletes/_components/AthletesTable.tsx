@@ -120,7 +120,7 @@ export function AthletesTable({
         </p>
       )}
       <div className="rounded-2xl overflow-x-auto" style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
-        <table className="w-full text-sm" style={{ minWidth: 600 }}>
+        <table className="w-full text-sm" style={{ minWidth: 900 }}>
           <thead>
             <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
               <th className="px-3 py-4 w-8" style={{ color: sortKey ? 'var(--border)' : 'var(--text-muted)' }} title={sortKey ? 'Przeciąganie jest wyłączone podczas sortowania' : 'Przeciągnij, aby zmienić kolejność'}>

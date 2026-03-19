@@ -474,3 +474,44 @@ Jeśli chcemy szybki, mocny upgrade `Zawodników`, największy efekt dadzą:
 
 ---
 
+### Uzupełnienie techniczne (z audytu kodu — plan2.md)
+
+#### L1: Info o blokadzie drag-reorder + toast po eksporcie
+- Drag-reorder nie działa gdy sort aktywny — trener nie wie dlaczego
+- Eksport Excel nie daje feedbacku po pobraniu
+- Ukryć grip handle + info gdy sortowanie aktywne, toast po eksporcie
+- **Wpada do:** Etap 5 (tabela) + Etap 11 (polish)
+
+#### L2: Responsywność tabeli + filtr statusu collapse
+- Tabela nie ma overflow-x-auto — na mobile kolumny się zgniatają
+- Filtr statusu pills przy 6+ statusach zawija się na wiele wierszy
+- Dodać overflow-x-auto + min-w, ResizeObserver na filtrach statusu
+- **Wpada do:** Etap 5 (tabela) + Etap 3 (filtry)
+
+#### L3: Quick stats nad tabelą
+- Brak zagregowanego podsumowania
+- Kompaktowy wiersz: "42 zawodników · 5 z alertem · 3 bez planu · 2 nieopłacone"
+- **Wpada do:** Etap 2 (priorytetyzacja)
+
+#### L4: Wydzielenie data-processing z page.tsx
+- page.tsx ma 262 linii, ~140 to budowanie map metryk
+- Wydzielić do lib/athlete-list-metrics.ts
+- **Wpada do:** Etap 10 (architektura)
+
+#### Pliki dotyczące tej sekcji
+- `app/coach/athletes/page.tsx`
+- `app/coach/athletes/_components/AthletesClient.tsx`
+- `app/coach/athletes/_components/AthletesTable.tsx`
+- `app/coach/athletes/_components/AthletesFilters.tsx`
+- `app/coach/athletes/_components/AthletesToolbar.tsx`
+- `app/coach/athletes/_components/AthletesActionMenu.tsx`
+
+#### Poza zakresem (z plan2)
+- Prop drilling → Context lub view model
+- Bulk actions (zaznaczanie + masowe operacje)
+- Widok kartkowy (mobile-friendly alternative)
+- Paginacja
+- Filtr "Nowi" (ostatni tydzień/miesiąc)
+
+---
+

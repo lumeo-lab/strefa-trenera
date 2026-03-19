@@ -3,7 +3,7 @@
 import { startTransition, useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
 import { useClickOutside, useDismissOnInteraction } from '@/lib/hooks/useClickOutside'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { StatusMessage } from '@/components/ui/StatusMessage'
@@ -75,10 +75,11 @@ export function AthletesClient({
   initialStatuses,
 }: AthletesClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { all: allStatuses, saveAll } = useCustomStatuses(initialStatuses)
 
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [search, setSearch] = useState(searchParams.get('search') ?? '')
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') ?? 'all')
   const [sortKey, setSortKey] = useState<SortKey>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [orderOverride, setOrderOverride] = useState<string[] | null>(null)
@@ -107,6 +108,18 @@ export function AthletesClient({
 
   const columnsStorageKey = `${COLUMNS_STORAGE_KEY}:${coachId || 'guest'}`
   const hintStorageKey = `${TABLE_HINT_STORAGE_KEY}:${coachId || 'guest'}`
+
+  // URL sync
+  function updateUrl(params: { search?: string; status?: string; package?: string }) {
+    const url = new URL(window.location.href)
+    if (params.search) url.searchParams.set('search', params.search)
+    else url.searchParams.delete('search')
+    if (params.status && params.status !== 'all') url.searchParams.set('status', params.status)
+    else url.searchParams.delete('status')
+    if (params.package && params.package !== 'all') url.searchParams.set('package', params.package)
+    else url.searchParams.delete('package')
+    window.history.replaceState(null, '', url.toString())
+  }
 
   const statusOrderMap = useMemo(
     () => Object.fromEntries(allStatuses.map((status, index) => [status.key, index])),
@@ -339,6 +352,7 @@ export function AthletesClient({
       signalLabels: SIGNAL_LABELS,
       getStatusDef,
     })
+    showStatus('success', `Wyeksportowano ${displayed.length} zawodników.`)
   }
 
   const subtitle = useMemo(() => {
@@ -387,9 +401,11 @@ export function AthletesClient({
             showPackageFilter={packageColumnVisible}
             onStatusFilterChange={(value) => {
               setStatusFilter(value)
+              updateUrl({ search, status: value, package: packageFilter })
             }}
             onPackageFilterChange={(value) => {
               setPackageFilter(value)
+              updateUrl({ search, status: statusFilter, package: value })
             }}
             onToggleStatusFilterOpen={() => setStatusFilterOpen((value) => !value)}
             onOpenStatusModal={() => {
@@ -427,6 +443,24 @@ export function AthletesClient({
             }}
           />
         )}
+
+        {/* Quick stats */}
+        {displayed.length > 0 && (() => {
+          const alertCount = displayed.filter(a => a.status === 'alert' || a.status === 'warning').length
+          const noPlanCount = displayed.filter(a => !nextSessionMap[a.id]).length
+          const unpaidCount = displayed.filter(a => unpaidInvoiceSet[a.id]).length
+          const redSignalCount = displayed.filter(a => signalMap[a.id] === 'red').length
+          const parts: string[] = [`${displayed.length} zawodników`]
+          if (alertCount > 0) parts.push(`${alertCount} z alertem`)
+          if (redSignalCount > 0) parts.push(`${redSignalCount} czerwony sygnał`)
+          if (noPlanCount > 0) parts.push(`${noPlanCount} bez planu`)
+          if (unpaidCount > 0) parts.push(`${unpaidCount} nieopłaconych`)
+          return parts.length > 1 ? (
+            <div className="flex items-center gap-1.5 mb-3 px-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+              {parts.join(' · ')}
+            </div>
+          ) : null
+        })()}
 
         {displayed.length > 0 && (
           <>
