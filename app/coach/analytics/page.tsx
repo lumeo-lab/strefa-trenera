@@ -69,9 +69,6 @@ export default async function AnalyticsPage() {
   const prevMonthPaid = paidInvoices.filter(i => i.date.startsWith(prevYM)).reduce((s, i) => s + i.amount, 0)
   const revenueDelta = currentMonthPaid - prevMonthPaid
 
-  // MRR estimate (active athletes with package_price)
-  const estimatedMRR = activeAthletes.reduce((s, a) => s + (a.package_price ?? 0), 0)
-
   // Active paying athletes (paid invoice in last 60 days)
   const sixtyDaysAgo = shiftMonth(currentYM, -2)
   const activePaying = new Set(
@@ -174,18 +171,13 @@ export default async function AnalyticsPage() {
       <div className="p-6 max-w-5xl mx-auto space-y-6">
 
         {/* ── KPIs ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card className="p-5">
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Opłacone w tym miesiącu</div>
             <div className="text-2xl font-bold mb-1" style={{ color: '#2ECC71' }}>{formatCurrency(currentMonthPaid)}</div>
             <div className="text-xs" style={{ color: revenueDelta >= 0 ? '#2ECC71' : '#E74C3C' }}>
               {revenueDelta === 0 ? 'Bez zmian vs poprzedni' : `${revenueDelta > 0 ? '+' : ''}${formatCurrency(revenueDelta)} vs poprzedni`}
             </div>
-          </Card>
-          <Card className="p-5">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Szacowany MRR</div>
-            <div className="text-2xl font-bold mb-1" style={{ color: '#FF5C1B' }}>{formatCurrency(estimatedMRR)}</div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{activeAthletes.length} aktywnych</div>
           </Card>
           <Card className="p-5">
             <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Opłacone łącznie</div>
@@ -204,13 +196,18 @@ export default async function AnalyticsPage() {
               {overdueAmount > 0 ? `${overdueInvoices.length} faktur` : 'Brak zaległości'}
             </div>
           </Card>
-          <Card className="p-5">
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Aktywni płacący</div>
-            <div className="text-2xl font-bold mb-1">{activePaying}</div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              {activePaying > 0 ? `Śr. ${formatCurrency(Math.round(totalPaid / Math.max(activePaying, 1)))} / zawodnik` : 'Brak danych'}
-            </div>
-          </Card>
+        </div>
+
+        {/* Active paying summary */}
+        <div className="flex items-center gap-4 px-4 py-3 rounded-2xl text-sm" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <span style={{ color: 'var(--text-muted)' }}>Aktywni płacący zawodnicy:</span>
+          <span className="font-bold">{activePaying}</span>
+          {activePaying > 0 && (
+            <>
+              <span style={{ color: 'var(--text-muted)' }}>·</span>
+              <span style={{ color: 'var(--text-muted)' }}>Śr. {formatCurrency(Math.round(totalPaid / activePaying))} / zawodnik</span>
+            </>
+          )}
         </div>
 
         {/* ── Revenue chart (last 12 months) ── */}

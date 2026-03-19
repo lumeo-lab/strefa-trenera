@@ -15,7 +15,7 @@ Kolejność wdrażania ustalona na podstawie analizy zależności między moduł
 | 1 | `01-login-register.md` | Login / Register | ✅ Ukończony |
 | 2 | `02-error-states.md` | Error states (cross-cutting) | ✅ Ukończony |
 | 3 | `03-sidebar-topbar.md` | Sidebar + Topbar | ✅ Ukończony |
-| 4 | `04-feedback.md` | Feedback | Do wdrożenia |
+| 4 | `04-feedback.md` | Feedback | ✅ Ukończony |
 | 5 | `05-czat.md` | Czat | Do wdrożenia |
 | 6 | `06-faktury.md` | Faktury | Do wdrożenia |
 | 7 | `07-analityka.md` | Analityka | Do wdrożenia |
