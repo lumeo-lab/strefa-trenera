@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { useSearchParams } from 'next/navigation'
+import { updateSearchParams } from '@/lib/url-helpers'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -55,10 +56,7 @@ export function SettingsClient({ email, name, plan, avatar, packages, archivedAt
   // URL sync for tabs
   function switchTab(t: Tab) {
     setTab(t)
-    const url = new URL(window.location.href)
-    if (t !== 'profile') url.searchParams.set('tab', t)
-    else url.searchParams.delete('tab')
-    window.history.replaceState(null, '', url.toString())
+    updateSearchParams({ tab: t !== 'profile' ? t : undefined })
   }
 
   const [nameState, nameAction, namePending] = useActionState(updateCoachName, null)

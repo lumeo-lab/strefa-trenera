@@ -5,6 +5,7 @@ import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
 import { useClickOutside, useDismissOnInteraction } from '@/lib/hooks/useClickOutside'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
+import { updateSearchParams } from '@/lib/url-helpers'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { StatusMessage } from '@/components/ui/StatusMessage'
@@ -113,16 +114,12 @@ export function AthletesClient({
   const columnsStorageKey = `${COLUMNS_STORAGE_KEY}:${coachId || 'guest'}`
   const hintStorageKey = `${TABLE_HINT_STORAGE_KEY}:${coachId || 'guest'}`
 
-  // URL sync
   function updateUrl(params: { search?: string; status?: string; package?: string }) {
-    const url = new URL(window.location.href)
-    if (params.search) url.searchParams.set('search', params.search)
-    else url.searchParams.delete('search')
-    if (params.status && params.status !== 'all') url.searchParams.set('status', params.status)
-    else url.searchParams.delete('status')
-    if (params.package && params.package !== 'all') url.searchParams.set('package', params.package)
-    else url.searchParams.delete('package')
-    window.history.replaceState(null, '', url.toString())
+    updateSearchParams({
+      search: params.search || undefined,
+      status: params.status && params.status !== 'all' ? params.status : undefined,
+      package: params.package && params.package !== 'all' ? params.package : undefined,
+    })
   }
 
   const statusOrderMap = useMemo(

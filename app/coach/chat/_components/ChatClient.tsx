@@ -6,6 +6,7 @@ import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { formatDate, getInitials } from '@/lib/utils'
 import { loadThreadMessages, markCoachThreadRead, sendMessage } from '@/lib/actions/messages'
+import { updateSearchParams } from '@/lib/url-helpers'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 import type { MessageRow } from '@/lib/supabase/database.types'
 import { ChatSidebar } from './ChatSidebar'
@@ -238,12 +239,10 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     setSelectedAthleteId(id)
     setSendError(false)
     setLoadError(false)
-    // Update URL without full navigation
-    const url = new URL(window.location.href)
-    url.searchParams.set('athlete', id)
-    if (filter !== 'all') url.searchParams.set('filter', filter)
-    else url.searchParams.delete('filter')
-    window.history.replaceState(null, '', url.toString())
+    updateSearchParams({
+      athlete: id,
+      filter: filter !== 'all' ? filter : undefined,
+    })
     setTimeout(() => textareaRef.current?.focus(), 100)
   }
 

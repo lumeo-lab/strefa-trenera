@@ -18,6 +18,7 @@ import { InvoiceStatus } from '@/lib/types'
 import type { InvoiceRow } from '@/lib/supabase/database.types'
 import { isInvoiceOverdue, isInvoicePending, overdueDays } from '@/lib/invoice-helpers'
 import { SELECT_STYLE } from '@/lib/styles'
+import { updateSearchParams } from '@/lib/url-helpers'
 import { InvoiceCreateModal } from './InvoiceCreateModal'
 import { InvoiceEditModal } from './InvoiceEditModal'
 import { InvoicesKPI } from './InvoicesKPI'
@@ -75,14 +76,11 @@ export function InvoicesClient({
     else { setSortKey(key); setSortDir('asc') }
   }
 
-  // URL sync
   function updateUrl(newFilter: Filter, newAthlete: string) {
-    const url = new URL(window.location.href)
-    if (newFilter !== 'all') url.searchParams.set('filter', newFilter)
-    else url.searchParams.delete('filter')
-    if (newAthlete !== 'all') url.searchParams.set('athlete', newAthlete)
-    else url.searchParams.delete('athlete')
-    window.history.replaceState(null, '', url.toString())
+    updateSearchParams({
+      filter: newFilter !== 'all' ? newFilter : undefined,
+      athlete: newAthlete !== 'all' ? newAthlete : undefined,
+    })
   }
 
   // ── Local invoice state (optimistic status updates) ───────────────
