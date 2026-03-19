@@ -14,6 +14,10 @@ export const SESSION_TYPES: SessionType[] = ['easy', 'interval', 'tempo', 'long'
 export const AUTH_ERROR = 'Brak autoryzacji'
 export const FIELDS_ERROR = 'Brak wymaganych pól'
 
+export const SUPPORT_EMAIL = 'kontakt@strefa-trenera.pl'
+export const SUPPORT_PHONE = '662-110-067'
+export const SUPPORT_WHATSAPP = 'https://wa.me/48662110067'
+
 // Shared avatar gradient colors (used by Avatar component and CoachSidebar)
 export const AVATAR_GRADIENTS = [
   'from-orange-500 to-orange-600',

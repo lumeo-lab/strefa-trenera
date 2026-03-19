@@ -456,3 +456,40 @@ Jeśli chcemy szybki, mocny upgrade `Pomocy`, największy efekt dadzą:
 
 ---
 
+### Uzupełnienie techniczne (z audytu kodu — plan2.md)
+
+#### H1: Backticki + duplikat filtra
+- Tekst renderuje backticki jako tekst zamiast formatowania
+- Kategorie FAQ wyświetlane w pills I select jednocześnie — redundancja
+- Zamienić backticki na `<a href="mailto:...">`, usunąć select kategorii
+- **Wpada do:** Etap 3 (FAQ) + Etap 10 (polish)
+
+#### H2: Pre-fill formularza + przeorganizowanie sekcji
+- Formularz kontaktowy nie pre-filluje emaila i imienia
+- FAQ zaczyna się dopiero po ~800px scrollu
+- Połączyć "Szybki kontakt" i formularz, zmienić kolejność sekcji
+- **Wpada do:** Etap 4 (ścieżki) + Etap 8 (formularz)
+
+#### H3: Empty state FAQ + rozbicie pliku
+- Empty state FAQ to Card z tekstem — brak ikony, niespójne z EmptyState
+- 566 linii w jednym pliku
+- Zamienić na EmptyState z ikoną 🔎, rozważyć rozbicie na komponenty
+- **Wpada do:** Etap 3 (FAQ) + Etap 2 (architektura)
+
+#### H4: Hardcoded dane kontaktowe
+- Email i numer telefonu hardcoded w JSX w wielu miejscach
+- Przenieść do `lib/constants.ts`: SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_WHATSAPP
+- **Wpada do:** Etap 8 (formularz)
+
+#### Pliki dotyczące tej sekcji
+- `app/coach/help/page.tsx` (566 linii, Client Component)
+- `app/api/contact/route.ts`
+
+#### Poza zakresem (z plan2)
+- Wysyłanie głosów "Czy to pomogło?" na serwer (analytics)
+- Konwersja na Server Component + wydzielone Client Components
+- Changelog / what's new
+- Keyboard shortcuts reference
+
+---
+

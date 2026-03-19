@@ -4,7 +4,9 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { INPUT_STYLE } from '@/lib/styles'
+import { SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_WHATSAPP } from '@/lib/constants'
 
 type HelpCategory =
   | 'start'
@@ -48,7 +50,7 @@ const FAQ: FaqItem[] = [
     id: 'add-athlete',
     category: 'start',
     q: 'Jak dodać nowego zawodnika?',
-    a: 'Przejdź do zakładki „Zawodnicy” i kliknij „+ Dodaj zawodnika”. Po dodaniu zawodnika skopiuj link zaproszenia i wyślij go zawodnikowi z jego profilu.',
+    a: 'Przejdź do zakładki „Zawodnicy" i kliknij „+ Dodaj zawodnika". Po dodaniu zawodnika skopiuj link zaproszenia i wyślij go zawodnikowi z jego profilu.',
     href: '/coach/athletes',
     cta: 'Otwórz zawodników',
   },
@@ -65,14 +67,12 @@ const FAQ: FaqItem[] = [
     category: 'zawodnicy',
     q: 'Jak zawodnik uzyskuje dostęp do swojego panelu?',
     a: 'Zawodnik klika w link zaproszenia, który automatycznie otwiera jego panel. Nie widzi innych zawodników ani danych trenera poza swoim kontekstem.',
-    href: '/coach/athletes',
-    cta: 'Sprawdź profile zawodników',
   },
   {
     id: 'plan-add',
     category: 'plan',
     q: 'Jak dodać trening do planu zawodnika?',
-    a: 'W planerze lub w profilu zawodnika w zakładce „Plan” wybierz dzień i dodaj sesję. Możesz ustawić typ treningu, tytuł, dystans, czas i tempo.',
+    a: 'W planerze lub w profilu zawodnika w zakładce „Plan" wybierz dzień i dodaj sesję. Możesz ustawić typ treningu, tytuł, dystans, czas i tempo.',
     href: '/coach/planner',
     cta: 'Otwórz planer',
   },
@@ -88,31 +88,31 @@ const FAQ: FaqItem[] = [
     id: 'feedback-read',
     category: 'feedback',
     q: 'Jak działa feedback od zawodnika?',
-    a: 'Zawodnik po treningu może dodać opis, samopoczucie i komentarz głosowy. Trener widzi feedback w zakładce „Feedback” oraz przy zawodniku. Wpis nie znika sam z ważnych spraw po samym otwarciu.',
+    a: 'Zawodnik po treningu może dodać opis, samopoczucie i komentarz głosowy. Trener widzi feedback w zakładce „Feedback" oraz przy zawodniku. Sygnał kolorowy (zielony/żółty/czerwony) zależy od samopoczucia.',
     href: '/coach/feedback',
     cta: 'Otwórz feedback',
   },
   {
-    id: 'feedback-reply',
+    id: 'feedback-signals',
     category: 'feedback',
-    q: 'Co oznacza „Bez odpowiedzi” w feedbacku?',
-    a: 'To feedbacki, na które trener jeszcze nie odpowiedział. Dzięki temu łatwiej znaleźć sprawy, które nadal czekają na reakcję.',
+    q: 'Co oznaczają kolory sygnałów w feedbacku?',
+    a: 'Zielony (😊🤩) = dobre samopoczucie. Żółty (😐) = średnie. Czerwony (😕😫) = słabe lub fatalne. Filtr „Wymaga reakcji" pokazuje żółte i czerwone bez odpowiedzi trenera.',
     href: '/coach/feedback',
-    cta: 'Sprawdź odpowiedzi',
+    cta: 'Sprawdź feedback',
   },
   {
     id: 'chat-send',
     category: 'czat',
     q: 'Jak wysłać wiadomość do zawodnika?',
-    a: 'Przejdź do zakładki „Czat”, wybierz zawodnika z listy po lewej i napisz wiadomość. Zawodnik zobaczy ją w swoim panelu.',
+    a: 'Przejdź do zakładki „Czat", wybierz zawodnika z listy po lewej i napisz wiadomość. Enter wysyła, Shift+Enter nowa linia.',
     href: '/coach/chat',
     cta: 'Otwórz czat',
   },
   {
     id: 'chat-unread',
     category: 'czat',
-    q: 'Co oznacza „Nieprzeczytane” w czacie?',
-    a: 'To rozmowy, w których są wiadomości od zawodnika jeszcze nieprzeczytane przez trenera. Filtr pomaga szybko wyłapać, komu trzeba odpisać.',
+    q: 'Co oznacza „Wymaga odpowiedzi" w czacie?',
+    a: 'To rozmowy, w których ostatnia wiadomość jest od zawodnika — trener jeszcze nie odpowiedział. Filtr pomaga szybko wyłapać, komu trzeba odpisać.',
     href: '/coach/chat',
     cta: 'Przejdź do czatu',
   },
@@ -120,7 +120,7 @@ const FAQ: FaqItem[] = [
     id: 'invoice-create',
     category: 'faktury',
     q: 'Jak wystawić fakturę?',
-    a: 'Przejdź do zakładki „Faktury” i kliknij „+ Nowa faktura”. Wybierz zawodnika, wpisz opis i termin płatności. Kwota może wypełnić się automatycznie z ceny pakietu.',
+    a: 'Przejdź do zakładki „Faktury" i kliknij „+ Nowa faktura". Wybierz zawodnika, wpisz opis i termin płatności. Kwota może wypełnić się automatycznie z ceny pakietu.',
     href: '/coach/invoices',
     cta: 'Otwórz faktury',
   },
@@ -128,7 +128,7 @@ const FAQ: FaqItem[] = [
     id: 'invoice-status',
     category: 'faktury',
     q: 'Jak działa status oczekująca, opłacona i przeterminowana?',
-    a: 'Opłacona oznacza, że płatność została zaksięgowana. Oczekująca to faktura jeszcze nieopłacona w terminie. Przeterminowana oznacza fakturę po terminie płatności.',
+    a: 'Opłacona oznacza, że płatność została zaksięgowana. Oczekująca to faktura jeszcze nieopłacona w terminie. Przeterminowana — faktura po terminie płatności. Anulowana — wycofana.',
     href: '/coach/invoices',
     cta: 'Sprawdź płatności',
   },
@@ -136,15 +136,15 @@ const FAQ: FaqItem[] = [
     id: 'packages',
     category: 'pakiety',
     q: 'Jak działają pakiety i cennik?',
-    a: 'W ustawieniach w zakładce „Pakiety i cennik” tworzysz własne pakiety z nazwą, opisem i ceną miesięczną. Potem przypisujesz je zawodnikom w ich danych.',
-    href: '/coach/settings',
-    cta: 'Przejdź do ustawień',
+    a: 'W ustawieniach w zakładce „Pakiety i cennik" tworzysz własne pakiety z nazwą, opisem i ceną miesięczną. Potem przypisujesz je zawodnikom w ich danych.',
+    href: '/coach/settings?tab=packages',
+    cta: 'Przejdź do pakietów',
   },
   {
     id: 'account',
     category: 'konto',
     q: 'Jak zmienić hasło, email lub awatar?',
-    a: 'W ustawieniach możesz zmienić nazwę, adres email, hasło i awatar. Zmiana emaila wymaga potwierdzenia na nowym adresie.',
+    a: 'W ustawieniach w zakładce „Profil" zmienisz nazwę i awatar. Email i hasło znajdziesz w sekcji „Bezpieczeństwo" na tej samej stronie.',
     href: '/coach/settings',
     cta: 'Otwórz ustawienia',
   },
@@ -153,8 +153,6 @@ const FAQ: FaqItem[] = [
     category: 'konto',
     q: 'Czy zawodnicy mogą widzieć wzajemnie swoje dane?',
     a: 'Nie. Każdy zawodnik ma dostęp tylko do swojego panelu i własnych danych.',
-    href: '/coach/athletes',
-    cta: 'Zobacz zawodników',
   },
 ]
 
@@ -192,7 +190,7 @@ export default function HelpPage() {
 
   async function copyEmail() {
     try {
-      await navigator.clipboard.writeText('kontakt@strefa-trenera.pl')
+      await navigator.clipboard.writeText(SUPPORT_EMAIL)
       setEmailCopied(true)
       window.setTimeout(() => setEmailCopied(false), 1800)
     } catch {
@@ -256,15 +254,13 @@ export default function HelpPage() {
       <CoachTopbar title="Pomoc" subtitle="FAQ, szybkie skróty i kontakt" />
 
       <div className="p-6 max-w-4xl mx-auto space-y-8">
+
+        {/* Quick actions */}
         <Card className="p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="font-bold text-lg">Szybkie skróty</h2>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                Najczęstsze miejsca, do których trener wraca podczas codziennej pracy.
-              </p>
-            </div>
-          </div>
+          <h2 className="font-bold text-lg">Szybkie skróty</h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+            Najczęstsze miejsca, do których trener wraca podczas codziennej pracy.
+          </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mt-5">
             {QUICK_ACTIONS.map((action) => (
               <Link
@@ -280,152 +276,7 @@ export default function HelpPage() {
           </div>
         </Card>
 
-        <Card className="p-6">
-          <h2 className="font-bold text-lg">Szybki kontakt</h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            Jeśli potrzebujesz pomocy, skontaktuj się z nami mailowo, przez WhatsApp albo przez formularz poniżej.
-          </p>
-
-          <div className="grid gap-4 sm:grid-cols-2 mt-5">
-            <div
-              className="flex items-center justify-between gap-3 rounded-xl p-4"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
-            >
-              <a
-                href="mailto:kontakt@strefa-trenera.pl"
-                className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-85"
-              >
-              <span className="text-2xl">📧</span>
-              <div className="min-w-0">
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Email</div>
-                <div className="truncate text-sm font-medium">kontakt@strefa-trenera.pl</div>
-              </div>
-              </a>
-              <button
-                type="button"
-                onClick={copyEmail}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg cursor-pointer transition-opacity hover:opacity-85"
-                style={{ background: 'var(--bg-hover)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                aria-label="Skopiuj adres email"
-                title={emailCopied ? 'Skopiowano email' : 'Skopiuj email'}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M9 9.75A2.25 2.25 0 0 1 11.25 7.5h7.5A2.25 2.25 0 0 1 21 9.75v9A2.25 2.25 0 0 1 18.75 21h-7.5A2.25 2.25 0 0 1 9 18.75v-9Z" stroke="currentColor" strokeWidth="1.8" />
-                  <path d="M15 7.5V5.25A2.25 2.25 0 0 0 12.75 3h-7.5A2.25 2.25 0 0 0 3 5.25v9a2.25 2.25 0 0 0 2.25 2.25H9" stroke="currentColor" strokeWidth="1.8" />
-                </svg>
-              </button>
-            </div>
-            <a
-              href="https://wa.me/48662110067"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 rounded-xl p-4 transition-opacity hover:opacity-85"
-              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
-            >
-              <span className="text-2xl">💬</span>
-              <div>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>WhatsApp / telefon</div>
-                <div className="text-sm font-medium">662-110-067</div>
-              </div>
-            </a>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-            <span>Odpowiadamy zazwyczaj w ciągu 24 godzin w dni robocze.</span>
-            {emailCopied ? <span style={{ color: '#22C55E' }}>Adres email skopiowany.</span> : null}
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <h2 className="font-bold text-lg">Napisz do nas</h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            Wypełnij formularz, a wyślemy Twoją wiadomość bezpośrednio na `kontakt@strefa-trenera.pl`.
-          </p>
-          {contactState === 'success' ? (
-            <div className="mt-5 rounded-xl p-4" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.22)' }}>
-              <div className="font-medium">Wiadomość została wysłana.</div>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                {contactMessage}
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setContactState('idle')
-                  setContactMessage('')
-                }}
-                className="mt-4 text-sm cursor-pointer"
-                style={{ color: '#FF5C1B', background: 'none', border: 'none' }}
-              >
-                Wyślij kolejną wiadomość
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4 mt-5">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Imię i nazwisko</label>
-                  <input
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    required
-                    placeholder="np. Anna Kowalska"
-                    className="w-full rounded-xl px-3 py-2.5 text-sm"
-                    style={INPUT_STYLE}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Email</label>
-                  <input
-                    type="email"
-                    value={formEmail}
-                    onChange={(e) => setFormEmail(e.target.value)}
-                    required
-                    placeholder="twoj@email.com"
-                    className="w-full rounded-xl px-3 py-2.5 text-sm"
-                    style={INPUT_STYLE}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Temat</label>
-                <input
-                  value={formSubject}
-                  onChange={(e) => setFormSubject(e.target.value)}
-                  required
-                  placeholder="Krótko opisz, czego dotyczy wiadomość"
-                  className="w-full rounded-xl px-3 py-2.5 text-sm"
-                  style={INPUT_STYLE}
-                />
-              </div>
-              <div>
-                <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Wiadomość</label>
-                <textarea
-                  value={formMsg}
-                  onChange={(e) => setFormMsg(e.target.value)}
-                  required
-                  rows={5}
-                  placeholder="Opisz swój problem lub pytanie..."
-                  className="w-full resize-none rounded-xl px-3 py-2.5 text-sm"
-                  style={INPUT_STYLE}
-                />
-              </div>
-              {contactState === 'error' ? (
-                <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)', color: '#DC2626' }}>
-                  {contactMessage}
-                </div>
-              ) : null}
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="rounded-xl px-6 py-2.5 text-sm font-semibold text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
-                style={{ background: '#FF5C1B', border: 'none' }}
-              >
-                {isSubmitting ? 'Wysyłanie...' : 'Wyślij wiadomość'}
-              </button>
-            </form>
-          )}
-        </Card>
-
+        {/* FAQ section — moved above contact */}
         <div className="space-y-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -434,28 +285,16 @@ export default function HelpPage() {
                 Szybko znajdź odpowiedź albo przejdź od razu do właściwego miejsca w panelu.
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-[minmax(280px,1fr)_220px] lg:w-[560px]">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Szukaj w pytaniach i odpowiedziach..."
-                className="w-full rounded-xl px-3 py-2.5 text-sm"
-                style={INPUT_STYLE}
-              />
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as 'all' | HelpCategory)}
-                className="w-full rounded-xl px-3 py-2.5 text-sm cursor-pointer"
-                style={INPUT_STYLE}
-              >
-                <option value="all">Wszystkie kategorie</option>
-                {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                  <option key={key} value={key}>{label}</option>
-                ))}
-              </select>
-            </div>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Szukaj w pytaniach i odpowiedziach..."
+              className="w-full lg:w-80 rounded-xl px-3 py-2.5 text-sm"
+              style={INPUT_STYLE}
+            />
           </div>
 
+          {/* Category pills only (removed duplicate select) */}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -487,12 +326,11 @@ export default function HelpPage() {
           </div>
 
           {visibleFaq.length === 0 ? (
-            <Card className="p-6">
-              <div className="text-sm font-medium">Nie znaleziono pasującej odpowiedzi.</div>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                Spróbuj innego słowa kluczowego albo skontaktuj się z nami przez email lub WhatsApp.
-              </p>
-            </Card>
+            <EmptyState
+              icon="🔎"
+              title="Nie znaleziono pasującej odpowiedzi"
+              description="Spróbuj innego słowa kluczowego albo skontaktuj się z nami przez email lub WhatsApp."
+            />
           ) : (
             <div className="space-y-2">
               {visibleFaq.map((item) => (
@@ -543,15 +381,27 @@ export default function HelpPage() {
                             Nie
                           </button>
                         </div>
-                        {item.href && item.cta && (
-                          <Link
-                            href={item.href}
-                            className="inline-flex items-center rounded-xl px-3 py-2 text-sm font-medium hover:opacity-85 transition-opacity"
-                            style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
-                          >
-                            {item.cta}
-                          </Link>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {/* After "Nie" — show contact escalation */}
+                          {votes[item.id] === 'no' && (
+                            <a
+                              href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(item.q)}`}
+                              className="inline-flex items-center rounded-xl px-3 py-2 text-xs font-medium hover:opacity-85 transition-opacity"
+                              style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+                            >
+                              📧 Napisz do nas
+                            </a>
+                          )}
+                          {item.href && item.cta && (
+                            <Link
+                              href={item.href}
+                              className="inline-flex items-center rounded-xl px-3 py-2 text-sm font-medium hover:opacity-85 transition-opacity"
+                              style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
+                            >
+                              {item.cta}
+                            </Link>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -559,7 +409,133 @@ export default function HelpPage() {
               ))}
             </div>
           )}
+
+          {/* "Nie znalazłeś odpowiedzi?" escalation */}
+          {visibleFaq.length > 0 && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Nie znalazłeś odpowiedzi?</span>
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                className="font-medium hover:opacity-80 transition-opacity"
+                style={{ color: '#FF5C1B' }}
+              >
+                Napisz do nas →
+              </a>
+            </div>
+          )}
         </div>
+
+        {/* Contact section — combined quick contact + form */}
+        <Card className="p-6">
+          <h2 className="font-bold text-lg">Kontakt</h2>
+          <p className="text-sm mt-1 mb-5" style={{ color: 'var(--text-muted)' }}>
+            Napisz mailowo, przez WhatsApp albo wypełnij formularz poniżej.
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2 mb-6">
+            <div
+              className="flex items-center justify-between gap-3 rounded-xl p-4"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+            >
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-85"
+              >
+                <span className="text-2xl">📧</span>
+                <div className="min-w-0">
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Email</div>
+                  <div className="truncate text-sm font-medium">{SUPPORT_EMAIL}</div>
+                </div>
+              </a>
+              <button
+                type="button"
+                onClick={copyEmail}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg cursor-pointer transition-opacity hover:opacity-85"
+                style={{ background: 'var(--bg-hover)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                aria-label="Skopiuj adres email"
+                title={emailCopied ? 'Skopiowano email' : 'Skopiuj email'}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M9 9.75A2.25 2.25 0 0 1 11.25 7.5h7.5A2.25 2.25 0 0 1 21 9.75v9A2.25 2.25 0 0 1 18.75 21h-7.5A2.25 2.25 0 0 1 9 18.75v-9Z" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="M15 7.5V5.25A2.25 2.25 0 0 0 12.75 3h-7.5A2.25 2.25 0 0 0 3 5.25v9a2.25 2.25 0 0 0 2.25 2.25H9" stroke="currentColor" strokeWidth="1.8" />
+                </svg>
+              </button>
+            </div>
+            <a
+              href={SUPPORT_WHATSAPP}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-xl p-4 transition-opacity hover:opacity-85"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+            >
+              <span className="text-2xl">💬</span>
+              <div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>WhatsApp / telefon</div>
+                <div className="text-sm font-medium">{SUPPORT_PHONE}</div>
+              </div>
+            </a>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-xs mb-5" style={{ color: 'var(--text-muted)' }}>
+            <span>Odpowiadamy zazwyczaj w ciągu 24 godzin w dni robocze.</span>
+            {emailCopied ? <span style={{ color: '#22C55E' }}>Adres email skopiowany.</span> : null}
+          </div>
+
+          {/* Contact form */}
+          <div style={{ borderTop: '1px solid var(--border)' }} className="pt-5">
+            <h3 className="font-semibold text-sm mb-4">Napisz do nas</h3>
+            {contactState === 'success' ? (
+              <div className="rounded-xl p-4" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.22)' }}>
+                <div className="font-medium">Wiadomość została wysłana.</div>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{contactMessage}</p>
+                <button
+                  type="button"
+                  onClick={() => { setContactState('idle'); setContactMessage('') }}
+                  className="mt-4 text-sm cursor-pointer"
+                  style={{ color: '#FF5C1B', background: 'none', border: 'none' }}
+                >
+                  Wyślij kolejną wiadomość
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Imię i nazwisko</label>
+                    <input value={formName} onChange={(e) => setFormName(e.target.value)} required
+                      placeholder="np. Anna Kowalska" className="w-full rounded-xl px-3 py-2.5 text-sm" style={INPUT_STYLE} />
+                  </div>
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Email</label>
+                    <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} required
+                      placeholder="twoj@email.com" className="w-full rounded-xl px-3 py-2.5 text-sm" style={INPUT_STYLE} />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Temat</label>
+                  <input value={formSubject} onChange={(e) => setFormSubject(e.target.value)} required
+                    placeholder="Krótko opisz, czego dotyczy wiadomość" className="w-full rounded-xl px-3 py-2.5 text-sm" style={INPUT_STYLE} />
+                </div>
+                <div>
+                  <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Wiadomość</label>
+                  <textarea value={formMsg} onChange={(e) => setFormMsg(e.target.value)} required rows={5}
+                    placeholder="Opisz swój problem lub pytanie..." className="w-full resize-none rounded-xl px-3 py-2.5 text-sm" style={INPUT_STYLE} />
+                </div>
+                {contactState === 'error' && (
+                  <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)', color: '#DC2626' }}>
+                    {contactMessage}
+                  </div>
+                )}
+                <button type="submit" disabled={isSubmitting}
+                  className="rounded-xl px-6 py-2.5 text-sm font-semibold text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
+                  style={{ background: '#FF5C1B', border: 'none' }}>
+                  {isSubmitting ? 'Wysyłanie...' : 'Wyślij wiadomość'}
+                </button>
+              </form>
+            )}
+          </div>
+        </Card>
+
       </div>
     </div>
   )
