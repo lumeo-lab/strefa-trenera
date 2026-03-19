@@ -11,7 +11,28 @@ const contactSchema = z.object({
 const CONTACT_EMAIL = 'kontakt@strefa-trenera.pl'
 const CONTACT_FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'Strefa Trenera <onboarding@resend.dev>'
 
+// Rate limiter: max 5 emails per hour per IP
+const rateLimits = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT_MAX = 5
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimits.get(ip)
+  if (!entry || now > entry.resetAt) {
+    rateLimits.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return false
+  }
+  entry.count++
+  return entry.count > RATE_LIMIT_MAX
+}
+
 export async function POST(req: Request) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  if (isRateLimited(ip)) {
+    return NextResponse.json({ error: 'Zbyt wiele wiadomości. Spróbuj ponownie za godzinę.' }, { status: 429 })
+  }
+
   const json = await req.json().catch(() => null)
   const parsed = contactSchema.safeParse(json)
 

@@ -118,7 +118,7 @@ export async function POST(req: Request) {
         label: type.label,
         color: type.color,
         is_builtin: false,
-        position: builtins.length + (type.position ?? index),
+        position: builtins.length + index,
       })),
     ]
 
@@ -128,19 +128,15 @@ export async function POST(req: Request) {
       .eq('coach_id', user.id)
 
     if (deleteError) {
-      return NextResponse.json(
-        { error: [deleteError.message, deleteError.details, deleteError.hint, deleteError.code].filter(Boolean).join(' | ') },
-        { status: 500 },
-      )
+      console.error('session-types delete failed:', deleteError.message, deleteError.details, deleteError.hint)
+      return NextResponse.json({ error: 'Nie udało się zapisać typów treningów.' }, { status: 500 })
     }
 
     if (rows.length > 0) {
       const { error: insertError } = await adminClient.from('coach_session_types').insert(rows)
       if (insertError) {
-        return NextResponse.json(
-          { error: [insertError.message, insertError.details, insertError.hint, insertError.code].filter(Boolean).join(' | ') },
-          { status: 500 },
-        )
+        console.error('session-types insert failed:', insertError.message, insertError.details, insertError.hint)
+        return NextResponse.json({ error: 'Nie udało się zapisać typów treningów.' }, { status: 500 })
       }
     }
 

@@ -12,34 +12,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${appUrl}/u/${fallbackSlug}?strava=denied`)
   }
 
-  const { data: oauthState, error: stateError } = await adminClient
+  // Atomic: consume state in a single UPDATE ... RETURNING to prevent race conditions
+  const nowIso = new Date().toISOString()
+  const { data: consumedRows, error: consumeError } = await adminClient
     .from('strava_oauth_states')
-    .select('id, athlete_id, slug, expires_at, consumed_at')
+    .update({ consumed_at: nowIso })
     .eq('nonce', stateParam)
     .is('consumed_at', null)
-    .gt('expires_at', new Date().toISOString())
-    .single()
+    .gt('expires_at', nowIso)
+    .select('id, athlete_id, slug')
 
+  const oauthState = consumedRows?.[0] ?? null
   const safeSlug = encodeURIComponent(oauthState?.slug ?? '')
 
-  if (stateError || !oauthState) {
-    console.error('[strava] invalid or expired oauth state')
+  if (consumeError || !oauthState) {
+    console.error('[strava] invalid, expired, or already consumed oauth state')
     return NextResponse.redirect(`${appUrl}/u/${safeSlug}?strava=error`)
-  }
-
-  const { error: consumeError } = await adminClient
-    .from('strava_oauth_states')
-    .update({ consumed_at: new Date().toISOString() })
-    .eq('id', oauthState.id)
-    .is('consumed_at', null)
-
-  if (consumeError) {
-    console.error('[strava] failed to consume oauth state')
-    return NextResponse.redirect(`${appUrl}/u/${safeSlug}?strava=error`)
-  }
-
-  if (error || !code) {
-    return NextResponse.redirect(`${appUrl}/u/${safeSlug}?strava=denied`)
   }
 
   // Wymień code na tokeny
@@ -62,9 +50,9 @@ export async function GET(req: NextRequest) {
 
   const tokens = await tokenRes.json()
 
-  // Validate required token fields
-  if (!tokens.access_token || !tokens.refresh_token || !tokens.expires_at) {
-    console.error('[strava] invalid token response: missing required fields')
+  // Validate required token fields and types
+  if (!tokens.access_token || !tokens.refresh_token || !tokens.expires_at || typeof tokens.expires_at !== 'number') {
+    console.error('[strava] invalid token response: missing or malformed fields')
     return NextResponse.redirect(`${appUrl}/u/${safeSlug}/history?strava=error`)
   }
 
@@ -101,7 +89,7 @@ async function syncStravaActivities(athleteId: string, accessToken: string) {
   const runs = activities.filter((a: { type: string }) => a.type === 'Run' || a.type === 'TrailRun')
   if (!runs.length) return
 
-  await adminClient.from('strava_activities').upsert(
+  const { error: upsertError } = await adminClient.from('strava_activities').upsert(
     runs.map((a: {
       id: number; name: string; distance: number; moving_time: number;
       start_date: string; type: string; average_speed: number;
@@ -121,4 +109,7 @@ async function syncStravaActivities(athleteId: string, accessToken: string) {
     })),
     { onConflict: 'strava_id' }
   )
+  if (upsertError) {
+    console.error('[strava] activities upsert failed:', upsertError.message)
+  }
 }

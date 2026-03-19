@@ -40,7 +40,7 @@ export async function proxy(request: NextRequest) {
 
   // Protect /u/[slug]/* sub-pages — require athlete_session cookie
   // The base /u/[slug] page handles token verification itself
-  const uSubMatch = pathname.match(/^\/u\/([^/]+)\/.+/)
+  const uSubMatch = pathname.match(/^\/u\/([a-z0-9_-]+)\/.+/i)
   if (uSubMatch) {
     const slug = uSubMatch[1]
     const hasSession = request.cookies.has('athlete_session')

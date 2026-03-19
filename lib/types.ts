@@ -2,7 +2,6 @@ export type SessionType = 'easy' | 'interval' | 'tempo' | 'long' | 'rest' | 'gym
 export type FeedbackSource = 'voice' | 'text' | 'auto'
 export type FeedbackSignal = 'green' | 'yellow' | 'red'
 export type InvoiceStatus = 'pending' | 'paid' | 'overdue' | 'cancelled'
-export type CrmStatus = 'inquiry' | 'conversation' | 'offer' | 'onboarding' | 'active' | 'ended'
 export type AthleteStatus = 'ok' | 'warning' | 'alert' | 'inactive'
 
 export interface Athlete {
@@ -82,19 +81,6 @@ export interface Invoice {
   status: InvoiceStatus
   package: string
   description: string
-}
-
-export interface CrmCard {
-  id: string
-  name: string
-  email: string
-  phone?: string
-  source: string
-  status: CrmStatus
-  notes: string
-  createdAt: string
-  interest: string
-  value?: number
 }
 
 export interface Message {

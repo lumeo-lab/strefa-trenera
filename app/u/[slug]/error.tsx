@@ -1,25 +1,40 @@
 'use client'
 
+import { useEffect } from 'react'
+import { usePathname } from 'next/navigation'
+import { classifyError, ErrorScreen } from '@/components/ui/ErrorScreen'
+
 export default function AthleteError({ error, reset }: { error: Error; reset: () => void }) {
-  void error
+  useEffect(() => { console.error('AthleteError:', error) }, [error])
+
+  const pathname = usePathname()
+  const slug = pathname.split('/')[2] ?? ''
+  const variant = classifyError(error)
+
+  const accessActions = [
+    { label: 'Spróbuj ponownie', onClick: reset, primary: true },
+    { label: 'Wróć na start', href: `/u/${slug}` },
+  ]
+
+  const defaultActions = [
+    { label: 'Spróbuj ponownie', onClick: reset, primary: true },
+    { label: 'Wróć do dziś', href: `/u/${slug}` },
+    { label: 'Napisz do trenera', href: `/u/${slug}/chat` },
+  ]
+
   return (
-    <div className="flex items-center justify-center min-h-screen p-8" style={{ background: 'var(--bg-base)' }}>
-      <div className="text-center max-w-md">
-        <div className="text-5xl mb-4">⚠️</div>
-        <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-          Coś poszło nie tak
-        </h2>
-        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-          Wystąpił nieoczekiwany błąd. Spróbuj odświeżyć stronę lub skontaktuj się z trenerem.
-        </p>
-        <button
-          onClick={reset}
-          className="px-6 py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
-          style={{ background: '#FF5C1B', color: 'white' }}
-        >
-          Spróbuj ponownie
-        </button>
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-8" style={{ background: 'var(--bg-base)' }}>
+      <ErrorScreen
+        variant={variant}
+        title={variant === 'access' ? 'Sesja wygasła' : undefined}
+        description={variant === 'access'
+          ? 'Twój dostęp wygasł. Poproś trenera o nowy link zaproszenia.'
+          : variant === 'data'
+          ? 'Nie udało się załadować danych. Sprawdź połączenie internetowe.'
+          : 'Coś poszło nie tak. Spróbuj odświeżyć stronę.'
+        }
+        actions={variant === 'access' ? accessActions : defaultActions}
+      />
     </div>
   )
 }

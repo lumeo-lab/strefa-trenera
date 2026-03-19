@@ -21,7 +21,7 @@ export function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    getUnreadNotifications().then(setNotifications)
+    getUnreadNotifications().then(setNotifications).catch(() => setNotifications([]))
   }, [])
 
   useEffect(() => {

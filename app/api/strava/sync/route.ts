@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     })
     if (!res.ok) return NextResponse.json({ error: 'Błąd odświeżania tokenu' }, { status: 500 })
     const tokens = await res.json()
-    if (!tokens.access_token || !tokens.refresh_token || !tokens.expires_at) {
+    if (!tokens.access_token || !tokens.refresh_token || !tokens.expires_at || typeof tokens.expires_at !== 'number') {
       return NextResponse.json({ error: 'Nieprawidłowa odpowiedź tokenu' }, { status: 500 })
     }
     accessToken = tokens.access_token
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   const runs = activities.filter((a: { type: string }) => a.type === 'Run' || a.type === 'TrailRun')
 
   if (runs.length) {
-    await adminClient.from('strava_activities').upsert(
+    const { error: upsertError } = await adminClient.from('strava_activities').upsert(
       runs.map((a: {
         id: number; name: string; distance: number; moving_time: number;
         start_date: string; type: string; average_speed: number;
@@ -81,6 +81,9 @@ export async function POST(req: NextRequest) {
       })),
       { onConflict: 'strava_id' }
     )
+    if (upsertError) {
+      console.error('[strava] activities upsert failed:', upsertError.message)
+    }
   }
 
   return NextResponse.json({ synced: runs.length })
