@@ -5,13 +5,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { StatusMessage } from '@/components/ui/StatusMessage'
 import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
 import { restoreAthlete } from '@/lib/actions/athletes'
 import { formatDate } from '@/lib/utils'
 import { INPUT_STYLE } from '@/lib/styles'
-
-type ArchivedAthlete = { id: string; name: string; email: string | null; package: string; archived_at: string | null; join_date: string }
+import type { ArchivedAthlete } from './SettingsClient'
 
 interface SettingsArchiveTabProps {
   archivedAthletes: ArchivedAthlete[]
@@ -21,6 +21,7 @@ export function SettingsArchiveTab({ archivedAthletes }: SettingsArchiveTabProps
   const router = useRouter()
   const [query, setQuery] = useState('')
   const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(null)
   const { statusMessage, showStatus, clearStatus } = useStatusMessage()
 
   const filtered = archivedAthletes.filter((athlete) => {
@@ -28,6 +29,25 @@ export function SettingsArchiveTab({ archivedAthletes }: SettingsArchiveTabProps
     if (!q) return true
     return athlete.name.toLowerCase().includes(q) || (athlete.email ?? '').toLowerCase().includes(q) || athlete.package.toLowerCase().includes(q)
   })
+
+  const confirmAthlete = archivedAthletes.find(a => a.id === confirmRestoreId)
+
+  async function handleRestore(id: string, athleteName: string) {
+    setRestoringId(id)
+    setConfirmRestoreId(null)
+    clearStatus()
+    try {
+      const result = await restoreAthlete(id)
+      if (result && 'error' in result) {
+        showStatus('error', result.error ?? 'Nie udało się przywrócić zawodnika.')
+        return
+      }
+      showStatus('success', `Przywrócono zawodnika: ${athleteName}.`)
+      router.refresh()
+    } finally {
+      setRestoringId(null)
+    }
+  }
 
   return (
     <>
@@ -56,8 +76,8 @@ export function SettingsArchiveTab({ archivedAthletes }: SettingsArchiveTabProps
             {archivedAthletes.length === 0 ? 'Archiwum jest puste.' : 'Brak zawodników pasujących do wyszukiwania.'}
           </div>
         ) : (
-          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-            <table className="w-full text-sm">
+          <div className="rounded-2xl overflow-hidden overflow-x-auto" style={{ border: '1px solid var(--border)' }}>
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
                   <th className="text-left px-4 py-3" style={{ color: 'var(--text-muted)' }}>Zawodnik</th>
@@ -90,21 +110,7 @@ export function SettingsArchiveTab({ archivedAthletes }: SettingsArchiveTabProps
                           size="sm"
                           variant="secondary"
                           disabled={restoringId === athlete.id}
-                          onClick={async () => {
-                            setRestoringId(athlete.id)
-                            clearStatus()
-                            try {
-                              const result = await restoreAthlete(athlete.id)
-                              if (result && 'error' in result) {
-                                showStatus('error', result.error ?? 'Nie udało się przywrócić zawodnika.')
-                                return
-                              }
-                              showStatus('success', `Przywrócono zawodnika: ${athlete.name}.`)
-                              router.refresh()
-                            } finally {
-                              setRestoringId(null)
-                            }
-                          }}
+                          onClick={() => setConfirmRestoreId(athlete.id)}
                         >
                           {restoringId === athlete.id ? 'Przywracanie...' : 'Przywróć'}
                         </Button>
@@ -117,6 +123,19 @@ export function SettingsArchiveTab({ archivedAthletes }: SettingsArchiveTabProps
           </div>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={!!confirmRestoreId}
+        onClose={() => setConfirmRestoreId(null)}
+        onConfirm={() => {
+          if (confirmRestoreId && confirmAthlete) {
+            void handleRestore(confirmRestoreId, confirmAthlete.name)
+          }
+        }}
+        title="Przywracanie zawodnika"
+        message={`Czy na pewno chcesz przywrócić zawodnika ${confirmAthlete?.name ?? ''} do aktywnej bazy?`}
+        confirmLabel="Tak, przywróć"
+      />
     </>
   )
 }

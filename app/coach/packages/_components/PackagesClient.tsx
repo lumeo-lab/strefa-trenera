@@ -248,7 +248,7 @@ function PackageFormFields({ editing }: { editing: Package | null }) {
       </div>
       <div>
         <label style={labelStyle}>Kwota miesięczna (PLN) *</label>
-        <input name="price" type="number" required min={0} step={1} defaultValue={editing?.price ?? ''} placeholder="np. 299" style={inputStyle} />
+        <input name="price" type="number" required min={1} step={1} defaultValue={editing?.price ?? ''} placeholder="np. 299" style={inputStyle} />
       </div>
     </>
   )

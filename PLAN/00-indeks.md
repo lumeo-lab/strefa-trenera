@@ -16,10 +16,10 @@ Kolejność wdrażania ustalona na podstawie analizy zależności między moduł
 | 2 | `02-error-states.md` | Error states (cross-cutting) | ✅ Ukończony |
 | 3 | `03-sidebar-topbar.md` | Sidebar + Topbar | ✅ Ukończony |
 | 4 | `04-feedback.md` | Feedback | ✅ Ukończony |
-| 5 | `05-czat.md` | Czat | Do wdrożenia |
-| 6 | `06-faktury.md` | Faktury | Do wdrożenia |
-| 7 | `07-analityka.md` | Analityka | Do wdrożenia |
-| 8 | `08-dashboard.md` | Dashboard (plan w plan2.md) | Do wdrożenia |
+| 5 | `05-czat.md` | Czat | ✅ Ukończony |
+| 6 | `06-faktury.md` | Faktury | ✅ Ukończony |
+| 7 | `07-analityka.md` | Analityka | ✅ Ukończony |
+| 8 | `08-dashboard.md` | Dashboard (plan w plan2.md) | ✅ Ukończony |
 | 9 | `09-zawodnicy.md` | Lista zawodników | Do wdrożenia |
 | 10 | `10-profil-zawodnika.md` | Profil zawodnika (coach view) | Do wdrożenia |
 | 11 | `11-ustawienia.md` | Ustawienia | Do wdrożenia |

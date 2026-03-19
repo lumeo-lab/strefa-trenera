@@ -68,6 +68,14 @@ Elementy, które zostały świadomie odłożone jako duże feature'y lub nice-to
 ### Feedback
 - **Paginacja cursor-based zamiast `.limit(200)`** — plan Etap 8.1 mówi "odejść od prostego .limit(200)". Zrealizowano tymczasowe rozwiązanie: komunikat informacyjny na dole listy gdy wyświetlanych jest 200 feedbacków. Pełna paginacja wymaga server-side cursor logic, infinite scroll i przebudowy filtrowania. Obecny limit 200 jest wystarczający dla aktualnej skali.
 
+### Ustawienia
+- **Auto-dismiss success messages (S2)** — plan zakładał auto-dismiss komunikatów sukcesu po 4s. Lint rule `react-hooks/set-state-in-effect` blokuje setState w useEffect. Komunikaty znikają naturalnie po kolejnej akcji. Drobnostka UX, nie wpływa na funkcjonalność.
+- **Dane firmy i rozliczeń (Etap 6)** — wymaga nowej tabeli w Supabase (company_info), migracji i server action. Brak modelu danych w bazie. Odłożone do momentu gdy trener będzie potrzebował generować faktury z danymi firmy.
+- **Powiadomienia i preferencje (Etap 7)** — wymaga nowej tabeli notification_preferences + UI toggleów. Obecne push subscription działa bez konfiguracji per typ. Odłożone.
+
+### Dashboard
+- **Preferencje dashboardu w backendzie (Etap 8.1)** — plan zakładał wyniesienie preferencji (kolejność KPI, widoczność sekcji, dismiss hint) z localStorage do Supabase. Wymaga nowej tabeli, migracji i server action. W praktyce trener korzysta z jednej przeglądarki — localStorage jest wystarczający. Warto wrócić jeśli pojawi się tryb multi-device.
+
 ### Error states
 - **Custom error types** — rzucanie typed errors (np. `SessionExpiredError`, `AccessDeniedError`) zamiast generic `Error` — pozwoliłoby na dokładniejsze rozróżnienie w error boundaries
 - **Wskaźnik siły hasła** — real-time feedback przy wpisywaniu hasła (entropia, common passwords)

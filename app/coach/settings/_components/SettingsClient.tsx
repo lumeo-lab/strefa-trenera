@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from 'react'
 import type React from 'react'
+import { useSearchParams } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -14,6 +15,9 @@ import { SettingsArchiveTab } from './SettingsArchiveTab'
 type Package = { id: string; name: string; description: string | null; price: number }
 export type ArchivedAthlete = { id: string; name: string; email: string | null; package: string; archived_at: string | null; join_date: string }
 
+type Tab = 'profile' | 'packages' | 'archive'
+const VALID_TABS: Tab[] = ['profile', 'packages', 'archive']
+
 interface Props {
   email: string
   name: string
@@ -23,11 +27,12 @@ interface Props {
   archivedAthletes: ArchivedAthlete[]
 }
 
-const inputStyle = INPUT_STYLE
-
-const AVATAR_EMOJIS = [
+const AVATAR_EMOJIS_SHORT = [
   '🏃', '🏃‍♀️', '🏅', '🎽', '👟', '🦵',
   '🏋️', '💪', '🔥', '⚡', '🏆', '🥇',
+]
+const AVATAR_EMOJIS_FULL = [
+  ...AVATAR_EMOJIS_SHORT,
   '⏱️', '❤️‍🔥', '🫁', '🏔️', '🌄', '🛤️',
   '🚀', '💨', '🎯', '🌟', '🦁', '🐆',
 ]
@@ -37,8 +42,24 @@ function currentEmoji(avatar: string): string {
   return ''
 }
 
+
 export function SettingsClient({ email, name, plan, avatar, packages, archivedAthletes }: Props) {
-  const [tab, setTab] = useState<'profile' | 'packages' | 'archive'>('profile')
+  const searchParams = useSearchParams()
+  const urlTab = searchParams.get('tab') as Tab | null
+
+  const [tab, setTab] = useState<Tab>(() => {
+    if (urlTab && VALID_TABS.includes(urlTab)) return urlTab
+    return 'profile'
+  })
+
+  // URL sync for tabs
+  function switchTab(t: Tab) {
+    setTab(t)
+    const url = new URL(window.location.href)
+    if (t !== 'profile') url.searchParams.set('tab', t)
+    else url.searchParams.delete('tab')
+    window.history.replaceState(null, '', url.toString())
+  }
 
   const [nameState, nameAction, namePending] = useActionState(updateCoachName, null)
   const [emailState, emailAction, emailPending] = useActionState(updateCoachEmail, null)
@@ -53,6 +74,7 @@ export function SettingsClient({ email, name, plan, avatar, packages, archivedAt
   const [selectedEmoji, setSelectedEmoji] = useState<string>(currentEmoji(avatar))
   const [previewUrl, setPreviewUrl] = useState<string | null>(avatar.startsWith('http') ? avatar : null)
   const [removeAvatar, setRemoveAvatar] = useState(false)
+  const [showAllEmojis, setShowAllEmojis] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const passFormRef = useRef<HTMLFormElement>(null)
 
@@ -77,6 +99,8 @@ export function SettingsClient({ email, name, plan, avatar, packages, archivedAt
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  const emojiList = showAllEmojis ? AVATAR_EMOJIS_FULL : AVATAR_EMOJIS_SHORT
+
   const previewAvatarEl = previewUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={previewUrl} alt="avatar" className="w-20 h-20 rounded-full object-cover" />
@@ -99,17 +123,21 @@ export function SettingsClient({ email, name, plan, avatar, packages, archivedAt
 
         {/* Tab switcher */}
         <div className="flex gap-1 p-1 rounded-xl mb-6" style={{ background: 'var(--bg-elevated)' }}>
-          {(['profile', 'packages', 'archive'] as const).map(t => (
+          {([
+            { id: 'profile' as Tab, label: '👤 Profil' },
+            { id: 'packages' as Tab, label: '📦 Pakiety i cennik' },
+            { id: 'archive' as Tab, label: '🗂 Archiwum zawodników' },
+          ]).map(t => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={t.id}
+              onClick={() => switchTab(t.id)}
               className="flex-1 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer"
               style={{
-                background: tab === t ? 'var(--bg-card)' : 'transparent',
-                color: tab === t ? 'var(--text-primary)' : 'var(--text-muted)',
+                background: tab === t.id ? 'var(--bg-card)' : 'transparent',
+                color: tab === t.id ? 'var(--text-primary)' : 'var(--text-muted)',
               }}
             >
-              {t === 'profile' ? '👤 Profil' : t === 'packages' ? '📦 Pakiety i cennik' : '🗂 Archiwum zawodników'}
+              {t.label}
             </button>
           ))}
         </div>
@@ -118,10 +146,30 @@ export function SettingsClient({ email, name, plan, avatar, packages, archivedAt
         {tab === 'profile' && (
           <div className="space-y-6">
 
+            {/* Name + Plan info merged */}
+            <Card className="p-5">
+              <h3 className="font-semibold mb-4">Imię i nazwisko</h3>
+              <form action={nameAction} className="space-y-3">
+                <input name="name" defaultValue={name} placeholder="Twoje imię i nazwisko" required maxLength={200}
+                  className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
+                <div className="flex items-center gap-3">
+                  <Button type="submit" size="sm" disabled={namePending}>
+                    {namePending ? 'Zapisywanie...' : 'Zapisz nazwę'}
+                  </Button>
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+                    Plan {planLabel(plan)}
+                  </span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{email}</span>
+                </div>
+                {nameState?.error && <p className="text-xs text-red-400">{nameState.error}</p>}
+                {nameState?.success && <p className="text-xs text-green-400">✓ Zapisano</p>}
+              </form>
+            </Card>
+
             {/* Avatar */}
             <Card className="p-5">
               <h3 className="font-semibold mb-5">Zdjęcie profilowe</h3>
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+              <div className={`flex flex-col gap-6 lg:flex-row lg:items-start ${avatarPending ? 'opacity-60 pointer-events-none' : ''}`}>
                 <div className="shrink-0 flex flex-col items-center gap-2">
                   {previewAvatarEl}
                   <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Podgląd</div>
@@ -130,7 +178,7 @@ export function SettingsClient({ email, name, plan, avatar, packages, archivedAt
                   <div>
                     <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Wybierz grafikę</div>
                     <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-1.5">
-                      {AVATAR_EMOJIS.map(em => (
+                      {emojiList.map(em => (
                         <button
                           key={em}
                           type="button"
@@ -152,6 +200,16 @@ export function SettingsClient({ email, name, plan, avatar, packages, archivedAt
                         </button>
                       ))}
                     </div>
+                    {!showAllEmojis && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllEmojis(true)}
+                        className="text-xs mt-2 cursor-pointer hover:opacity-80"
+                        style={{ color: '#FF5C1B' }}
+                      >
+                        Pokaż więcej →
+                      </button>
+                    )}
                   </div>
                   <div>
                     <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Lub wgraj własne zdjęcie</div>
@@ -159,7 +217,7 @@ export function SettingsClient({ email, name, plan, avatar, packages, archivedAt
                       onChange={handleFileChange} className="hidden" id="avatar-file" />
                     <label htmlFor="avatar-file"
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer"
-                      style={inputStyle}>
+                      style={INPUT_STYLE}>
                       📷 Wybierz plik
                     </label>
                     {(previewUrl || selectedEmoji || avatar) && (
@@ -188,75 +246,52 @@ export function SettingsClient({ email, name, plan, avatar, packages, archivedAt
               </form>
             </Card>
 
-            {/* Plan info */}
-            <Card className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-lg">{name || '—'}</div>
-                  <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{email}</div>
-                  <div className="text-xs mt-1 px-2 py-0.5 rounded-full inline-block"
-                    style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-                    Plan {planLabel(plan)}
+            {/* Security section */}
+            <div className="space-y-1">
+              <h2 className="text-xs font-semibold uppercase tracking-wider px-1 mb-3" style={{ color: 'var(--text-muted)' }}>Bezpieczeństwo</h2>
+
+              {/* Email */}
+              <Card className="p-5">
+                <h3 className="font-semibold mb-1">Adres email</h3>
+                <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+                  Aktualny: <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{email}</span>
+                </p>
+                <form action={emailAction} className="space-y-3">
+                  <input name="email" type="email" placeholder="Nowy adres email" required
+                    className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    Po zmianie otrzymasz link weryfikacyjny na nowy adres. Do czasu potwierdzenia logowanie odbywa się starym emailem.
+                  </p>
+                  {emailState?.error && <p className="text-xs text-red-400">{emailState.error}</p>}
+                  {emailState?.success && <p className="text-xs text-green-400">✓ {emailState.message}</p>}
+                  <Button type="submit" size="sm" disabled={emailPending}>
+                    {emailPending ? 'Wysyłanie...' : 'Zmień email'}
+                  </Button>
+                </form>
+              </Card>
+
+              {/* Password */}
+              <Card className="p-5">
+                <h3 className="font-semibold mb-4">Zmiana hasła</h3>
+                <form ref={passFormRef} action={passAction} className="space-y-3">
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Nowe hasło</label>
+                    <input name="password" type="password" placeholder="Minimum 6 znaków" required minLength={6}
+                      className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
                   </div>
-                </div>
-              </div>
-              <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
-                Aby zmienić plan, skontaktuj się z nami.
-              </p>
-            </Card>
-
-            {/* Name */}
-            <Card className="p-5">
-              <h3 className="font-semibold mb-4">Imię i nazwisko</h3>
-              <form action={nameAction} className="space-y-3">
-                <input name="name" defaultValue={name} placeholder="Twoje imię i nazwisko" required maxLength={200}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm" style={inputStyle} />
-                {nameState?.error && <p className="text-xs text-red-400">{nameState.error}</p>}
-                {nameState?.success && <p className="text-xs text-green-400">✓ Zapisano</p>}
-                <Button type="submit" size="sm" disabled={namePending}>
-                  {namePending ? 'Zapisywanie...' : 'Zapisz nazwę'}
-                </Button>
-              </form>
-            </Card>
-
-            {/* Email */}
-            <Card className="p-5">
-              <h3 className="font-semibold mb-1">Adres email</h3>
-              <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-                Aktualny: <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{email}</span>
-              </p>
-              <form action={emailAction} className="space-y-3">
-                <input name="email" type="email" placeholder="Nowy adres email" required
-                  className="w-full px-3 py-2.5 rounded-xl text-sm" style={inputStyle} />
-                {emailState?.error && <p className="text-xs text-red-400">{emailState.error}</p>}
-                {emailState?.success && <p className="text-xs text-green-400">✓ {emailState.message}</p>}
-                <Button type="submit" size="sm" disabled={emailPending}>
-                  {emailPending ? 'Wysyłanie...' : 'Zmień email'}
-                </Button>
-              </form>
-            </Card>
-
-            {/* Password */}
-            <Card className="p-5">
-              <h3 className="font-semibold mb-4">Zmiana hasła</h3>
-              <form ref={passFormRef} action={passAction} className="space-y-3">
-                <div>
-                  <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Nowe hasło</label>
-                  <input name="password" type="password" placeholder="Minimum 6 znaków" required minLength={6}
-                    className="w-full px-3 py-2.5 rounded-xl text-sm" style={inputStyle} />
-                </div>
-                <div>
-                  <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Powtórz hasło</label>
-                  <input name="confirm_password" type="password" placeholder="Powtórz nowe hasło" required
-                    className="w-full px-3 py-2.5 rounded-xl text-sm" style={inputStyle} />
-                </div>
-                {passState?.error && <p className="text-xs text-red-400">{passState.error}</p>}
-                {passState?.success && <p className="text-xs text-green-400">✓ Hasło zostało zmienione</p>}
-                <Button type="submit" size="sm" disabled={passPending}>
-                  {passPending ? 'Zmienianie...' : 'Zmień hasło'}
-                </Button>
-              </form>
-            </Card>
+                  <div>
+                    <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Powtórz hasło</label>
+                    <input name="confirm_password" type="password" placeholder="Powtórz nowe hasło" required
+                      className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
+                  </div>
+                  {passState?.error && <p className="text-xs text-red-400">{passState.error}</p>}
+                  {passState?.success && <p className="text-xs text-green-400">✓ Hasło zostało zmienione</p>}
+                  <Button type="submit" size="sm" disabled={passPending}>
+                    {passPending ? 'Zmienianie...' : 'Zmień hasło'}
+                  </Button>
+                </form>
+              </Card>
+            </div>
 
           </div>
         )}

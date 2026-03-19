@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Card } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
@@ -113,6 +113,57 @@ function SettingsRow({ icon, label, desc, visible, onToggle, onUp, onDown, canUp
   )
 }
 
+// ── Collapsible section wrapper ───────────────────────────────────────────────
+
+const COLLAPSED_KEY = 'dashboard-collapsed-sections'
+
+function useCollapsedSections() {
+  const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false)
+
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set()
+    try {
+      const stored = localStorage.getItem(COLLAPSED_KEY)
+      if (stored) return new Set(JSON.parse(stored))
+    } catch { /* ignore */ }
+    return new Set()
+  })
+
+  const toggle = useCallback((id: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next])) } catch { /* ignore */ }
+      return next
+    })
+  }, [])
+
+  return { collapsed: hydrated ? collapsed : new Set<string>(), toggle }
+}
+
+function CollapsibleSection({ title, icon, collapsed, onToggle, children }: {
+  title: string
+  icon: string
+  collapsed: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className="flex items-center gap-2 w-full text-left mb-0 cursor-pointer group"
+      >
+        <span className="text-xs transition-transform" style={{ color: 'var(--text-muted)', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0)' }}>▼</span>
+        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{icon} {title}</span>
+        <div className="flex-1 h-px" style={{ background: 'var(--border)', opacity: 0.5 }} />
+      </button>
+      {!collapsed && <div className="mt-2">{children}</div>}
+    </div>
+  )
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -155,6 +206,8 @@ export function DashboardClient({
     toggleKpi, toggleSection, moveKpi, moveSection,
     visibleKpi, fullSections, leftSections, rightSections,
   } = useDashboardPrefs()
+
+  const { collapsed: collapsedSections, toggle: toggleCollapse } = useCollapsedSections()
 
   const athleteIdsWithUpcomingPlan = useMemo(
     () =>
@@ -354,7 +407,15 @@ export function DashboardClient({
 
         {/* Full-width sections */}
         {fullSections.map(s => (
-          <div key={s.id}>{renderSection(s.id)}</div>
+          <CollapsibleSection
+            key={s.id}
+            title={SECTION_META[s.id].label}
+            icon={SECTION_META[s.id].icon}
+            collapsed={collapsedSections.has(s.id)}
+            onToggle={() => toggleCollapse(s.id)}
+          >
+            {renderSection(s.id)}
+          </CollapsibleSection>
         ))}
 
         {/* 2-col grid */}
@@ -363,14 +424,30 @@ export function DashboardClient({
             {hasLeft && (
               <div className={hasRight ? 'xl:col-span-3 space-y-5' : 'space-y-5'}>
                 {leftSections.map(s => (
-                  <div key={s.id}>{renderSection(s.id)}</div>
+                  <CollapsibleSection
+                    key={s.id}
+                    title={SECTION_META[s.id].label}
+                    icon={SECTION_META[s.id].icon}
+                    collapsed={collapsedSections.has(s.id)}
+                    onToggle={() => toggleCollapse(s.id)}
+                  >
+                    {renderSection(s.id)}
+                  </CollapsibleSection>
                 ))}
               </div>
             )}
             {hasRight && (
               <div className={hasLeft ? 'xl:col-span-2 space-y-5' : 'space-y-5'}>
                 {rightSections.map(s => (
-                  <div key={s.id}>{renderSection(s.id)}</div>
+                  <CollapsibleSection
+                    key={s.id}
+                    title={SECTION_META[s.id].label}
+                    icon={SECTION_META[s.id].icon}
+                    collapsed={collapsedSections.has(s.id)}
+                    onToggle={() => toggleCollapse(s.id)}
+                  >
+                    {renderSection(s.id)}
+                  </CollapsibleSection>
                 ))}
               </div>
             )}

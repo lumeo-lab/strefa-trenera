@@ -528,3 +528,51 @@ Jeśli chcemy szybki, mocny upgrade `Ustawień`, największy efekt dadzą:
 
 ---
 
+### Uzupełnienie techniczne (z audytu kodu — plan2.md)
+
+#### S1: Disabled upload + progress avatara
+- Podczas uploadu avatara formularz pozostaje aktywny, brak wizualnego feedbacku
+- Disable emoji grid + file input gdy `avatarPending` (pointer-events-none + opacity)
+- **Wpada do:** Etap 4 (awatar)
+
+#### S2: Auto-dismiss success messages
+- Komunikaty sukcesu zostają na stałe — trener wraca po godzinie i widzi zielony komunikat
+- Dodać auto-dismiss po 4 sekundach
+- **Wpada do:** Etap 10 (spójność zapisów)
+
+#### S3: Deduplikacja typu ArchivedAthlete
+- `ArchivedAthlete` zdefiniowany identycznie w SettingsClient i SettingsArchiveTab
+- Import z SettingsClient zamiast duplikacji
+- **Wpada do:** Etap 11 (rozbicie komponentów)
+
+#### S4: Archiwum — responsywność + confirm przywracania
+- Tabela 5-kolumnowa bez `overflow-x-auto` — na mobile się nie mieści
+- "Przywróć" natychmiastowe bez confirmacji
+- Dodać overflow-x-auto + confirm przed przywróceniem
+- **Wpada do:** Etap 9 (archiwum)
+
+#### S5: Kompresja sekcji avatara + karta Plan
+- Sekcja avatara zajmuje ~300px (emoji grid 24szt + upload)
+- Karta Plan czysto informacyjna, zero interaktywności
+- Zmniejszyć emoji grid do 2 rzędów z "Pokaż więcej"
+- Zwinąć kartę Plan do jednej linii
+- **Wpada do:** Etap 4 (awatar) + Etap 3 (profil)
+
+#### S6: Walidacja ceny pakietu
+- Formularz pakietu nie waliduje ceny — 0 zł lub ujemna dozwolona
+- Dodać min="0.01" + walidacja po stronie klienta
+- **Wpada do:** Etap 8 (pakiety)
+
+#### Pliki dotyczące tej sekcji
+- `app/coach/settings/_components/SettingsClient.tsx`
+- `app/coach/settings/_components/SettingsArchiveTab.tsx`
+- `app/coach/packages/_components/PackagesClient.tsx`
+- `lib/actions/profile.ts`
+
+#### Poza zakresem (z plan2)
+- Ustawienia powiadomień (push/email preferences)
+- Motyw (dark/light) w ustawieniach (teraz jest w topbar)
+- Opcja usunięcia konta (RODO)
+
+---
+
