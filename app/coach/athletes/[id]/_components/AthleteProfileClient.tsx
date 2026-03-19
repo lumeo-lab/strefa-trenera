@@ -19,6 +19,7 @@ import { FinanceTab } from './tabs/FinanceTab'
 import { DataTab } from './tabs/DataTab'
 import { HistoryTab } from './tabs/HistoryTab'
 import { PlanTab } from './tabs/PlanTab'
+import { InsightsTab } from './tabs/InsightsTab'
 import { useCustomSessionTypes } from '@/lib/useCustomSessionTypes'
 import { getActiveAthleteInjuries, parseAthleteInjuryHistory } from '@/lib/athlete-injuries'
 import { isSessionCompleted, isSessionOpenForExecution } from '@/lib/session-status'
@@ -61,7 +62,7 @@ interface Props {
   initialTab?: string
 }
 
-const PROFILE_TABS = ['plan', 'history', 'feedback', 'races', 'notes', 'data', 'finance'] as const
+const PROFILE_TABS = ['plan', 'insights', 'history', 'feedback', 'races', 'notes', 'data', 'finance'] as const
 
 function getSafeProfileTab(tab?: string) {
   return PROFILE_TABS.includes((tab ?? '') as (typeof PROFILE_TABS)[number]) ? tab! : 'plan'
@@ -133,6 +134,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
   const tabs = [
     { id: 'plan', label: 'Plan' },
+    { id: 'insights', label: 'Wykonanie' },
     { id: 'history', label: 'Historia' },
     { id: 'feedback', label: unreadFeedbackCount > 0 ? `Feedback (${unreadFeedbackCount})` : 'Feedback' },
     { id: 'races', label: 'Zawody' },
@@ -451,6 +453,16 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               today={today}
               currentMonth={currentMonth}
               allSessionTypes={allSessionTypes}
+            />
+          </TabErrorBoundary>
+        )}
+
+        {activeTab === 'insights' && (
+          <TabErrorBoundary tabName="Wykonanie">
+            <InsightsTab
+              sessions={initialSessions}
+              feedbacks={athleteFeedbacks}
+              today={today}
             />
           </TabErrorBoundary>
         )}
