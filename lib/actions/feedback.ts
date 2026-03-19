@@ -89,8 +89,22 @@ export async function createFeedback(formData: FormData) {
 
   if (error) return { error: error.message }
 
+  // Auto-mark linked session as completed + copy actual metrics from feedback
+  if (sessionId) {
+    const distanceKm = formData.get('distance_km') as string || ''
+    const durationMin = formData.get('duration_min') as string || ''
+    const sessionUpdate: Record<string, unknown> = { completed: true }
+    if (distanceKm) sessionUpdate.actual_distance = parseFloat(distanceKm) || null
+    if (durationMin) sessionUpdate.actual_duration = parseInt(durationMin, 10) || null
+    await adminClient.from('training_sessions')
+      .update(sessionUpdate)
+      .eq('id', sessionId)
+      .eq('athlete_id', athlete.id)
+  }
+
   revalidatePath(`/u/${slug}`)
   revalidatePath('/coach/feedback')
+  revalidatePath(`/coach/athletes/${athlete.id}`)
   return { success: true }
 }
 

@@ -16,10 +16,12 @@ const inputStyle = INPUT_STYLE
 interface SessionDraft {
   title: string; type: string; description: string
   plannedDistance: string; plannedDuration: string; plannedPace: string; url: string; urlLabel: string
+  completed: boolean; actualDistance: string; actualDuration: string; actualPace: string; avgHr: string; maxHr: string
 }
 
 const emptyDraft = (): SessionDraft => ({
   title: '', type: 'easy', description: '', plannedDistance: '', plannedDuration: '', plannedPace: '', url: '', urlLabel: '',
+  completed: false, actualDistance: '', actualDuration: '', actualPace: '', avgHr: '', maxHr: '',
 })
 
 interface SessionModalProps {
@@ -54,6 +56,12 @@ export function SessionModal({ open, onClose, athleteId, editSession, initialDat
         plannedPace: editSession.planned_pace ?? '',
         url: editSession.url ?? '',
         urlLabel: editSession.url_label ?? '',
+        completed: editSession.completed ?? false,
+        actualDistance: editSession.actual_distance?.toString() ?? '',
+        actualDuration: editSession.actual_duration?.toString() ?? '',
+        actualPace: editSession.actual_pace ?? '',
+        avgHr: editSession.avg_hr?.toString() ?? '',
+        maxHr: editSession.max_hr?.toString() ?? '',
       }
     }
     return emptyDraft()
@@ -96,6 +104,12 @@ export function SessionModal({ open, onClose, athleteId, editSession, initialDat
       fd.set('planned_pace', draft.plannedPace)
       fd.set('url', draft.url)
       fd.set('url_label', draft.urlLabel)
+      fd.set('completed', draft.completed ? 'true' : 'false')
+      if (draft.actualDistance) fd.set('actual_distance', draft.actualDistance)
+      if (draft.actualDuration) fd.set('actual_duration', draft.actualDuration)
+      if (draft.actualPace) fd.set('actual_pace', draft.actualPace)
+      if (draft.avgHr) fd.set('avg_hr', draft.avgHr)
+      if (draft.maxHr) fd.set('max_hr', draft.maxHr)
     } else {
       if (draft.plannedDistance) fd.set('planned_distance', draft.plannedDistance)
       if (draft.plannedDuration) fd.set('planned_duration', draft.plannedDuration)
@@ -267,6 +281,62 @@ export function SessionModal({ open, onClose, athleteId, editSession, initialDat
                 placeholder="np. Plan treningu w TrainerRoad"
                 className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
             </div>
+          )}
+
+          {/* Completion & actual results (only when editing) */}
+          {editingSessionId && (
+            <>
+              <div className="pt-3 mt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={draft.completed}
+                    onChange={e => setDraft(d => ({ ...d, completed: e.target.checked }))}
+                    className="accent-orange-500 w-4 h-4"
+                  />
+                  <span className="text-sm font-medium">Trening wykonany</span>
+                </label>
+              </div>
+              {draft.completed && (
+                <div className="space-y-3 rounded-xl p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                  <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Wyniki faktyczne</div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Dystans (km)</label>
+                      <input type="number" value={draft.actualDistance} onChange={e => setDraft(d => ({ ...d, actualDistance: e.target.value }))}
+                        placeholder={draft.plannedDistance || '—'} min="0" step="0.1"
+                        className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Czas (min)</label>
+                      <input type="number" value={draft.actualDuration} onChange={e => setDraft(d => ({ ...d, actualDuration: e.target.value }))}
+                        placeholder={draft.plannedDuration || '—'} min="0"
+                        className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Tempo (/km)</label>
+                      <input value={draft.actualPace} onChange={e => setDraft(d => ({ ...d, actualPace: e.target.value }))}
+                        placeholder={draft.plannedPace || '—'}
+                        className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Tętno śr. (bpm)</label>
+                      <input type="number" value={draft.avgHr} onChange={e => setDraft(d => ({ ...d, avgHr: e.target.value }))}
+                        placeholder="—" min="0" max="260"
+                        className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Tętno max (bpm)</label>
+                      <input type="number" value={draft.maxHr} onChange={e => setDraft(d => ({ ...d, maxHr: e.target.value }))}
+                        placeholder="—" min="0" max="260"
+                        className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </Modal>
