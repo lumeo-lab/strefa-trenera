@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,30 +84,31 @@ function mergeWithDefaults(saved: Partial<Prefs>): Prefs {
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useDashboardPrefs() {
-  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS)
+  const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false)
+
+  const [prefsOverride, setPrefsOverride] = useState<Prefs | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [hintDismissed, setHintDismissed] = useState(true)
+  const [hintDismissedOverride, setHintDismissedOverride] = useState<boolean | null>(null)
 
-  useEffect(() => {
+  // Computed: override > stored > default (SSR-safe)
+  const storedPrefs: Prefs = hydrated ? (() => {
     try {
-      const savedPrefs = localStorage.getItem(STORAGE_KEY)
-      if (savedPrefs) {
-        setPrefs(mergeWithDefaults(JSON.parse(savedPrefs)))
-      }
-    } catch {
-      // ignore corrupted local storage data
-    }
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) return mergeWithDefaults(JSON.parse(raw))
+    } catch { /* ignore */ }
+    return DEFAULT_PREFS
+  })() : DEFAULT_PREFS
 
-    try {
-      setHintDismissed(!!localStorage.getItem('dashboard-hint-dismissed'))
-    } catch {
-      setHintDismissed(true)
-    }
-  }, [])
+  const storedHintDismissed = hydrated ? (() => {
+    try { return !!localStorage.getItem('dashboard-hint-dismissed') } catch { return true }
+  })() : true
+
+  const prefs = prefsOverride ?? storedPrefs
+  const hintDismissed = hintDismissedOverride ?? storedHintDismissed
 
   function savePrefs(next: Prefs) {
-    setPrefs(next)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    setPrefsOverride(next)
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)) } catch { /* ignore */ }
   }
 
   function toggleKpi(id: KpiId) {
@@ -136,8 +137,8 @@ export function useDashboardPrefs() {
   }
 
   function dismissHint() {
-    setHintDismissed(true)
-    localStorage.setItem('dashboard-hint-dismissed', '1')
+    setHintDismissedOverride(true)
+    try { localStorage.setItem('dashboard-hint-dismissed', '1') } catch { /* ignore */ }
   }
 
   // Derived

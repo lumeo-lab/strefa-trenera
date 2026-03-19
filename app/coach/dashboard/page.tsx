@@ -11,7 +11,6 @@ import type {
   DashboardInvoiceRow,
   DashboardMessageRow,
   DashboardRaceRow,
-  DashboardSessionRow,
   DashboardWeekSessionRow,
 } from './_components/types'
 
