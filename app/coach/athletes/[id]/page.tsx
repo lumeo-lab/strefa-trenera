@@ -43,7 +43,8 @@ export default async function AthleteProfilePage({
     { data: packages },
     { data: races },
     { count: unreadMessagesCount },
-    { count: unpaidInvoicesCount },
+    { count: overdueInvoicesCount },
+    { count: pendingInvoicesCount },
     { data: nextRace },
   ] = await Promise.all([
     supabase
@@ -84,7 +85,12 @@ export default async function AthleteProfilePage({
       .from('invoices')
       .select('id', { count: 'exact', head: true })
       .eq('athlete_id', id)
-      .in('status', ['pending', 'overdue']),
+      .eq('status', 'overdue'),
+    supabase
+      .from('invoices')
+      .select('id', { count: 'exact', head: true })
+      .eq('athlete_id', id)
+      .eq('status', 'pending'),
     supabase
       .from('athlete_races')
       .select('id, name, date, distance')
@@ -124,7 +130,9 @@ export default async function AthleteProfilePage({
         sessionCreatedAt: activeSession?.created_at ?? null,
       }}
       summaryInfo={{
-        unpaidInvoicesCount: unpaidInvoicesCount ?? 0,
+        unpaidInvoicesCount: (overdueInvoicesCount ?? 0) + (pendingInvoicesCount ?? 0),
+        overdueInvoicesCount: overdueInvoicesCount ?? 0,
+        pendingInvoicesCount: pendingInvoicesCount ?? 0,
         nextRace: nextRace
           ? {
               name: nextRace.name,

@@ -48,6 +48,8 @@ interface Props {
   }
   summaryInfo: {
     unpaidInvoicesCount: number
+    overdueInvoicesCount: number
+    pendingInvoicesCount: number
     nextRace: {
       name: string
       date: string
@@ -63,6 +65,21 @@ function getSafeProfileTab(tab?: string) {
   return PROFILE_TABS.includes((tab ?? '') as (typeof PROFILE_TABS)[number]) ? tab! : 'plan'
 }
 
+/** Human-readable access status */
+function accessStatusLabel(info: Props['accessInfo']): { label: string; color: string } {
+  if (info.hasActiveSession) return { label: 'Panel aktywny', color: '#2ECC71' }
+  if (info.inviteUsedAt) return { label: 'Był aktywny, brak sesji', color: '#F1C40F' }
+  return { label: 'Nie aktywował dostępu', color: '#8A92A8' }
+}
+
+type AttentionItem = {
+  tone: 'red' | 'orange' | 'yellow' | 'gray'
+  label: string
+  detail: string
+  tab?: string // target tab for CTA
+  href?: string // external link
+}
+
 export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces, unreadMessagesCount, appUrl, accessInfo, summaryInfo, initialTab }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -71,7 +88,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [linkPanelOpen, setLinkPanelOpen] = useState(false)
   const [attentionModalOpen, setAttentionModalOpen] = useState(false)
 
-  // Feedback lookup (memoized — avoids rebuilding on every render)
+  // Feedback lookup (memoized)
   const feedbackBySession: FeedbackBySessionMap = useMemo(
     () => Object.fromEntries(athleteFeedbacks.filter(f => f.session_id).map(f => [f.session_id as string, f])),
     [athleteFeedbacks],
@@ -81,11 +98,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     [athleteFeedbacks],
   )
 
-  // Date helpers
   const today = getBusinessToday()
   const currentMonth = today.slice(0, 7)
-
-  // Session types
   const { all: allSessionTypes } = useCustomSessionTypes()
 
   // Invite link
@@ -109,6 +123,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   }
 
   const [unreadFeedbackCount, setUnreadFeedbackCount] = useState(() => athleteFeedbacks.filter(f => !f.read).length)
+
   const tabs = [
     { id: 'plan', label: 'Plan' },
     { id: 'history', label: 'Historia' },
@@ -119,6 +134,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     { id: 'finance', label: 'Finanse' },
   ]
 
+  // Derived data
   const lastCompletedSession = initialSessions
     .filter(s => s.completed)
     .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
@@ -132,23 +148,44 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const daysToRace = summaryInfo.nextRace
     ? Math.ceil((new Date(summaryInfo.nextRace.date).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24))
     : null
-  const attentionItems = [
-    !nextSession ? { tone: 'red' as const, label: 'Brak najbliższej sesji', detail: 'Warto uzupełnić plan zawodnika.' } : null,
-    unreadMessagesCount > 0 ? { tone: 'orange' as const, label: `${unreadMessagesCount} ${unreadMessagesCount === 1 ? 'nieprzeczytana wiadomość' : unreadMessagesCount < 5 ? 'nieprzeczytane wiadomości' : 'nieprzeczytanych wiadomości'}`, detail: 'Na czacie czeka odpowiedź zawodnika.' } : null,
-    unreadFeedbackCount > 0 ? { tone: 'yellow' as const, label: `${unreadFeedbackCount} ${unreadFeedbackCount === 1 ? 'nieprzeczytany feedback' : unreadFeedbackCount < 5 ? 'nieprzeczytane feedbacki' : 'nieprzeczytanych feedbacków'}`, detail: 'Warto sprawdzić ostatnie odczucia zawodnika.' } : null,
-    summaryInfo.unpaidInvoicesCount > 0 ? { tone: 'red' as const, label: `${summaryInfo.unpaidInvoicesCount} ${summaryInfo.unpaidInvoicesCount === 1 ? 'otwarta płatność' : summaryInfo.unpaidInvoicesCount < 5 ? 'otwarte płatności' : 'otwartych płatności'}`, detail: 'Są faktury oczekujące lub przeterminowane.' } : null,
+  const accessStatus = accessStatusLabel(accessInfo)
+
+  // Attention items with CTA targets
+  const attentionItemsRaw: (AttentionItem | null)[] = [
+    !nextSession ? { tone: 'red', label: 'Brak najbliższej sesji', detail: 'Warto uzupełnić plan zawodnika.', tab: 'plan' } : null,
+    unreadMessagesCount > 0 ? { tone: 'orange', label: `${unreadMessagesCount} ${unreadMessagesCount === 1 ? 'nieprzeczytana wiadomość' : unreadMessagesCount < 5 ? 'nieprzeczytane wiadomości' : 'nieprzeczytanych wiadomości'}`, detail: 'Na czacie czeka odpowiedź zawodnika.', href: `/coach/chat?athlete=${athlete.id}` } : null,
+    unreadFeedbackCount > 0 ? { tone: 'yellow', label: `${unreadFeedbackCount} ${unreadFeedbackCount === 1 ? 'nieprzeczytany feedback' : unreadFeedbackCount < 5 ? 'nieprzeczytane feedbacki' : 'nieprzeczytanych feedbacków'}`, detail: 'Warto sprawdzić ostatnie odczucia zawodnika.', tab: 'feedback' } : null,
+    summaryInfo.overdueInvoicesCount > 0 ? { tone: 'red', label: `${summaryInfo.overdueInvoicesCount} ${summaryInfo.overdueInvoicesCount === 1 ? 'przeterminowana faktura' : 'przeterminowanych faktur'}`, detail: 'Faktury po terminie płatności.', tab: 'finance' } : null,
+    summaryInfo.pendingInvoicesCount > 0 && summaryInfo.overdueInvoicesCount === 0 ? { tone: 'yellow', label: `${summaryInfo.pendingInvoicesCount} ${summaryInfo.pendingInvoicesCount === 1 ? 'oczekująca faktura' : 'oczekujących faktur'}`, detail: 'Faktury w terminie, oczekujące na wpłatę.', tab: 'finance' } : null,
     summaryInfo.nextRace && daysToRace !== null && daysToRace <= 21
-      ? { tone: 'orange' as const, label: daysToRace <= 0 ? 'Start już dziś lub zaległy wynik' : `Start za ${daysToRace} ${daysToRace === 1 ? 'dzień' : 'dni'}`, detail: summaryInfo.nextRace.name }
+      ? { tone: 'orange', label: daysToRace <= 0 ? 'Start już dziś lub zaległy wynik' : `Start za ${daysToRace} ${daysToRace === 1 ? 'dzień' : 'dni'}`, detail: summaryInfo.nextRace.name, tab: 'races' }
       : null,
-    activeInjuries.length > 0 ? { tone: 'yellow' as const, label: `${activeInjuries.length} ${activeInjuries.length === 1 ? 'aktywna kontuzja' : activeInjuries.length < 5 ? 'aktywne kontuzje' : 'aktywnych kontuzji'}`, detail: activeInjuries.slice(0, 2).map((injury) => injury.name).join(' · ') } : null,
-    !accessInfo.hasActiveSession && !accessInfo.inviteUsedAt ? { tone: 'gray' as const, label: 'Dostęp jeszcze nieaktywny', detail: 'Zawodnik nie wszedł jeszcze do swojego panelu.' } : null,
-  ].filter((item): item is { tone: 'red' | 'orange' | 'yellow' | 'gray'; label: string; detail: string } => !!item)
-  const attentionToneDots: Record<'red' | 'orange' | 'yellow' | 'gray', string> = {
+    activeInjuries.length > 0 ? { tone: 'yellow', label: `${activeInjuries.length} ${activeInjuries.length === 1 ? 'aktywna kontuzja' : activeInjuries.length < 5 ? 'aktywne kontuzje' : 'aktywnych kontuzji'}`, detail: activeInjuries.slice(0, 2).map((injury) => injury.name).join(' · '), tab: 'data' } : null,
+    !accessInfo.hasActiveSession && !accessInfo.inviteUsedAt ? { tone: 'gray', label: 'Dostęp jeszcze nieaktywny', detail: 'Zawodnik nie wszedł jeszcze do swojego panelu.' } : null,
+  ]
+  const attentionItems = attentionItemsRaw.filter((item): item is AttentionItem => !!item)
+
+  const attentionToneDots: Record<string, string> = {
     red: '#E74C3C',
     orange: '#FF5C1B',
     yellow: '#F1C40F',
     gray: '#8A92A8',
   }
+
+  // One-line cooperation summary
+  const summaryLine = useMemo(() => {
+    const parts: string[] = []
+    if (!nextSession) parts.push('brak planu')
+    if (unreadFeedbackCount > 0 || unreadMessagesCount > 0) parts.push(`${unreadFeedbackCount + unreadMessagesCount} do sprawdzenia`)
+    if (summaryInfo.overdueInvoicesCount > 0) parts.push('zaległe płatności')
+    if (activeInjuries.length > 0) parts.push('kontuzja')
+    if (parts.length === 0) return 'Spokojny stan — brak pilnych sygnałów'
+    return parts.join(' · ')
+  }, [nextSession, unreadFeedbackCount, unreadMessagesCount, summaryInfo.overdueInvoicesCount, activeInjuries.length])
+
+  const summaryTone = attentionItems.some(i => i.tone === 'red') ? '#E74C3C'
+    : attentionItems.some(i => i.tone === 'orange') ? '#FF5C1B'
+    : attentionItems.length > 0 ? '#F1C40F' : '#2ECC71'
 
   useEffect(() => {
     setActiveTab(getSafeProfileTab(initialTab))
@@ -164,6 +201,15 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     const params = new URLSearchParams(searchParams.toString())
     params.set('tab', safeTab)
     router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+
+  function handleAttentionCTA(item: AttentionItem) {
+    setAttentionModalOpen(false)
+    if (item.href) {
+      router.push(item.href)
+    } else if (item.tab) {
+      handleTabChange(item.tab)
+    }
   }
 
   return (
@@ -193,9 +239,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       <Badge variant="gray">
                         {athlete.package} — {formatCurrency(athlete.package_price)}/mies.
                       </Badge>
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: accessInfo.hasActiveSession ? '#2ECC71' : '#E74C3C' }}>
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: accessInfo.hasActiveSession ? '#2ECC71' : '#E74C3C' }} />
-                        {accessInfo.hasActiveSession ? 'Aktywny' : 'Nieaktywny'}
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: accessStatus.color }}>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: accessStatus.color }} />
+                        {accessStatus.label}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -204,19 +250,52 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       {athlete.age && <span>🎂 {athlete.age} lat</span>}
                       <span>📅 Od {formatDate(athlete.join_date, { month: 'long', year: 'numeric' })}</span>
                     </div>
+                    {/* Summary line */}
+                    <div className="flex items-center gap-2 mt-2 text-xs">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: summaryTone }} />
+                      <span style={{ color: 'var(--text-muted)' }}>{summaryLine}</span>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
+                    {/* Quick actions */}
+                    <button onClick={() => handleTabChange('plan')}
+                      className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
+                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                      📅 Plan
+                    </button>
+                    <button onClick={() => handleTabChange('feedback')}
+                      className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
+                      style={{
+                        background: unreadFeedbackCount > 0 ? 'rgba(255,92,27,0.1)' : 'var(--bg-elevated)',
+                        color: unreadFeedbackCount > 0 ? '#FF5C1B' : 'var(--text-muted)',
+                        border: '1px solid var(--border)',
+                      }}>
+                      📥 Feedback {unreadFeedbackCount > 0 && `(${unreadFeedbackCount})`}
+                    </button>
                     <Link href={`/coach/chat?athlete=${athlete.id}`}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium shrink-0 transition-colors"
-                      style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-                      💬 Chat
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 transition-colors"
+                      style={{
+                        background: unreadMessagesCount > 0 ? 'rgba(255,92,27,0.1)' : 'var(--bg-elevated)',
+                        color: unreadMessagesCount > 0 ? '#FF5C1B' : 'var(--text-muted)',
+                        border: '1px solid var(--border)',
+                      }}>
+                      💬 Czat
                       {unreadMessagesCount > 0 && (
                         <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#FF5C1B', color: 'white', lineHeight: 1 }}>
                           {unreadMessagesCount}
                         </span>
                       )}
                     </Link>
+                    <button onClick={() => handleTabChange('finance')}
+                      className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
+                      style={{
+                        background: summaryInfo.overdueInvoicesCount > 0 ? 'rgba(231,76,60,0.1)' : 'var(--bg-elevated)',
+                        color: summaryInfo.overdueInvoicesCount > 0 ? '#E74C3C' : 'var(--text-muted)',
+                        border: '1px solid var(--border)',
+                      }}>
+                      💳 Finanse {summaryInfo.unpaidInvoicesCount > 0 && `(${summaryInfo.unpaidInvoicesCount})`}
+                    </button>
                     <button
                       type="button"
                       onClick={() => setAttentionModalOpen(true)}
@@ -227,7 +306,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                         border: attentionItems.length > 0 ? '1px solid rgba(255,92,27,0.25)' : '1px solid var(--border)',
                       }}
                     >
-                      Powiadomienia ({attentionItems.length})
+                      🔔 {attentionItems.length}
                     </button>
                   </div>
                 </div>
@@ -256,19 +335,35 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Feedback i wiadomości</div>
                 <div className="mt-2 text-lg font-semibold">{unreadFeedbackCount + unreadMessagesCount}</div>
-                <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                  {unreadFeedbackCount} nieprzeczytanych feedbacków, {unreadMessagesCount} wiadomości do sprawdzenia.
+                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  {unreadFeedbackCount > 0 && `${unreadFeedbackCount} feedback`}
+                  {unreadFeedbackCount > 0 && unreadMessagesCount > 0 && ', '}
+                  {unreadMessagesCount > 0 && `${unreadMessagesCount} wiadomości`}
+                  {unreadFeedbackCount === 0 && unreadMessagesCount === 0 && 'Wszystko przeczytane'}
                 </div>
               </div>
 
               <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Finanse</div>
-                <div className="mt-2 text-lg font-semibold">
-                  {summaryInfo.unpaidInvoicesCount > 0 ? `${summaryInfo.unpaidInvoicesCount} otwarte` : 'Brak zaległości'}
-                </div>
-                <div className="text-xs mt-2" style={{ color: summaryInfo.unpaidInvoicesCount > 0 ? '#E74C3C' : 'var(--text-muted)' }}>
-                  {summaryInfo.unpaidInvoicesCount > 0 ? 'Faktury oczekujące lub przeterminowane' : 'Wszystkie płatności rozliczone'}
-                </div>
+                {summaryInfo.overdueInvoicesCount > 0 ? (
+                  <>
+                    <div className="mt-2 text-lg font-semibold" style={{ color: '#E74C3C' }}>{summaryInfo.overdueInvoicesCount} po terminie</div>
+                    <div className="text-xs mt-1" style={{ color: '#E74C3C' }}>
+                      {summaryInfo.pendingInvoicesCount > 0 && `+ ${summaryInfo.pendingInvoicesCount} oczekujących`}
+                      {summaryInfo.pendingInvoicesCount === 0 && 'Wymaga kontaktu'}
+                    </div>
+                  </>
+                ) : summaryInfo.pendingInvoicesCount > 0 ? (
+                  <>
+                    <div className="mt-2 text-lg font-semibold" style={{ color: '#F1C40F' }}>{summaryInfo.pendingInvoicesCount} oczekujące</div>
+                    <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>W terminie płatności</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mt-2 text-lg font-semibold" style={{ color: '#2ECC71' }}>Brak zaległości</div>
+                    <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Wszystkie płatności rozliczone</div>
+                  </>
+                )}
               </div>
 
               <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
@@ -276,7 +371,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                 <div className="mt-2 text-lg font-semibold">
                   {summaryInfo.nextRace ? summaryInfo.nextRace.name : 'Brak startu'}
                 </div>
-                <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                   {summaryInfo.nextRace ? `${formatDate(summaryInfo.nextRace.date, { day: 'numeric', month: 'long' })}${summaryInfo.nextRace.distance ? ` · ${summaryInfo.nextRace.distance}` : ''}` : 'Brak najbliższego startu w kalendarzu'}
                 </div>
               </div>
@@ -379,11 +474,27 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
           <div className="space-y-3">
             {attentionItems.map((item) => (
               <div key={`${item.label}-${item.detail}`} className="rounded-xl px-4 py-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: attentionToneDots[item.tone] }} />
-                  <div className="text-sm font-semibold">{item.label}</div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: attentionToneDots[item.tone] }} />
+                    <div className="text-sm font-semibold">{item.label}</div>
+                  </div>
+                  {(item.tab || item.href) && (
+                    <button
+                      onClick={() => handleAttentionCTA(item)}
+                      className="text-xs font-medium shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      style={{ color: '#FF5C1B' }}
+                    >
+                      {item.tab === 'plan' ? 'Uzupełnij plan →' :
+                       item.tab === 'feedback' ? 'Otwórz feedback →' :
+                       item.tab === 'finance' ? 'Sprawdź finanse →' :
+                       item.tab === 'races' ? 'Otwórz zawody →' :
+                       item.tab === 'data' ? 'Otwórz dane →' :
+                       item.href ? 'Otwórz czat →' : 'Otwórz →'}
+                    </button>
+                  )}
                 </div>
-                <div className="text-xs pl-4" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-xs mt-1 pl-4" style={{ color: 'var(--text-muted)' }}>
                   {item.detail}
                 </div>
               </div>
