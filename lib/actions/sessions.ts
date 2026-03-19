@@ -1,5 +1,6 @@
 'use server'
 
+import { addDaysToBusinessDate } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { AUTH_ERROR } from '@/lib/constants'
@@ -123,14 +124,12 @@ export async function deleteSession(id: string, athleteId: string) {
 }
 
 function shiftDate(date: string, days: number) {
-  const dt = new Date(`${date}T12:00:00`)
-  dt.setDate(dt.getDate() + days)
-  return dt.toISOString().slice(0, 10)
+  return addDaysToBusinessDate(date, days)
 }
 
 function diffDays(from: string, to: string) {
-  const start = new Date(`${from}T12:00:00`)
-  const end = new Date(`${to}T12:00:00`)
+  const start = new Date(`${from}T12:00:00Z`)
+  const end = new Date(`${to}T12:00:00Z`)
   return Math.round((end.getTime() - start.getTime()) / 86400000)
 }
 
@@ -196,13 +195,13 @@ export async function moveSessionDate(id: string, athleteId: string, date: strin
 
   if (error) return { error: error.message }
 
-  const { error: feedbackError } = await supabase
+  // Best-effort: update feedback dates linked to this session
+  // If this fails, session date is already correct — don't block on it
+  await supabase
     .from('feedbacks')
     .update({ date })
     .eq('session_id', id)
     .eq('coach_id', user.id)
-
-  if (feedbackError) return { error: feedbackError.message }
 
   revalidatePath(`/coach/athletes/${athleteId}`)
   revalidatePath('/coach/planner')

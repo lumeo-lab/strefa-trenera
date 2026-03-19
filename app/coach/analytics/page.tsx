@@ -116,10 +116,7 @@ export default async function AnalyticsPage() {
   // ── Top athletes by revenue ───────────────────────────────────
   const athleteRevenue = new Map<string, { name: string; package: string; joinDate: string; paid: number; invoiceCount: number; avgMonthly: number }>()
   for (const a of allAthletes) {
-    const monthsSinceJoin = Math.max(1, Math.ceil((new Date(today).getTime() - new Date(a.join_date).getTime()) / (30.44 * 86400000)))
     athleteRevenue.set(a.id, { name: a.name, package: a.package, joinDate: a.join_date, paid: 0, invoiceCount: 0, avgMonthly: 0 })
-    // Will compute avgMonthly after collecting paid totals
-    void monthsSinceJoin // used below
   }
   for (const inv of paidInvoices) {
     const entry = athleteRevenue.get(inv.athlete_id)
