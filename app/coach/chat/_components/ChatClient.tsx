@@ -2,14 +2,13 @@
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SelectField } from '@/components/ui/SelectField'
-import { formatDateTime, getInitials, timeAgo } from '@/lib/utils'
-import { INPUT_STYLE } from '@/lib/styles'
+import { formatDate, getInitials } from '@/lib/utils'
 import { loadThreadMessages, markCoachThreadRead, sendMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 import type { MessageRow } from '@/lib/supabase/database.types'
@@ -29,7 +28,54 @@ type ThreadSummary = {
   unreadCount: number
 }
 
-type ThreadFilter = 'all' | 'unread'
+type ThreadFilter = 'all' | 'unread' | 'needs_reply'
+
+/** Thread awaits coach reply: last message is from athlete */
+function awaitingReply(t: ThreadSummary): boolean {
+  return !!t.lastMessage && t.lastMessage.sender_type === 'athlete'
+}
+
+/** Format time for sidebar: short and contextual */
+function sidebarTime(isoDate: string): string {
+  const now = new Date()
+  const d = new Date(isoDate)
+  const diffMs = now.getTime() - d.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+
+  if (diffMin < 1) return 'teraz'
+  if (diffMin < 60) return `${diffMin} min`
+
+  const isToday = d.toDateString() === now.toDateString()
+  if (isToday) return d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return 'Wczoraj'
+
+  return formatDate(isoDate, { day: 'numeric', month: 'short' })
+}
+
+/** Format date separator label */
+function dateSeparatorLabel(isoDate: string): string {
+  const d = new Date(isoDate)
+  const now = new Date()
+
+  if (d.toDateString() === now.toDateString()) return 'Dzisiaj'
+
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return 'Wczoraj'
+
+  return formatDate(isoDate, { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+/** Get date string (YYYY-MM-DD) from ISO timestamp */
+function dateKey(isoDate: string): string {
+  return isoDate.slice(0, 10)
+}
+
+// Optimistic message placeholder
+type OptimisticMessage = MessageRow & { _optimistic?: boolean }
 
 export function ChatClient({ threadSummaries, coachId, coachName, initialAthleteId, initialFilter }: {
   threadSummaries: ThreadSummary[]
@@ -39,28 +85,43 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   initialFilter?: string
 }) {
   const router = useRouter()
-  const [selectedAthleteId, setSelectedAthleteId] = useState(initialAthleteId ?? threadSummaries[0]?.athlete.id ?? '')
-  const [threadMessages, setThreadMessages] = useState<MessageRow[]>([])
+  const searchParams = useSearchParams()
+  const urlAthleteId = searchParams.get('athlete')
+
+  const [selectedAthleteId, setSelectedAthleteId] = useState(urlAthleteId ?? initialAthleteId ?? threadSummaries[0]?.athlete.id ?? '')
+  const selectedAthleteRef = useRef(selectedAthleteId)
+  selectedAthleteRef.current = selectedAthleteId
+  const [threadMessages, setThreadMessages] = useState<OptimisticMessage[]>([])
   const [loadedAthleteId, setLoadedAthleteId] = useState('')
   const [loadingThread, setLoadingThread] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState(false)
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<ThreadFilter>('all')
+  const [filter, setFilter] = useState<ThreadFilter>(() => {
+    const f = initialFilter ?? searchParams.get('filter')
+    if (f === 'unread' || f === 'needs_reply') return f
+    return 'all'
+  })
   const [pageVisible, setPageVisible] = useState(true)
+  const [localSummaries, setLocalSummaries] = useState<ThreadSummary[]>(threadSummaries)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const { permission, subscribe } = usePushSubscription(coachId, 'coach')
 
+  // Sync from server
   useEffect(() => {
-    if (initialAthleteId) setSelectedAthleteId(initialAthleteId)
-  }, [initialAthleteId])
+    setLocalSummaries(threadSummaries)
+  }, [threadSummaries])
 
+  // URL sync: update selectedAthleteId from URL
   useEffect(() => {
-    setFilter(initialFilter === 'unread' ? 'unread' : 'all')
-  }, [initialFilter])
+    if (urlAthleteId && urlAthleteId !== selectedAthleteId) {
+      setSelectedAthleteId(urlAthleteId)
+    }
+  }, [urlAthleteId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -78,10 +139,16 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   const loadMessages = useCallback(async (athleteId: string) => {
     if (!athleteId) return
     setLoadingThread(true)
+    setLoadError(false)
     try {
       const msgs = await loadThreadMessages(athleteId)
-      setThreadMessages(msgs)
-      setLoadedAthleteId(athleteId)
+      // Race condition guard: only update if athlete didn't change
+      if (selectedAthleteRef.current === athleteId) {
+        setThreadMessages(msgs)
+        setLoadedAthleteId(athleteId)
+      }
+    } catch {
+      setLoadError(true)
     } finally {
       setLoadingThread(false)
     }
@@ -97,18 +164,21 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   useEffect(() => {
     if (!pageVisible) return
 
-    const refreshVisibleData = () => {
+    const interval = setInterval(() => {
       startTransition(() => router.refresh())
       if (selectedAthleteId) void loadMessages(selectedAthleteId)
-    }
-
-    refreshVisibleData()
-
-    const interval = setInterval(() => {
-      refreshVisibleData()
     }, 15000)
+
     return () => clearInterval(interval)
   }, [pageVisible, router, selectedAthleteId, loadMessages])
+
+  // Refresh immediately when tab becomes visible again
+  useEffect(() => {
+    if (pageVisible && selectedAthleteId) {
+      startTransition(() => router.refresh())
+      void loadMessages(selectedAthleteId)
+    }
+  }, [pageVisible]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mark athlete messages as read after the trainer has actively viewed the thread for a moment
   useEffect(() => {
@@ -119,6 +189,10 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
 
     const timeout = window.setTimeout(() => {
+      // Optimistic: mark as read locally
+      setLocalSummaries(prev => prev.map(t =>
+        t.athlete.id === selectedAthleteId ? { ...t, unreadCount: 0 } : t
+      ))
       void markCoachThreadRead(selectedAthleteId)
     }, 1200)
 
@@ -130,34 +204,59 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [threadMessages.length])
 
+  // Auto-resize textarea
+  useEffect(() => {
+    const ta = textareaRef.current
+    if (!ta) return
+    ta.style.height = 'auto'
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'
+  }, [input])
+
   // Sort & filter threads
   const sortedThreads = useMemo(() => {
-    return [...threadSummaries].sort((a, b) => {
+    return [...localSummaries].sort((a, b) => {
+      // Unread first
       if (a.unreadCount > 0 && b.unreadCount === 0) return -1
       if (a.unreadCount === 0 && b.unreadCount > 0) return 1
+      // Awaiting reply second
+      const aWaiting = awaitingReply(a)
+      const bWaiting = awaitingReply(b)
+      if (aWaiting && !bWaiting) return -1
+      if (!aWaiting && bWaiting) return 1
+      // Then by last message time
       const aTime = a.lastMessage?.created_at ?? ''
       const bTime = b.lastMessage?.created_at ?? ''
       if (aTime > bTime) return -1
       if (aTime < bTime) return 1
       return a.athlete.name.localeCompare(b.athlete.name, 'pl')
     })
-  }, [threadSummaries])
+  }, [localSummaries])
 
   const filteredThreads = useMemo(() => {
-    const byFilter = sortedThreads.filter((thread) => filter === 'unread' ? thread.unreadCount > 0 : true)
+    let list = sortedThreads
+    if (filter === 'unread') list = list.filter(t => t.unreadCount > 0)
+    else if (filter === 'needs_reply') list = list.filter(t => awaitingReply(t))
 
-    if (!search.trim()) return byFilter
+    if (!search.trim()) return list
     const q = search.toLowerCase()
-    return byFilter.filter(t => t.athlete.name.toLowerCase().includes(q))
+    return list.filter(t => t.athlete.name.toLowerCase().includes(q))
   }, [sortedThreads, search, filter])
 
-  const totalUnread = useMemo(() => threadSummaries.reduce((s, t) => s + t.unreadCount, 0), [threadSummaries])
-  const selectedAthlete = threadSummaries.find(t => t.athlete.id === selectedAthleteId)?.athlete
+  const totalUnread = useMemo(() => localSummaries.reduce((s, t) => s + t.unreadCount, 0), [localSummaries])
+  const needsReplyCount = useMemo(() => localSummaries.filter(t => awaitingReply(t)).length, [localSummaries])
+  const selectedAthlete = localSummaries.find(t => t.athlete.id === selectedAthleteId)?.athlete
 
   function selectAthlete(id: string) {
     setSelectedAthleteId(id)
     setSendError(false)
-    setTimeout(() => inputRef.current?.focus(), 100)
+    setLoadError(false)
+    // Update URL without full navigation
+    const url = new URL(window.location.href)
+    url.searchParams.set('athlete', id)
+    if (filter !== 'all') url.searchParams.set('filter', filter)
+    else url.searchParams.delete('filter')
+    window.history.replaceState(null, '', url.toString())
+    setTimeout(() => textareaRef.current?.focus(), 100)
   }
 
   async function handleSend() {
@@ -166,6 +265,30 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     setSending(true)
     setSendError(false)
     setInput('')
+
+    // Optimistic: add message locally
+    const optimisticMsg: OptimisticMessage = {
+      id: `opt_${Date.now()}`,
+      coach_id: coachId,
+      athlete_id: selectedAthleteId,
+      sender_type: 'coach',
+      content,
+      read: true,
+      created_at: new Date().toISOString(),
+      _optimistic: true,
+    }
+    setThreadMessages(prev => [...prev, optimisticMsg])
+
+    // Optimistic: update sidebar summary
+    setLocalSummaries(prev => prev.map(t =>
+      t.athlete.id === selectedAthleteId
+        ? {
+            ...t,
+            lastMessage: { id: optimisticMsg.id, sender_type: 'coach', content, created_at: optimisticMsg.created_at },
+          }
+        : t
+    ))
+
     try {
       const fd = new FormData()
       fd.set('athlete_id', selectedAthleteId)
@@ -173,18 +296,28 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
       fd.set('coach_name', coachName)
       const result = await sendMessage(null, fd)
       if (result && 'error' in result) {
+        // Remove optimistic message, restore input
+        setThreadMessages(prev => prev.filter(m => m.id !== optimisticMsg.id))
         setInput(content)
         setSendError(true)
       } else {
-        // Reload thread and sidebar
+        // Replace optimistic with real data
         await loadMessages(selectedAthleteId)
         startTransition(() => router.refresh())
       }
     } catch {
+      setThreadMessages(prev => prev.filter(m => m.id !== optimisticMsg.id))
       setInput(content)
       setSendError(true)
     } finally {
       setSending(false)
+    }
+  }
+
+  function handleTextareaKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
     }
   }
 
@@ -204,6 +337,18 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     )
   }
 
+  // Build date separators for messages
+  const messagesWithSeparators: Array<{ type: 'separator'; label: string; key: string } | { type: 'message'; msg: OptimisticMessage }> = []
+  let lastDate = ''
+  for (const msg of threadMessages) {
+    const msgDate = dateKey(msg.created_at)
+    if (msgDate !== lastDate) {
+      messagesWithSeparators.push({ type: 'separator', label: dateSeparatorLabel(msg.created_at), key: `sep_${msgDate}` })
+      lastDate = msgDate
+    }
+    messagesWithSeparators.push({ type: 'message', msg })
+  }
+
   return (
     <div className="sticky top-0 flex h-dvh flex-col overflow-hidden -mb-64">
       <CoachTopbar title="Czat" subtitle={totalUnread > 0 ? `${totalUnread} nieprzeczytanych` : `${threadSummaries.length} zawodników`} />
@@ -212,10 +357,11 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
 
         {/* ── Sidebar: thread list ── */}
         <div className="w-72 border-r flex flex-col shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
-          {/* Search */}
+          {/* Filters + search */}
           <div className="px-3 py-3 border-b space-y-3" style={{ borderColor: 'var(--border)' }}>
             <SelectField value={filter} onChange={(value) => setFilter(value as ThreadFilter)}>
-              <option value="all">Wszystkie rozmowy</option>
+              <option value="all">Wszystkie rozmowy ({localSummaries.length})</option>
+              <option value="needs_reply">Wymaga odpowiedzi{needsReplyCount > 0 ? ` (${needsReplyCount})` : ''}</option>
               <option value="unread">Nieprzeczytane{totalUnread > 0 ? ` (${totalUnread})` : ''}</option>
             </SelectField>
             <input
@@ -232,13 +378,14 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
             {filteredThreads.length === 0 && (
               <div className="p-3">
                 <EmptyState
-                  title="Nic nie pasuje do tego widoku"
-                  description="Spróbuj wyczyścić wyszukiwanie albo przełączyć filtr rozmów, żeby znów zobaczyć zawodników."
+                  title="Brak rozmów w tym widoku"
+                  description="Zmień filtr lub wyczyść wyszukiwanie."
                 />
               </div>
             )}
             {filteredThreads.map(({ athlete, lastMessage, unreadCount }) => {
               const isActive = athlete.id === selectedAthleteId
+              const waiting = lastMessage && lastMessage.sender_type === 'athlete' && unreadCount === 0
               return (
                 <button key={athlete.id} onClick={() => selectAthlete(athlete.id)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left transition-all cursor-pointer"
@@ -264,15 +411,22 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
                       </span>
                       {lastMessage && (
                         <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>
-                          {timeAgo(lastMessage.created_at)}
+                          {sidebarTime(lastMessage.created_at)}
                         </span>
                       )}
                     </div>
-                    <div className={`text-xs truncate mt-0.5 ${unreadCount > 0 ? 'font-semibold' : ''}`}
-                      style={{ color: unreadCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                      {lastMessage
-                        ? `${lastMessage.sender_type === 'coach' ? 'Ty: ' : ''}${lastMessage.content.slice(0, 40)}${lastMessage.content.length > 40 ? '…' : ''}`
-                        : 'Brak wiadomości'}
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`text-xs truncate flex-1 ${unreadCount > 0 ? 'font-semibold' : ''}`}
+                        style={{ color: unreadCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        {lastMessage
+                          ? `${lastMessage.sender_type === 'coach' ? 'Ty: ' : ''}${lastMessage.content.slice(0, 50)}${lastMessage.content.length > 50 ? '…' : ''}`
+                          : 'Brak wiadomości'}
+                      </span>
+                      {waiting && (
+                        <span className="text-[10px] shrink-0 px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+                          Czeka
+                        </span>
+                      )}
                     </div>
                   </div>
                 </button>
@@ -294,13 +448,22 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
                     {selectedAthlete.package}{selectedAthlete.goal ? ` · ${selectedAthlete.goal}` : ''}
                   </div>
                 </div>
-                <Link
-                  href={`/coach/athletes/${selectedAthlete.id}`}
-                  className="px-3 py-2 rounded-xl text-xs font-medium transition-opacity"
-                  style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
-                >
-                  Otwórz profil
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/coach/athletes/${selectedAthlete.id}?tab=feedback`}
+                    className="px-3 py-2 rounded-xl text-xs font-medium transition-opacity hover:opacity-80"
+                    style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)' }}
+                  >
+                    Feedback
+                  </Link>
+                  <Link
+                    href={`/coach/athletes/${selectedAthlete.id}`}
+                    className="px-3 py-2 rounded-xl text-xs font-medium transition-opacity hover:opacity-80"
+                    style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
+                  >
+                    Profil
+                  </Link>
+                </div>
               </>
             )}
           </div>
@@ -309,7 +472,7 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
           {permission === 'default' && (
             <div className="px-6 pt-3 shrink-0">
               <button onClick={subscribe}
-                className="px-4 py-2.5 rounded-xl text-sm cursor-pointer w-full text-left"
+                className="px-4 py-2.5 rounded-xl text-sm cursor-pointer w-full text-left transition-opacity hover:opacity-80"
                 style={{ background: 'rgba(255,92,27,0.1)', border: '1px solid rgba(255,92,27,0.3)', color: '#FF5C1B' }}>
                 🔔 Włącz powiadomienia o nowych wiadomościach
               </button>
@@ -318,27 +481,54 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-h-0">
-            {loadingThread && threadMessages.length === 0 && (
-              <div className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
-                Wczytywanie...
+            {/* Limit 200 info */}
+            {threadMessages.length >= 200 && (
+              <div className="text-center text-xs py-2 rounded-xl mb-2" style={{ color: 'var(--text-muted)', background: 'var(--bg-subtle)' }}>
+                Wyświetlono ostatnie 200 wiadomości
               </div>
             )}
-            {!loadingThread && threadMessages.length === 0 && (
+
+            {loadingThread && threadMessages.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: '#FF5C1B' }} />
+                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Wczytywanie rozmowy...</span>
+              </div>
+            )}
+            {loadError && (
               <EmptyState
-                title="Ta rozmowa jest jeszcze pusta"
-                description="Wyślij pierwszą wiadomość, a wątek zacznie się budować tutaj w czasie rzeczywistym."
+                title="Nie udało się wczytać rozmowy"
+                description="Sprawdź połączenie i spróbuj ponownie."
+                actionLabel="Spróbuj ponownie"
+                onAction={() => loadMessages(selectedAthleteId)}
               />
             )}
-            {!loadingThread && threadMessages.length === 0 && (
+            {!loadingThread && !loadError && threadMessages.length === 0 && (
+              <EmptyState
+                title="Ta rozmowa jest jeszcze pusta"
+                description="Wyślij pierwszą wiadomość, a wątek zacznie się budować tutaj."
+              />
+            )}
+            {!loadingThread && !loadError && threadMessages.length === 0 && (
               <div ref={bottomRef} />
             )}
-            {threadMessages.length > 0 && threadMessages.map(msg => {
+            {threadMessages.length > 0 && messagesWithSeparators.map(item => {
+              if (item.type === 'separator') {
+                return (
+                  <div key={item.key} className="flex items-center gap-3 py-2">
+                    <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                    <span className="text-xs font-medium shrink-0" style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+                    <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                  </div>
+                )
+              }
+              const msg = item.msg
               const isCoach = msg.sender_type === 'coach'
+              const isOptimistic = msg._optimistic
               return (
-                <div key={msg.id} className={`flex gap-3 ${isCoach ? 'flex-row-reverse' : ''}`}>
+                <div key={msg.id} className={`flex gap-3 ${isCoach ? 'flex-row-reverse' : ''}`} style={{ opacity: isOptimistic ? 0.6 : 1 }}>
                   <Avatar initials={isCoach ? coachInitials : (selectedAthlete?.avatar || '?')} size="sm" />
                   <div className={`flex flex-col gap-1 ${isCoach ? 'items-end' : 'items-start'}`} style={{ maxWidth: '65%' }}>
-                    <div className="px-4 py-3 text-sm leading-relaxed"
+                    <div className="px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
                       style={{
                         background: isCoach ? '#FF5C1B' : 'var(--bg-elevated)',
                         color: isCoach ? 'white' : 'var(--text-primary)',
@@ -346,7 +536,9 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
                       }}>
                       {msg.content}
                     </div>
-                    <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>{formatDateTime(msg.created_at)}</div>
+                    <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
+                      {isOptimistic ? 'Wysyłanie...' : formatDate(msg.created_at, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </div>
                   </div>
                 </div>
               )
@@ -357,23 +549,28 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
           {/* Input */}
           <div className="px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}>
             {sendError && (
-              <div className="text-xs mb-2 px-1" style={{ color: '#E74C3C' }}>
-                Nie udało się wysłać wiadomości. Spróbuj ponownie.
+              <div className="text-xs mb-2 px-1 flex items-center gap-2" style={{ color: '#E74C3C' }}>
+                <span>Nie udało się wysłać wiadomości.</span>
+                <button onClick={handleSend} className="underline cursor-pointer hover:opacity-80">Spróbuj ponownie</button>
               </div>
             )}
-            <div className="flex items-center gap-3">
-              <input
-                ref={inputRef}
+            <div className="flex items-end gap-3">
+              <textarea
+                ref={textareaRef}
                 value={input}
                 onChange={e => { setInput(e.target.value); setSendError(false) }}
-                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                onKeyDown={handleTextareaKeyDown}
                 placeholder={`Napisz do ${selectedAthlete?.name ?? 'zawodnika'}…`}
-                className="flex-1 px-4 py-3 rounded-2xl text-sm"
-                style={INPUT_STYLE}
+                rows={1}
+                className="flex-1 px-4 py-3 rounded-2xl text-sm resize-none overflow-hidden"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', maxHeight: 120 }}
               />
               <Button onClick={handleSend} disabled={!input.trim() || sending}>
                 {sending ? '…' : 'Wyślij'}
               </Button>
+            </div>
+            <div className="text-xs mt-1.5 px-1" style={{ color: 'var(--text-muted)' }}>
+              Enter — wyślij · Shift+Enter — nowa linia
             </div>
           </div>
         </div>

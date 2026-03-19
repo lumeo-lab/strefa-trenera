@@ -489,3 +489,58 @@ Jeśli chcemy szybki, mocny upgrade `Czat`, największy efekt dadzą:
 
 ---
 
+### Uzupełnienie techniczne (z audytu kodu — plan2.md)
+
+Poniższe punkty zostały wykryte podczas audytu kodu i uzupełniają plan produktowy o konkretne detale implementacyjne.
+
+#### C1: Visibility check + dłuższy interwał pollingu
+- `router.refresh()` + `loadMessages()` co 5s nawet gdy zakładka w tle — drenaż baterii, ~720 requestów/h
+- Sprawdzać `document.visibilityState === 'visible'` przed pollem
+- Wydłużyć interwał z 5s do 15s
+- Dodać `visibilitychange` listener żeby wznowić/wstrzymać polling
+- Poll natychmiast po powrocie do zakładki
+- **Wpada do:** Etap 4 (optimistic updates) + Etap 8 (wydajność)
+
+#### C2: Error handling w loadMessages + race condition guard
+- `loadMessages` ma `try/finally` ale brak `catch` — nieobsłużone wyjątki
+- Szybkie przełączanie wątków (3 kliknięcia) = 3 równoległe requesty, ostatni wygrywa ale może być odpowiedzią na innego zawodnika
+- Dodać `catch` z komunikatem błędu
+- Dodać guard: ignorować odpowiedź jeśli `athleteId` się zmienił od momentu wysłania requesta
+- **Wpada do:** Etap 7 (stany błędu)
+
+#### C3: Separatory dat w wiadomościach
+- Wiadomości renderowane jako ciągła lista bez oddzielenia dat
+- Między grupami wstawić separator: "Dzisiaj", "Wczoraj", "12 marca 2026"
+- Styl: delikatna linia z datą pośrodku (jak w Slack/iMessage)
+- **Wpada do:** Etap 5 (czytelność wątku)
+
+#### C4: Optimistic message rendering
+- Po wysłaniu wiadomości jest 1-2s luki — input wyczyszczony ale wiadomość nie pojawia się w wątku aż serwer potwierdzi
+- Po `handleSend` natychmiast dodać wiadomość do `threadMessages` z tymczasowym ID
+- Oznaczyć jako "sending" (delikatna opacity)
+- Po potwierdzeniu serwera — zastąpić prawdziwym ID. Przy błędzie — usunąć i przywrócić input
+- **Wpada do:** Etap 4 (optimistic updates)
+
+#### C5: Textarea zamiast input + lepszy loading
+- `<input>` nie obsługuje wielolinijkowych wiadomości
+- Zamienić na `<textarea>` z auto-resize (1-4 linii)
+- Enter wysyła, Shift+Enter nowa linia
+- Loading: zamienić tekst na skeleton lub spinner
+- **Wpada do:** Etap 5 (czytelność wątku) + Etap 10 (polish)
+
+#### C6: Limit 200 wiadomości — paginacja lub info
+- `.limit(200)` obcina historię bez informacji
+- Jeśli `threadMessages.length >= 200` — na górze wątku pokazać info "Wyświetlono ostatnie 200 wiadomości"
+- Docelowo: przycisk "Załaduj starsze"
+- **Wpada do:** Etap 8 (dane i wydajność)
+
+#### Pliki dotyczące tej sekcji
+- `app/coach/chat/page.tsx`
+- `app/coach/chat/_components/ChatClient.tsx`
+- `lib/actions/messages.ts`
+
+#### Poza zakresem (z plan2)
+- Brak dodatkowych punktów — wszystkie z plan2 zmapowane powyżej
+
+---
+
