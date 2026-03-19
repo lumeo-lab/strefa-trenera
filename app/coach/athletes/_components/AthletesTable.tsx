@@ -182,7 +182,7 @@ export function AthletesTable({
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3 text-left">
                       <Avatar initials={athlete.avatar} size="sm" />
-                      <div className="min-w-0">
+                      <div className="flex-1 min-w-0">
                         <div className="font-medium flex items-center gap-1.5">
                           <Link href={`/coach/athletes/${athlete.id}`} className="truncate hover:text-orange-400 transition-colors">
                             {athlete.name}
@@ -200,22 +200,24 @@ export function AthletesTable({
                         </div>
                         <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{athlete.email ?? '—'}</div>
                         {athlete.goal && <div className="text-xs mt-0.5 truncate max-w-52" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>{athlete.goal}</div>}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onToggleActionMenu(athlete.id, e.currentTarget.getBoundingClientRect())
-                          }}
-                          className="mt-1.5 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] cursor-pointer transition-opacity hover:opacity-80"
-                          style={{
-                            background: actionMenuFor === athlete.id ? 'rgba(255,92,27,0.1)' : 'var(--bg-elevated)',
-                            color: actionMenuFor === athlete.id ? '#FF5C1B' : 'var(--text-muted)',
-                            border: '1px solid var(--border)',
-                          }}
-                        >
-                          Akcje <span className="opacity-50">▾</span>
-                        </button>
                       </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onToggleActionMenu(athlete.id, e.currentTarget.getBoundingClientRect())
+                        }}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg shrink-0 cursor-pointer transition-all hover:bg-[var(--bg-hover)]"
+                        style={{
+                          color: actionMenuFor === athlete.id ? '#FF5C1B' : 'var(--text-muted)',
+                          background: actionMenuFor === athlete.id ? 'rgba(255,92,27,0.08)' : 'var(--bg-elevated)',
+                          border: '1px solid var(--border)',
+                        }}
+                        title="Akcje"
+                        aria-label={`Akcje dla ${athlete.name}`}
+                      >
+                        ⋮
+                      </button>
                     </div>
                   </td>
 
@@ -227,7 +229,7 @@ export function AthletesTable({
                     }}
                     title={`Status: ${statusDef.label} — kliknij aby zmienić`}
                   >
-                    <div className="flex items-center justify-center gap-2 cursor-pointer select-none hover:opacity-70 transition-opacity">
+                    <div className="flex items-center gap-2 cursor-pointer select-none hover:opacity-70 transition-opacity">
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ background: statusDef.color }} />
                       <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{statusDef.label}</span>
                       <span className="text-xs opacity-30">{editingStatusFor === athlete.id ? '▴' : '▾'}</span>
