@@ -1,10 +1,10 @@
 'use client'
 
-import { startTransition, useEffect, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { formatDateTime } from '@/lib/utils'
+import { formatDate, formatDateTime } from '@/lib/utils'
 import { INPUT_STYLE } from '@/lib/styles'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
@@ -18,22 +18,69 @@ interface Props {
   coachName: string
 }
 
+/** Format date separator label */
+function dateSeparatorLabel(isoDate: string): string {
+  const d = new Date(isoDate)
+  const now = new Date()
+
+  if (d.toDateString() === now.toDateString()) return 'Dzisiaj'
+
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return 'Wczoraj'
+
+  return formatDate(isoDate, { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+/** Get date string (YYYY-MM-DD) from ISO timestamp */
+function dateKey(isoDate: string): string {
+  return isoDate.slice(0, 10)
+}
+
+type MessageWithSeparator =
+  | { type: 'separator'; label: string; key: string }
+  | { type: 'message'; msg: AthleteMessageRow }
+
 export function AthleteChatPage({ athlete, messages, coachName }: Props) {
   const router = useRouter()
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const { permission, subscribe } = usePushSubscription(athlete.id, 'athlete', athlete.slug)
 
-  // Poll for new messages every 5s
-  useEffect(() => {
-    const interval = setInterval(() => {
-      startTransition(() => router.refresh())
-    }, 5000)
-    return () => clearInterval(interval)
+  // Poll for new messages every 15s, only when tab is visible
+  const refresh = useCallback(() => {
+    startTransition(() => router.refresh())
   }, [router])
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null
+
+    function start() {
+      if (!interval) interval = setInterval(refresh, 15000)
+    }
+    function stop() {
+      if (interval) { clearInterval(interval); interval = null }
+    }
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') {
+        refresh() // fetch immediately on return
+        start()
+      } else {
+        stop()
+      }
+    }
+
+    if (document.visibilityState === 'visible') start()
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      stop()
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [refresh])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -71,6 +118,44 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
     }
   }
 
+  // Auto-resize textarea
+  function handleTextareaInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setInput(e.target.value)
+    setSendError(false)
+    autoResize(e.target)
+  }
+
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
+  // Reset textarea height when input is cleared (after send)
+  useEffect(() => {
+    if (!input && textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+  }, [input])
+
+  // Build date separators
+  const messagesWithSeparators: MessageWithSeparator[] = []
+  let lastDate = ''
+  for (const msg of messages) {
+    const msgDate = dateKey(msg.created_at)
+    if (msgDate !== lastDate) {
+      messagesWithSeparators.push({ type: 'separator', label: dateSeparatorLabel(msg.created_at), key: `sep_${msgDate}` })
+      lastDate = msgDate
+    }
+    messagesWithSeparators.push({ type: 'message', msg })
+  }
+
   return (
     <div style={{ color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', height: '100vh' }}>
       {/* Header */}
@@ -100,13 +185,23 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
             Brak wiadomości. Napisz do trenera!
           </div>
         )}
-        {messages.map(msg => {
+        {messagesWithSeparators.map(item => {
+          if (item.type === 'separator') {
+            return (
+              <div key={item.key} className="flex items-center gap-3 py-2">
+                <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                <span className="text-xs font-medium shrink-0" style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+                <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+              </div>
+            )
+          }
+          const msg = item.msg
           const isAthlete = msg.sender_type === 'athlete'
           return (
             <div key={msg.id} className={`flex gap-3 ${isAthlete ? 'flex-row-reverse' : ''}`}>
               <Avatar initials={isAthlete ? athlete.avatar : coachInitials} size="sm" />
               <div className={`max-w-xs flex flex-col gap-1 ${isAthlete ? 'items-end' : 'items-start'}`}>
-                <div className="px-4 py-3 rounded-2xl text-sm"
+                <div className="px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap"
                   style={{
                     background: isAthlete ? '#FF5C1B' : 'var(--bg-elevated)',
                     color: isAthlete ? 'white' : 'var(--text-primary)',
@@ -129,13 +224,15 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
             Nie udało się wysłać wiadomości. Spróbuj ponownie.
           </div>
         )}
-        <div className="flex items-center gap-3">
-          <input
+        <div className="flex items-end gap-3">
+          <textarea
+            ref={textareaRef}
             value={input}
-            onChange={e => { setInput(e.target.value); setSendError(false) }}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+            onChange={handleTextareaInput}
+            onKeyDown={handleKeyDown}
             placeholder={`Napisz do ${coachName}...`}
-            className="flex-1 px-4 py-3 rounded-2xl text-sm"
+            rows={1}
+            className="flex-1 px-4 py-3 rounded-2xl text-sm resize-none overflow-hidden"
             style={INPUT_STYLE}
           />
           <Button onClick={handleSend} disabled={!input.trim() || sending}>

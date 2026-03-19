@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { feedbackLabel } from '@/components/coach/FeedbackCard'
 import { dayName, formatDate, getWeekDays, intensityColor, parseFeedbackTranscript, sessionTypeLabel, toISODate } from '@/lib/utils'
+import { getMonthCalendar, shiftMonth } from '@/lib/calendar'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
 import type { AthletePlanFeedbackMap, AthleteTrainingSessionRow } from '@/lib/athlete-data'
@@ -15,12 +16,6 @@ interface Props {
   today: string
 }
 
-function shiftMonth(m: string, d: number): string {
-  const [y, mo] = m.split('-').map(Number)
-  const dt = new Date(y, mo - 1 + d, 1)
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
-}
-
 export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) {
   const currentMonth = today.slice(0, 7)
   const [view, setView] = useState<'week' | 'month'>('week')
@@ -30,21 +25,6 @@ export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) 
   const weekDays = getWeekDays(weekOffset)
   const weekStart = toISODate(weekDays[0])
   const weekEnd = toISODate(weekDays[6])
-
-  // SESSION_TYPES imported from @/lib/constants
-
-  function getMonthCalendar(monthStr: string) {
-    const [y, mo] = monthStr.split('-').map(Number)
-    const daysInMonth = new Date(y, mo, 0).getDate()
-    const startDow = (new Date(y, mo - 1, 1).getDay() + 6) % 7
-    const cells: (string | null)[] = []
-    for (let i = 0; i < startDow; i++) cells.push(null)
-    for (let d = 1; d <= daysInMonth; d++) cells.push(`${monthStr}-${String(d).padStart(2, '0')}`)
-    while (cells.length % 7 !== 0) cells.push(null)
-    const weeks: (string | null)[][] = []
-    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
-    return weeks
-  }
 
   const calendarWeeks = getMonthCalendar(selectedMonth)
 

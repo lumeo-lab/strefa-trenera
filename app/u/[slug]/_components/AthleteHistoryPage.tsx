@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { getBusinessToday } from '@/lib/date'
 import { formatDate, intensityColor, sessionTypeLabel } from '@/lib/utils'
+import { monthLabel, shiftMonth } from '@/lib/calendar'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
 import type { AthleteStravaActivityRow, AthleteTrainingSessionRow } from '@/lib/athlete-data'
@@ -15,17 +16,6 @@ interface Props {
   stravaActivities: AthleteStravaActivityRow[]
   stravaStatus?: string
   stravaMsg?: string
-}
-
-function shiftMonth(m: string, d: number): string {
-  const [y, mo] = m.split('-').map(Number)
-  const dt = new Date(y, mo - 1 + d, 1)
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
-}
-
-function monthLabel(m: string): string {
-  const [y, mo] = m.split('-').map(Number)
-  return new Date(y, mo - 1, 1).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })
 }
 
 function formatPace(metersPerSec: number): string {
