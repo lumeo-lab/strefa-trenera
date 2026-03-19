@@ -10,6 +10,13 @@ interface AthletesStatusMenuProps {
   onSelect: (statusKey: string) => void
 }
 
+const STATUS_HINTS: Record<string, string> = {
+  ok: 'Zawodnik trenuje normalnie',
+  warning: 'Wymaga obserwacji lub kontaktu',
+  alert: 'Kontuzja lub poważny problem',
+  inactive: 'Przerwa w treningach',
+}
+
 export function AthletesStatusMenu({ pos, athleteStatus, allStatuses, updating, onSelect }: AthletesStatusMenuProps) {
   return (
     <div
@@ -40,8 +47,11 @@ export function AthletesStatusMenu({ pos, athleteStatus, allStatuses, updating, 
           }}
         >
           <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: status.color }} />
-          {status.label}
-          {status.key === athleteStatus && <span className="ml-auto text-xs">✓</span>}
+          <div className="flex-1 min-w-0">
+            <div>{status.label}</div>
+            {STATUS_HINTS[status.key] && <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{STATUS_HINTS[status.key]}</div>}
+          </div>
+          {status.key === athleteStatus && <span className="ml-auto text-xs shrink-0">✓</span>}
         </button>
       ))}
     </div>

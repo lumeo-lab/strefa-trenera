@@ -14,6 +14,8 @@ function SortHeader({ label, sk, sortKey, sortDir, onSort }: { label: string; sk
       className="text-center px-5 py-4 font-medium cursor-pointer select-none hover:opacity-80 transition-opacity"
       style={{ color: isActive ? '#FF5C1B' : 'var(--text-muted)' }}
       onClick={() => onSort(sk)}
+      aria-sort={isActive ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      title={`Sortuj po: ${label}`}
     >
       {label}{isActive && <span className="ml-1 text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>}
     </th>
@@ -123,7 +125,7 @@ export function AthletesTable({
         <table className="w-full text-sm" style={{ minWidth: 900 }}>
           <thead>
             <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
-              <th className="px-3 py-4 w-8" style={{ color: sortKey ? 'var(--border)' : 'var(--text-muted)' }} title={sortKey ? 'Przeciąganie jest wyłączone podczas sortowania' : 'Przeciągnij, aby zmienić kolejność'}>
+              <th className="px-3 py-4 w-8" style={{ color: sortKey ? 'var(--border)' : 'var(--text-muted)' }} title={sortKey ? 'Przeciąganie jest wyłączone podczas sortowania' : 'Przeciągnij, aby zmienić kolejność'} aria-label="Kolejność">
                 ⠿
               </th>
               <SortHeader sortKey={sortKey} sortDir={sortDir} onSort={onSort} label="Zawodnik" sk="name" />
@@ -186,12 +188,12 @@ export function AthletesTable({
                             {athlete.name}
                           </Link>
                           {!!unreadMsg && (
-                            <span title={`${unreadMsg} wiadomości`} className="inline-flex items-center justify-center rounded-full text-white font-bold shrink-0" style={{ background: '#FF5C1B', minWidth: 16, height: 16, fontSize: 9, padding: '0 4px' }}>
+                            <span title={`${unreadMsg} nieprzeczytanych wiadomości`} aria-label={`${unreadMsg} nieprzeczytanych wiadomości`} className="inline-flex items-center justify-center rounded-full text-white font-bold shrink-0" style={{ background: '#FF5C1B', minWidth: 16, height: 16, fontSize: 9, padding: '0 4px' }}>
                               {unreadMsg}
                             </span>
                           )}
                           {!!unreadFb && (
-                            <span title={`${unreadFb} feedback`} className="inline-flex items-center justify-center rounded-full text-white font-bold shrink-0" style={{ background: '#3B82F6', minWidth: 16, height: 16, fontSize: 9, padding: '0 4px' }}>
+                            <span title={`${unreadFb} nieprzeczytanych feedbacków`} aria-label={`${unreadFb} nieprzeczytanych feedbacków`} className="inline-flex items-center justify-center rounded-full text-white font-bold shrink-0" style={{ background: '#3B82F6', minWidth: 16, height: 16, fontSize: 9, padding: '0 4px' }}>
                               {unreadFb}
                             </span>
                           )}
@@ -223,6 +225,7 @@ export function AthletesTable({
                       e.stopPropagation()
                       onToggleStatusMenu(athlete.id, e.currentTarget.getBoundingClientRect())
                     }}
+                    title={`Status: ${statusDef.label} — kliknij aby zmienić`}
                   >
                     <div className="flex items-center justify-center gap-2 cursor-pointer select-none hover:opacity-70 transition-opacity">
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ background: statusDef.color }} />

@@ -12,6 +12,7 @@ import { exportAthletesToExcel } from '@/lib/athletes-export'
 import { type StatusDef, useCustomStatuses } from '@/lib/useCustomStatuses'
 import { AddAthleteModal } from './AddAthleteModal'
 import { AthletesActionMenu } from './AthletesActionMenu'
+import { AthletesCards } from './AthletesCards'
 import { AthletesFilters } from './AthletesFilters'
 import { AthletesStatusMenu } from './AthletesStatusMenu'
 import { AthletesTable } from './AthletesTable'
@@ -97,6 +98,7 @@ export function AthletesClient({
   const [columnOverride, setColumnOverride] = useState<ColumnKey[] | null>(null)
   const [packageFilter, setPackageFilter] = useState('all')
   const [hintDismissedOverride, setHintDismissedOverride] = useState<boolean | null>(null)
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
   const [colPickerOpen, setColPickerOpen] = useState(false)
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
   const colPickerRef = useRef<HTMLDivElement>(null)
@@ -197,24 +199,13 @@ export function AthletesClient({
     return [...values].sort((a, b) => a.localeCompare(b, 'pl'))
   }, [athletes, packages])
 
-  // Attention logic for operational filters
-  const needsAttention = useCallback((athlete: typeof athletes[0]) => {
-    return athlete.status === 'alert' || athlete.status === 'warning'
-      || signalMap[athlete.id] === 'red'
-      || (unreadMessagesMap[athlete.id] ?? 0) > 0
-      || (unreadFeedbackMap[athlete.id] ?? 0) > 0
-      || !nextSessionMap[athlete.id]
-      || !!unpaidInvoiceSet[athlete.id]
-  }, [signalMap, unreadMessagesMap, unreadFeedbackMap, nextSessionMap, unpaidInvoiceSet])
-
   const operationalCounts = useMemo(() => ({
-    attention: athletes.filter(needsAttention).length,
     red_signal: athletes.filter(a => signalMap[a.id] === 'red').length,
     no_plan: athletes.filter(a => !nextSessionMap[a.id]).length,
     unanswered: athletes.filter(a => (unreadMessagesMap[a.id] ?? 0) > 0 || (unreadFeedbackMap[a.id] ?? 0) > 0).length,
     unpaid: athletes.filter(a => unpaidInvoiceSet[a.id]).length,
     low_compliance: athletes.filter(a => { const c = complianceMap[a.id]; return c && c.total > 0 && (c.completed / c.total) < 0.5 }).length,
-  }), [athletes, needsAttention, signalMap, nextSessionMap, unreadMessagesMap, unreadFeedbackMap, unpaidInvoiceSet, complianceMap])
+  }), [athletes, signalMap, nextSessionMap, unreadMessagesMap, unreadFeedbackMap, unpaidInvoiceSet, complianceMap])
 
   const filtered = useMemo(() => {
     return athletes.filter((athlete) => {
@@ -227,8 +218,7 @@ export function AthletesClient({
         || (athlete.phone ?? '').includes(q)
 
       let matchesStatus = true
-      if (statusFilter === 'attention') matchesStatus = needsAttention(athlete)
-      else if (statusFilter === 'red_signal') matchesStatus = signalMap[athlete.id] === 'red'
+      if (statusFilter === 'red_signal') matchesStatus = signalMap[athlete.id] === 'red'
       else if (statusFilter === 'no_plan') matchesStatus = !nextSessionMap[athlete.id]
       else if (statusFilter === 'unanswered') matchesStatus = (unreadMessagesMap[athlete.id] ?? 0) > 0 || (unreadFeedbackMap[athlete.id] ?? 0) > 0
       else if (statusFilter === 'unpaid') matchesStatus = !!unpaidInvoiceSet[athlete.id]
@@ -238,7 +228,7 @@ export function AthletesClient({
       const matchesPackage = packageFilter === 'all' || !packageColumnVisible || athlete.package === packageFilter
       return matchesText && matchesStatus && matchesPackage
     })
-  }, [athletes, search, statusFilter, packageFilter, packageColumnVisible, needsAttention, nextSessionMap, unpaidInvoiceSet, signalMap, unreadMessagesMap, unreadFeedbackMap, complianceMap])
+  }, [athletes, search, statusFilter, packageFilter, packageColumnVisible, nextSessionMap, unpaidInvoiceSet, signalMap, unreadMessagesMap, unreadFeedbackMap, complianceMap])
 
   const displayed = useMemo(() => {
     const persistedOrder = orderOverride ?? athletes.map((athlete) => athlete.id)
@@ -400,7 +390,7 @@ export function AthletesClient({
 
         <AthletesToolbar
           search={search}
-          onSearchChange={setSearch}
+          onSearchChange={(v) => { setSearch(v); updateUrl({ search: v, status: statusFilter, package: packageFilter }) }}
           activeColumns={effectiveActiveColumns}
           colPickerOpen={colPickerOpen}
           colPickerRef={colPickerRef}
@@ -472,7 +462,7 @@ export function AthletesClient({
           />
         )}
 
-        {/* Quick stats */}
+        {/* Quick stats + view toggle */}
         {displayed.length > 0 && (() => {
           const alertCount = displayed.filter(a => a.status === 'alert' || a.status === 'warning').length
           const noPlanCount = displayed.filter(a => !nextSessionMap[a.id]).length
@@ -483,11 +473,31 @@ export function AthletesClient({
           if (redSignalCount > 0) parts.push(`${redSignalCount} czerwony sygnał`)
           if (noPlanCount > 0) parts.push(`${noPlanCount} bez planu`)
           if (unpaidCount > 0) parts.push(`${unpaidCount} nieopłaconych`)
-          return parts.length > 1 ? (
-            <div className="flex items-center gap-1.5 mb-3 px-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-              {parts.join(' · ')}
+          return (
+            <div className="flex items-center justify-between mb-3 px-1">
+              {parts.length > 1 ? (
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{parts.join(' · ')}</span>
+              ) : <span />}
+              <div className="flex items-center gap-1 rounded-lg p-0.5" style={{ background: 'var(--bg-elevated)' }}>
+                <button
+                  onClick={() => setViewMode('table')}
+                  className="px-2 py-1 rounded-md text-xs cursor-pointer transition-all"
+                  style={{ background: viewMode === 'table' ? 'var(--bg-card)' : 'transparent', color: viewMode === 'table' ? 'var(--text-primary)' : 'var(--text-muted)' }}
+                  title="Widok tabeli"
+                >
+                  ☰
+                </button>
+                <button
+                  onClick={() => setViewMode('cards')}
+                  className="px-2 py-1 rounded-md text-xs cursor-pointer transition-all"
+                  style={{ background: viewMode === 'cards' ? 'var(--bg-card)' : 'transparent', color: viewMode === 'cards' ? 'var(--text-primary)' : 'var(--text-muted)' }}
+                  title="Widok kart"
+                >
+                  ▦
+                </button>
+              </div>
             </div>
-          ) : null
+          )
         })()}
 
         {displayed.length > 0 && (
@@ -511,6 +521,19 @@ export function AthletesClient({
               </div>
             )}
 
+            {viewMode === 'cards' ? (
+              <AthletesCards
+                displayed={displayed}
+                signalMap={signalMap}
+                nextSessionMap={nextSessionMap}
+                complianceMap={complianceMap}
+                unreadMessagesMap={unreadMessagesMap}
+                unreadFeedbackMap={unreadFeedbackMap}
+                unpaidInvoiceSet={unpaidInvoiceSet}
+                nextRaceMap={nextRaceMap}
+                getStatusDef={getStatusDef}
+              />
+            ) : (
             <AthletesTable
               displayed={displayed}
               sortKey={sortKey}
@@ -559,6 +582,7 @@ export function AthletesClient({
               }}
               getStatusDef={getStatusDef}
             />
+            )}
           </>
         )}
 

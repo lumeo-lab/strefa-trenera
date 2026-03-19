@@ -42,7 +42,7 @@ export function AthletesToolbar({
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder="Szukaj zawodnika, email, telefon..."
-        className="max-w-sm px-4 py-2.5 rounded-xl text-sm flex-1"
+        className="max-w-sm px-4 py-2.5 rounded-xl text-sm flex-1 focus-visible:ring-2 focus-visible:ring-[rgba(255,92,27,0.45)] focus-visible:outline-none"
         style={{ background: 'var(--bg-card)', border: '1px solid var(--border-mid)', color: 'var(--text-primary)' }}
       />
 

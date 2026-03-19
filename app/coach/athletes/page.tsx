@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { addDaysToBusinessDate, getBusinessToday } from '@/lib/date'
 import { createClient } from '@/lib/supabase/server'
 import { DEFAULT_STATUSES } from '@/lib/athlete-status-defs'
+import { buildMetricMapsFromFallback } from '@/lib/athlete-list-metrics'
 import { AthletesClient } from './_components/AthletesClient'
 
 export const metadata: Metadata = { title: 'Zawodnicy | Strefa Trenera' }
@@ -103,90 +104,28 @@ export default async function AthletesPage() {
       { data: unpaidInvoices },
       { data: upcomingRaces },
     ] = await Promise.all([
-      supabase
-        .from('training_sessions')
-        .select('athlete_id, date, type, title')
-        .eq('coach_id', coachId)
-        .eq('completed', true)
-        .order('date', { ascending: false }),
-      supabase
-        .from('training_sessions')
-        .select('athlete_id, planned_distance, actual_distance')
-        .eq('coach_id', coachId)
-        .gte('date', weekAgoStr)
-        .eq('completed', true),
-      supabase
-        .from('feedbacks')
-        .select('athlete_id, signal, created_at, read')
-        .eq('coach_id', coachId)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('training_sessions')
-        .select('athlete_id, date, type, title')
-        .eq('coach_id', coachId)
-        .gte('date', today)
-        .eq('completed', false)
-        .order('date', { ascending: true }),
-      supabase
-        .from('messages')
-        .select('athlete_id')
-        .eq('coach_id', coachId)
-        .eq('sender_type', 'athlete')
-        .eq('read', false),
-      supabase
-        .from('training_sessions')
-        .select('athlete_id, completed')
-        .eq('coach_id', coachId)
-        .gte('date', monthAgoStr)
-        .lte('date', today),
-      supabase
-        .from('invoices')
-        .select('athlete_id')
-        .eq('coach_id', coachId)
-        .in('status', ['pending', 'overdue']),
-      supabase
-        .from('athlete_races')
-        .select('athlete_id, name, date, distance')
-        .eq('coach_id', coachId)
-        .eq('status', 'planned')
-        .gte('date', today)
-        .order('date', { ascending: true }),
+      supabase.from('training_sessions').select('athlete_id, date, type, title').eq('coach_id', coachId).eq('completed', true).order('date', { ascending: false }),
+      supabase.from('training_sessions').select('athlete_id, planned_distance, actual_distance').eq('coach_id', coachId).gte('date', weekAgoStr).eq('completed', true),
+      supabase.from('feedbacks').select('athlete_id, signal, created_at, read').eq('coach_id', coachId).order('created_at', { ascending: false }),
+      supabase.from('training_sessions').select('athlete_id, date, type, title').eq('coach_id', coachId).gte('date', today).eq('completed', false).order('date', { ascending: true }),
+      supabase.from('messages').select('athlete_id').eq('coach_id', coachId).eq('sender_type', 'athlete').eq('read', false),
+      supabase.from('training_sessions').select('athlete_id, completed').eq('coach_id', coachId).gte('date', monthAgoStr).lte('date', today),
+      supabase.from('invoices').select('athlete_id').eq('coach_id', coachId).in('status', ['pending', 'overdue']),
+      supabase.from('athlete_races').select('athlete_id, name, date, distance').eq('coach_id', coachId).eq('status', 'planned').gte('date', today).order('date', { ascending: true }),
     ])
 
-    for (const session of lastSessions ?? []) {
-      if (!lastSessionMap[session.athlete_id]) lastSessionMap[session.athlete_id] = { date: session.date, type: session.type, title: session.title }
-    }
-    for (const session of recentSessions ?? []) {
-      const km = session.actual_distance ?? session.planned_distance ?? 0
-      weeklyLoadMap[session.athlete_id] = (weeklyLoadMap[session.athlete_id] ?? 0) + km
-      weeklySessionCountMap[session.athlete_id] = (weeklySessionCountMap[session.athlete_id] ?? 0) + 1
-    }
-    for (const feedback of allFeedbacks ?? []) {
-      if (!signalMap[feedback.athlete_id]) {
-        signalMap[feedback.athlete_id] = feedback.signal
-        lastFeedbackDateMap[feedback.athlete_id] = feedback.created_at
-      }
-      if (!feedback.read) unreadFeedbackMap[feedback.athlete_id] = (unreadFeedbackMap[feedback.athlete_id] ?? 0) + 1
-    }
-    for (const session of upcomingSessions ?? []) {
-      if (!nextSessionMap[session.athlete_id]) nextSessionMap[session.athlete_id] = { date: session.date, type: session.type, title: session.title }
-    }
-    for (const message of unreadMsgs ?? []) {
-      unreadMessagesMap[message.athlete_id] = (unreadMessagesMap[message.athlete_id] ?? 0) + 1
-    }
-    for (const session of monthSessions ?? []) {
-      if (!complianceMap[session.athlete_id]) complianceMap[session.athlete_id] = { completed: 0, total: 0 }
-      complianceMap[session.athlete_id].total++
-      if (session.completed) complianceMap[session.athlete_id].completed++
-    }
-    for (const invoice of unpaidInvoices ?? []) {
-      unpaidInvoiceSet[invoice.athlete_id] = true
-    }
-    for (const race of upcomingRaces ?? []) {
-      if (!nextRaceMap[race.athlete_id]) {
-        nextRaceMap[race.athlete_id] = { name: race.name, date: race.date, distance: race.distance }
-      }
-    }
+    const fallback = buildMetricMapsFromFallback({ lastSessions, recentSessions, allFeedbacks, upcomingSessions, unreadMsgs, monthSessions, unpaidInvoices, upcomingRaces })
+    Object.assign(lastSessionMap, fallback.lastSessionMap)
+    Object.assign(weeklyLoadMap, fallback.weeklyLoadMap)
+    Object.assign(weeklySessionCountMap, fallback.weeklySessionCountMap)
+    Object.assign(nextRaceMap, fallback.nextRaceMap)
+    Object.assign(signalMap, fallback.signalMap)
+    Object.assign(lastFeedbackDateMap, fallback.lastFeedbackDateMap)
+    Object.assign(unreadFeedbackMap, fallback.unreadFeedbackMap)
+    Object.assign(nextSessionMap, fallback.nextSessionMap)
+    Object.assign(unreadMessagesMap, fallback.unreadMessagesMap)
+    Object.assign(complianceMap, fallback.complianceMap)
+    Object.assign(unpaidInvoiceSet, fallback.unpaidInvoiceSet)
   } else {
     for (const row of metricsResult.data ?? []) {
       if (row.last_session_date) {

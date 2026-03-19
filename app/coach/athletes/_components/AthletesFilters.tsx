@@ -23,7 +23,6 @@ interface AthletesFiltersProps {
 }
 
 const OPERATIONAL_FILTERS = [
-  { key: 'attention', label: 'Wymagają uwagi', icon: '⚠️' },
   { key: 'red_signal', label: 'Czerwony sygnał', icon: '🔴' },
   { key: 'no_plan', label: 'Bez planu', icon: '📅' },
   { key: 'unanswered', label: 'Nieodpisane', icon: '💬' },
@@ -126,6 +125,10 @@ export function AthletesFilters({
 
         {/* Separator */}
         <div className="w-px h-4 shrink-0" style={{ background: 'var(--border)' }} />
+
+        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] shrink-0" style={{ color: 'var(--text-muted)' }}>
+          Statusy
+        </span>
 
         {/* Status filters */}
         {visibleStatuses.map((status) => {
