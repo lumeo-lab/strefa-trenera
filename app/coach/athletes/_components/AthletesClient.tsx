@@ -4,6 +4,7 @@ import { startTransition, useCallback, useMemo, useRef, useState, useSyncExterna
 import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
 import { useClickOutside, useDismissOnInteraction } from '@/lib/hooks/useClickOutside'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { StatusMessage } from '@/components/ui/StatusMessage'
@@ -80,6 +81,7 @@ export function AthletesClient({
   const { all: allStatuses, saveAll } = useCustomStatuses(initialStatuses)
 
   const [search, setSearch] = useState(searchParams.get('search') ?? '')
+  const debouncedSearch = useDebouncedValue(search, 250)
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') ?? 'all')
   const [sortKey, setSortKey] = useState<SortKey>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
@@ -209,7 +211,7 @@ export function AthletesClient({
 
   const filtered = useMemo(() => {
     return athletes.filter((athlete) => {
-      const q = search.trim().toLowerCase()
+      const q = debouncedSearch.trim().toLowerCase()
       const matchesText = !q
         || athlete.name.toLowerCase().includes(q)
         || (athlete.goal ?? '').toLowerCase().includes(q)
@@ -228,7 +230,7 @@ export function AthletesClient({
       const matchesPackage = packageFilter === 'all' || !packageColumnVisible || athlete.package === packageFilter
       return matchesText && matchesStatus && matchesPackage
     })
-  }, [athletes, search, statusFilter, packageFilter, packageColumnVisible, nextSessionMap, unpaidInvoiceSet, signalMap, unreadMessagesMap, unreadFeedbackMap, complianceMap])
+  }, [athletes, debouncedSearch, statusFilter, packageFilter, packageColumnVisible, nextSessionMap, unpaidInvoiceSet, signalMap, unreadMessagesMap, unreadFeedbackMap, complianceMap])
 
   const displayed = useMemo(() => {
     const persistedOrder = orderOverride ?? athletes.map((athlete) => athlete.id)

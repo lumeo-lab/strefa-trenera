@@ -270,7 +270,7 @@ export function InvoicesClient({
       observer.disconnect()
       window.removeEventListener('resize', updateLayout)
     }
-  }, [filterCounts.all, filterCounts.pending, filterCounts.paid, filterCounts.overdue, filterCounts.cancelled])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps — ResizeObserver handles layout changes via DOM, no deps needed
 
   return (
     <div>
