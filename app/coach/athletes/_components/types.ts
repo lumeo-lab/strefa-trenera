@@ -73,7 +73,7 @@ export interface AthletesClientProps {
 export const COLUMN_DEFS: { key: ColumnKey; label: string; desc: string }[] = [
   { key: 'last_session', label: 'Ostatni trening', desc: 'Ostatni ukończony trening' },
   { key: 'next_session', label: 'Następna sesja', desc: 'Najbliższy zaplanowany trening' },
-  { key: 'signal', label: 'Forma', desc: 'Ostatni sygnał z feedbacku + kiedy' },
+  { key: 'signal', label: 'Sygnał', desc: 'Ostatni sygnał z feedbacku zawodnika' },
   { key: 'compliance', label: 'Realizacja 30 dni', desc: '% ukończonych sesji z ost. 30 dni' },
   { key: 'weekly_load', label: 'Obciążenie 7 dni', desc: 'Suma km i liczba sesji z ost. 7 dni' },
   { key: 'next_race', label: 'Następne zawody', desc: 'Najbliższy zaplanowany start zawodnika' },
@@ -87,4 +87,4 @@ export const COLUMN_DEFS: { key: ColumnKey; label: string; desc: string }[] = [
 export const DEFAULT_COLUMNS: ColumnKey[] = ['last_session', 'next_session', 'compliance', 'weekly_load', 'next_race']
 export const COLUMNS_STORAGE_KEY = 'coach_table_columns_v2'
 export const SIGNAL_COLORS: Record<string, string> = { green: '#2ECC71', yellow: '#F1C40F', red: '#E74C3C' }
-export const SIGNAL_LABELS: Record<string, string> = { green: 'Dobra', yellow: 'Średnia', red: 'Słaba' }
+export const SIGNAL_LABELS: Record<string, string> = { green: 'Dobrze', yellow: 'Średnio', red: 'Słabo' }

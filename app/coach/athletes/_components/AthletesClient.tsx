@@ -197,6 +197,20 @@ export function AthletesClient({
     return [...values].sort((a, b) => a.localeCompare(b, 'pl'))
   }, [athletes, packages])
 
+  // Attention logic for operational filters
+  const needsAttention = useCallback((athlete: typeof athletes[0]) => {
+    return athlete.status === 'alert' || athlete.status === 'warning'
+      || signalMap[athlete.id] === 'red'
+      || (unreadMessagesMap[athlete.id] ?? 0) > 0
+      || (unreadFeedbackMap[athlete.id] ?? 0) > 0
+      || !nextSessionMap[athlete.id]
+      || !!unpaidInvoiceSet[athlete.id]
+  }, [signalMap, unreadMessagesMap, unreadFeedbackMap, nextSessionMap, unpaidInvoiceSet])
+
+  const attentionCount = useMemo(() => athletes.filter(needsAttention).length, [athletes, needsAttention])
+  const noPlanCount = useMemo(() => athletes.filter(a => !nextSessionMap[a.id]).length, [athletes, nextSessionMap])
+  const unpaidCount = useMemo(() => athletes.filter(a => unpaidInvoiceSet[a.id]).length, [athletes, unpaidInvoiceSet])
+
   const filtered = useMemo(() => {
     return athletes.filter((athlete) => {
       const q = search.trim().toLowerCase()
@@ -207,11 +221,16 @@ export function AthletesClient({
         || (athlete.email ?? '').toLowerCase().includes(q)
         || (athlete.phone ?? '').includes(q)
 
-      const matchesStatus = statusFilter === 'all' || athlete.status === statusFilter
+      let matchesStatus = true
+      if (statusFilter === 'attention') matchesStatus = needsAttention(athlete)
+      else if (statusFilter === 'no_plan') matchesStatus = !nextSessionMap[athlete.id]
+      else if (statusFilter === 'unpaid') matchesStatus = !!unpaidInvoiceSet[athlete.id]
+      else if (statusFilter !== 'all') matchesStatus = athlete.status === statusFilter
+
       const matchesPackage = packageFilter === 'all' || !packageColumnVisible || athlete.package === packageFilter
       return matchesText && matchesStatus && matchesPackage
     })
-  }, [athletes, search, statusFilter, packageFilter, packageColumnVisible])
+  }, [athletes, search, statusFilter, packageFilter, packageColumnVisible, needsAttention, nextSessionMap, unpaidInvoiceSet])
 
   const displayed = useMemo(() => {
     const persistedOrder = orderOverride ?? athletes.map((athlete) => athlete.id)
@@ -399,6 +418,9 @@ export function AthletesClient({
             statusFilterOpen={statusFilterOpen}
             sortKeyActive={!!sortKey}
             showPackageFilter={packageColumnVisible}
+            attentionCount={attentionCount}
+            noPlanCount={noPlanCount}
+            unpaidCount={unpaidCount}
             onStatusFilterChange={(value) => {
               setStatusFilter(value)
               updateUrl({ search, status: value, package: packageFilter })
@@ -555,6 +577,12 @@ export function AthletesClient({
             <AthletesActionMenu
               pos={actionMenuPos}
               athleteId={athlete.id}
+              athleteSlug={athlete.slug}
+              hasUnreadMessages={(unreadMessagesMap[athlete.id] ?? 0) > 0}
+              hasUnreadFeedback={(unreadFeedbackMap[athlete.id] ?? 0) > 0}
+              hasNoPlan={!nextSessionMap[athlete.id]}
+              hasUnpaid={!!unpaidInvoiceSet[athlete.id]}
+              hasRedSignal={signalMap[athlete.id] === 'red'}
               onClose={dismissActionMenu}
             />
           )

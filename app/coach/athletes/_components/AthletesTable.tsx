@@ -92,7 +92,7 @@ export function AthletesTable({
       case 'next_session':
         return <SortHeader key={key} sortKey={sortKey} sortDir={sortDir} onSort={onSort} label="Następna sesja" sk="next_session" />
       case 'signal':
-        return <SortHeader key={key} sortKey={sortKey} sortDir={sortDir} onSort={onSort} label="Forma" sk="signal" />
+        return <SortHeader key={key} sortKey={sortKey} sortDir={sortDir} onSort={onSort} label="Sygnał" sk="signal" />
       case 'compliance':
         return <SortHeader key={key} sortKey={sortKey} sortDir={sortDir} onSort={onSort} label="Realizacja 30 dni" sk="compliance" />
       case 'weekly_load':
@@ -144,6 +144,10 @@ export function AthletesTable({
               const unreadFb = unreadFeedbackMap[athlete.id] ?? 0
               const weeklyCount = weeklySessionCountMap[athlete.id] ?? 0
               const weeklyKm = weeklyLoadMap[athlete.id] ?? 0
+              const hasAlert = athlete.status === 'alert' || athlete.status === 'warning'
+              const hasRedSignal = signal === 'red'
+              const hasUnpaid = unpaidInvoiceSet[athlete.id]
+              const isProblematic = hasAlert || hasRedSignal || hasUnpaid
 
               return (
                 <tr
@@ -158,6 +162,7 @@ export function AthletesTable({
                   onDragEnd={onDragEnd}
                   style={{
                     borderBottom: i < displayed.length - 1 ? '1px solid var(--border)' : 'none',
+                    borderLeft: isProblematic ? `3px solid ${hasRedSignal || hasAlert ? '#E74C3C' : '#F1C40F'}` : '3px solid transparent',
                     background: isDraggingOver ? 'rgba(255,92,27,0.06)' : draggingId === athlete.id ? 'rgba(255,92,27,0.03)' : i % 2 === 0 ? 'var(--bg-elevated)' : 'var(--bg-card)',
                     opacity: draggingId === athlete.id ? 0.5 : 1,
                     outline: isDraggingOver ? '2px solid rgba(255,92,27,0.4)' : 'none',

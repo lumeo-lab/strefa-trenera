@@ -12,6 +12,9 @@ interface AthletesFiltersProps {
   statusFilterOpen: boolean
   sortKeyActive: boolean
   showPackageFilter: boolean
+  attentionCount: number
+  noPlanCount: number
+  unpaidCount: number
   onStatusFilterChange: (value: string) => void
   onPackageFilterChange: (value: string) => void
   onToggleStatusFilterOpen: () => void
@@ -29,6 +32,9 @@ export function AthletesFilters({
   statusFilterOpen,
   sortKeyActive,
   showPackageFilter,
+  attentionCount,
+  noPlanCount,
+  unpaidCount,
   onStatusFilterChange,
   onPackageFilterChange,
   onToggleStatusFilterOpen,
@@ -39,13 +45,20 @@ export function AthletesFilters({
     ? allStatuses
     : (() => {
       const base = allStatuses.slice(0, 5)
-      if (statusFilter !== 'all' && !base.some((status) => status.key === statusFilter)) {
+      if (statusFilter !== 'all' && statusFilter !== 'attention' && statusFilter !== 'no_plan' && statusFilter !== 'unpaid' && !base.some((status) => status.key === statusFilter)) {
         const active = allStatuses.find((status) => status.key === statusFilter)
         if (active) return [...base.slice(0, 4), active]
       }
       return base
     })()
   const hiddenStatusesCount = Math.max(0, allStatuses.length - visibleStatuses.length)
+
+  // Operational filter pills
+  const operationalFilters = [
+    { key: 'attention', label: 'Wymagają uwagi', count: attentionCount, show: attentionCount > 0 },
+    { key: 'no_plan', label: 'Bez planu', count: noPlanCount, show: noPlanCount > 0 },
+    { key: 'unpaid', label: 'Nieopłacone', count: unpaidCount, show: unpaidCount > 0 },
+  ].filter(f => f.show)
 
   return (
     <div className="mb-5 rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
@@ -64,6 +77,29 @@ export function AthletesFilters({
         >
           Wszyscy <span className="opacity-60">{athletesCount}</span>
         </button>
+
+        {/* Operational filters */}
+        {operationalFilters.map(f => (
+          <button
+            key={f.key}
+            onClick={() => onStatusFilterChange(f.key)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
+            style={{
+              background: statusFilter === f.key ? 'rgba(231,76,60,0.12)' : 'var(--bg-elevated)',
+              color: statusFilter === f.key ? '#E74C3C' : 'var(--text-muted)',
+              border: statusFilter === f.key ? '1px solid rgba(231,76,60,0.3)' : '1px solid var(--border)',
+            }}
+          >
+            {f.label} <span className="opacity-60">{f.count}</span>
+          </button>
+        ))}
+
+        {/* Separator if we have operational filters */}
+        {operationalFilters.length > 0 && (
+          <div className="w-px h-4 shrink-0" style={{ background: 'var(--border)' }} />
+        )}
+
+        {/* Status filters */}
         {visibleStatuses.map((status) => {
           const count = statusCounts[status.key] ?? 0
           if (count === 0 && statusFilter !== status.key) return null
