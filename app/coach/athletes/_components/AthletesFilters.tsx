@@ -1,5 +1,7 @@
 'use client'
 
+import { useCallback, useRef, useState } from 'react'
+import { useClickOutside } from '@/lib/hooks/useClickOutside'
 import type { StatusDef } from '@/lib/useCustomStatuses'
 
 interface AthletesFiltersProps {
@@ -12,15 +14,22 @@ interface AthletesFiltersProps {
   statusFilterOpen: boolean
   sortKeyActive: boolean
   showPackageFilter: boolean
-  attentionCount: number
-  noPlanCount: number
-  unpaidCount: number
+  operationalCounts: Record<string, number>
   onStatusFilterChange: (value: string) => void
   onPackageFilterChange: (value: string) => void
   onToggleStatusFilterOpen: () => void
   onOpenStatusModal: () => void
   onResetSort: () => void
 }
+
+const OPERATIONAL_FILTERS = [
+  { key: 'attention', label: 'Wymagają uwagi', icon: '⚠️' },
+  { key: 'red_signal', label: 'Czerwony sygnał', icon: '🔴' },
+  { key: 'no_plan', label: 'Bez planu', icon: '📅' },
+  { key: 'unanswered', label: 'Nieodpisane', icon: '💬' },
+  { key: 'unpaid', label: 'Nieopłacone', icon: '💳' },
+  { key: 'low_compliance', label: 'Niska realizacja', icon: '📉' },
+]
 
 export function AthletesFilters({
   athletesCount,
@@ -32,20 +41,22 @@ export function AthletesFilters({
   statusFilterOpen,
   sortKeyActive,
   showPackageFilter,
-  attentionCount,
-  noPlanCount,
-  unpaidCount,
+  operationalCounts,
   onStatusFilterChange,
   onPackageFilterChange,
   onToggleStatusFilterOpen,
   onOpenStatusModal,
   onResetSort,
 }: AthletesFiltersProps) {
+  const [opMenuOpen, setOpMenuOpen] = useState(false)
+  const opMenuRef = useRef<HTMLDivElement>(null)
+  useClickOutside(opMenuRef, useCallback(() => setOpMenuOpen(false), []), opMenuOpen)
+
   const visibleStatuses = statusFilterOpen
     ? allStatuses
     : (() => {
       const base = allStatuses.slice(0, 5)
-      if (statusFilter !== 'all' && statusFilter !== 'attention' && statusFilter !== 'no_plan' && statusFilter !== 'unpaid' && !base.some((status) => status.key === statusFilter)) {
+      if (statusFilter !== 'all' && !OPERATIONAL_FILTERS.some(f => f.key === statusFilter) && !base.some((status) => status.key === statusFilter)) {
         const active = allStatuses.find((status) => status.key === statusFilter)
         if (active) return [...base.slice(0, 4), active]
       }
@@ -53,12 +64,7 @@ export function AthletesFilters({
     })()
   const hiddenStatusesCount = Math.max(0, allStatuses.length - visibleStatuses.length)
 
-  // Operational filter pills
-  const operationalFilters = [
-    { key: 'attention', label: 'Wymagają uwagi', count: attentionCount, show: attentionCount > 0 },
-    { key: 'no_plan', label: 'Bez planu', count: noPlanCount, show: noPlanCount > 0 },
-    { key: 'unpaid', label: 'Nieopłacone', count: unpaidCount, show: unpaidCount > 0 },
-  ].filter(f => f.show)
+  const activeOpFilter = OPERATIONAL_FILTERS.find(f => f.key === statusFilter)
 
   return (
     <div className="mb-5 rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
@@ -78,26 +84,48 @@ export function AthletesFilters({
           Wszyscy <span className="opacity-60">{athletesCount}</span>
         </button>
 
-        {/* Operational filters */}
-        {operationalFilters.map(f => (
+        {/* Operational filter dropdown */}
+        <div className="relative" ref={opMenuRef}>
           <button
-            key={f.key}
-            onClick={() => onStatusFilterChange(f.key)}
+            onClick={() => setOpMenuOpen(o => !o)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
             style={{
-              background: statusFilter === f.key ? 'rgba(231,76,60,0.12)' : 'var(--bg-elevated)',
-              color: statusFilter === f.key ? '#E74C3C' : 'var(--text-muted)',
-              border: statusFilter === f.key ? '1px solid rgba(231,76,60,0.3)' : '1px solid var(--border)',
+              background: activeOpFilter ? 'rgba(231,76,60,0.12)' : 'var(--bg-elevated)',
+              color: activeOpFilter ? '#E74C3C' : 'var(--text-muted)',
+              border: activeOpFilter ? '1px solid rgba(231,76,60,0.3)' : '1px solid var(--border)',
             }}
           >
-            {f.label} <span className="opacity-60">{f.count}</span>
+            {activeOpFilter ? `${activeOpFilter.icon} ${activeOpFilter.label} (${operationalCounts[activeOpFilter.key] ?? 0})` : '⚡ Problemowe'}
+            <span className="opacity-50 ml-0.5">▾</span>
           </button>
-        ))}
+          {opMenuOpen && (
+            <div
+              className="absolute top-full left-0 mt-1 z-50 rounded-xl py-1 shadow-lg"
+              style={{ background: 'var(--bg-raised)', border: '1px solid var(--border)', minWidth: 220 }}
+            >
+              {OPERATIONAL_FILTERS.map(f => {
+                const count = operationalCounts[f.key] ?? 0
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => { onStatusFilterChange(f.key); setOpMenuOpen(false) }}
+                    className="w-full flex items-center justify-between gap-3 px-3 py-2 text-sm text-left cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+                    style={{ color: statusFilter === f.key ? '#E74C3C' : 'var(--text-primary)' }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>{f.icon}</span>
+                      <span>{f.label}</span>
+                    </span>
+                    <span className="text-xs font-medium" style={{ color: count > 0 ? '#E74C3C' : 'var(--text-muted)' }}>{count}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
-        {/* Separator if we have operational filters */}
-        {operationalFilters.length > 0 && (
-          <div className="w-px h-4 shrink-0" style={{ background: 'var(--border)' }} />
-        )}
+        {/* Separator */}
+        <div className="w-px h-4 shrink-0" style={{ background: 'var(--border)' }} />
 
         {/* Status filters */}
         {visibleStatuses.map((status) => {

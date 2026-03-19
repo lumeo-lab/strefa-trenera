@@ -207,9 +207,14 @@ export function AthletesClient({
       || !!unpaidInvoiceSet[athlete.id]
   }, [signalMap, unreadMessagesMap, unreadFeedbackMap, nextSessionMap, unpaidInvoiceSet])
 
-  const attentionCount = useMemo(() => athletes.filter(needsAttention).length, [athletes, needsAttention])
-  const noPlanCount = useMemo(() => athletes.filter(a => !nextSessionMap[a.id]).length, [athletes, nextSessionMap])
-  const unpaidCount = useMemo(() => athletes.filter(a => unpaidInvoiceSet[a.id]).length, [athletes, unpaidInvoiceSet])
+  const operationalCounts = useMemo(() => ({
+    attention: athletes.filter(needsAttention).length,
+    red_signal: athletes.filter(a => signalMap[a.id] === 'red').length,
+    no_plan: athletes.filter(a => !nextSessionMap[a.id]).length,
+    unanswered: athletes.filter(a => (unreadMessagesMap[a.id] ?? 0) > 0 || (unreadFeedbackMap[a.id] ?? 0) > 0).length,
+    unpaid: athletes.filter(a => unpaidInvoiceSet[a.id]).length,
+    low_compliance: athletes.filter(a => { const c = complianceMap[a.id]; return c && c.total > 0 && (c.completed / c.total) < 0.5 }).length,
+  }), [athletes, needsAttention, signalMap, nextSessionMap, unreadMessagesMap, unreadFeedbackMap, unpaidInvoiceSet, complianceMap])
 
   const filtered = useMemo(() => {
     return athletes.filter((athlete) => {
@@ -223,14 +228,17 @@ export function AthletesClient({
 
       let matchesStatus = true
       if (statusFilter === 'attention') matchesStatus = needsAttention(athlete)
+      else if (statusFilter === 'red_signal') matchesStatus = signalMap[athlete.id] === 'red'
       else if (statusFilter === 'no_plan') matchesStatus = !nextSessionMap[athlete.id]
+      else if (statusFilter === 'unanswered') matchesStatus = (unreadMessagesMap[athlete.id] ?? 0) > 0 || (unreadFeedbackMap[athlete.id] ?? 0) > 0
       else if (statusFilter === 'unpaid') matchesStatus = !!unpaidInvoiceSet[athlete.id]
+      else if (statusFilter === 'low_compliance') { const c = complianceMap[athlete.id]; matchesStatus = !!c && c.total > 0 && (c.completed / c.total) < 0.5 }
       else if (statusFilter !== 'all') matchesStatus = athlete.status === statusFilter
 
       const matchesPackage = packageFilter === 'all' || !packageColumnVisible || athlete.package === packageFilter
       return matchesText && matchesStatus && matchesPackage
     })
-  }, [athletes, search, statusFilter, packageFilter, packageColumnVisible, needsAttention, nextSessionMap, unpaidInvoiceSet])
+  }, [athletes, search, statusFilter, packageFilter, packageColumnVisible, needsAttention, nextSessionMap, unpaidInvoiceSet, signalMap, unreadMessagesMap, unreadFeedbackMap, complianceMap])
 
   const displayed = useMemo(() => {
     const persistedOrder = orderOverride ?? athletes.map((athlete) => athlete.id)
@@ -418,9 +426,7 @@ export function AthletesClient({
             statusFilterOpen={statusFilterOpen}
             sortKeyActive={!!sortKey}
             showPackageFilter={packageColumnVisible}
-            attentionCount={attentionCount}
-            noPlanCount={noPlanCount}
-            unpaidCount={unpaidCount}
+            operationalCounts={operationalCounts}
             onStatusFilterChange={(value) => {
               setStatusFilter(value)
               updateUrl({ search, status: value, package: packageFilter })
