@@ -7,6 +7,7 @@ import { FeedbackDetail } from '@/components/coach/FeedbackCard'
 import { SelectField } from '@/components/ui/SelectField'
 import { SessionTypeDef } from '@/lib/session-type-defs'
 import { ProfileEmptyState } from '../ProfileStates'
+import { getSessionCompletionSourceLabel, getSessionExecutionLabel, getSessionExecutionStatus } from '@/lib/session-status'
 import type {
   CoachTrainingSessionRow,
   FeedbackByDateMap,
@@ -36,7 +37,7 @@ interface HistoryTabProps {
 export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today, currentMonth, allSessionTypes }: HistoryTabProps) {
   const [historyMonth, setHistoryMonth] = useState(currentMonth)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
-  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'missed'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'missed' | 'detected'>('all')
   const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'with-feedback'>('all')
   const [typeFilter, setTypeFilter] = useState<'all' | SessionType>('all')
   const [search, setSearch] = useState('')
@@ -59,7 +60,7 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
 
   const monthSessions = sessions
     .filter((session) => session.date.slice(0, 7) === historyMonth)
-    .filter((session) => session.completed || session.date < today)
+    .filter((session) => getSessionExecutionStatus(session) !== 'planned' || session.date < today)
     .sort((a, b) => b.date.localeCompare(a.date))
   const filteredMonthSessions = monthSessions.filter((session) => {
     const query = search.trim().toLowerCase()
@@ -68,8 +69,10 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
       if (!haystack.includes(query)) return false
     }
 
-    if (statusFilter === 'completed' && !session.completed) return false
-    if (statusFilter === 'missed' && (session.completed || session.date >= today)) return false
+    const status = getSessionExecutionStatus(session)
+    if (statusFilter === 'completed' && status !== 'completed') return false
+    if (statusFilter === 'detected' && status !== 'detected') return false
+    if (statusFilter === 'missed' && !(status === 'skipped' || (status === 'planned' && session.date < today))) return false
 
     const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
     if (feedbackFilter === 'with-feedback' && !fb) return false
@@ -92,6 +95,7 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
           <SelectField value={statusFilter} onChange={(value) => setStatusFilter(value as typeof statusFilter)} className="min-w-0">
             <option value="all">Wszystkie</option>
             <option value="completed">Wykonane</option>
+            <option value="detected">Wykryte</option>
             <option value="missed">Pominięte</option>
           </SelectField>
           <SelectField value={feedbackFilter} onChange={(value) => setFeedbackFilter(value as typeof feedbackFilter)} className="min-w-0">
@@ -157,6 +161,11 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
               const renderRow = (session: CoachTrainingSessionRow) => {
                 const fb = feedbackBySession[session.id] || feedbackByDate[session.date]
                 const isExpanded = expandedRows.has(session.id)
+                const status = getSessionExecutionStatus(session)
+                const sourceLabel = getSessionCompletionSourceLabel(session)
+                const statusLabel = status === 'planned' && session.date < today
+                  ? 'Brak potwierdzenia'
+                  : getSessionExecutionLabel(session)
                 return (
                   <Fragment key={session.id}>
                     <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid var(--bg-subtle)' }}>
@@ -173,13 +182,31 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
                       </td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.actual_pace || (session.planned_pace ? `Plan: ${session.planned_pace}` : '—')}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{session.avg_hr ? `${session.avg_hr} bpm` : '—'}</td>
-                    <td className="px-4 py-3">
-                      {session.completed
-                        ? <span className="text-xs text-green-400">✓ Wykonany</span>
-                        : session.date < today
-                        ? <span className="text-xs text-red-400">✗ Pominięty</span>
-                          : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>}
-                    </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-0.5">
+                          <span
+                            className="text-xs"
+                            style={{
+                              color:
+                                status === 'completed'
+                                  ? '#2ECC71'
+                                  : status === 'detected'
+                                    ? '#60a5fa'
+                                    : status === 'skipped' || (status === 'planned' && session.date < today)
+                                      ? '#E74C3C'
+                                      : 'var(--text-muted)',
+                            }}
+                          >
+                            {status === 'completed' ? '✓ ' : status === 'detected' ? '◌ ' : status === 'skipped' || (status === 'planned' && session.date < today) ? '✗ ' : ''}
+                            {statusLabel}
+                          </span>
+                          {sourceLabel && (
+                            <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                              {sourceLabel}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3">
                         {fb ? (
                           <button onClick={() => toggleRow(session.id)}

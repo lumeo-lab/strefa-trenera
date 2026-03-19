@@ -18,6 +18,7 @@ import { PlanWeekView } from '@/app/coach/athletes/[id]/_components/tabs/plan/Pl
 import { PlanMonthView } from '@/app/coach/athletes/[id]/_components/tabs/plan/PlanMonthView'
 import { usePlanPersistence } from '@/app/coach/athletes/[id]/_components/tabs/plan/usePlanPersistence'
 import { usePlannerData } from '@/app/coach/athletes/[id]/_components/tabs/plan/usePlannerData'
+import { getSessionExecutionStatus } from '@/lib/session-status'
 import type { CoachFeedbackRow, CoachTrainingSessionRow, FeedbackByDateMap, FeedbackBySessionMap } from '@/app/coach/athletes/[id]/_components/types'
 
 interface PlanTabProps {
@@ -98,7 +99,10 @@ export function PlanTab({ athleteId, sessions, feedbackBySession, feedbackByDate
   }, [allSessionTypes])
 
   const completionStyle = useCallback((session: CoachTrainingSessionRow): React.CSSProperties => {
-    if (session.completed) return { outline: '2px solid rgba(46,204,113,0.6)', outlineOffset: '-2px' }
+    const status = getSessionExecutionStatus(session)
+    if (status === 'completed') return { outline: '2px solid rgba(46,204,113,0.6)', outlineOffset: '-2px' }
+    if (status === 'detected') return { outline: '2px solid rgba(96,165,250,0.7)', outlineOffset: '-2px' }
+    if (status === 'skipped') return { outline: '2px solid rgba(231,76,60,0.55)', outlineOffset: '-2px' }
     return {}
   }, [])
 

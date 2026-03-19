@@ -2,6 +2,7 @@
 
 import React from 'react'
 import type { CoachTrainingSessionRow } from '../../types'
+import { getSessionExecutionStatus } from '@/lib/session-status'
 
 interface SessionCardProps {
   session: CoachTrainingSessionRow
@@ -26,6 +27,7 @@ export const SessionCard = React.memo(function SessionCard({
   onDragStart,
   onDragEnd,
 }: SessionCardProps) {
+  const status = getSessionExecutionStatus(session)
   return (
     <div
       onClick={onClick}
@@ -41,8 +43,14 @@ export const SessionCard = React.memo(function SessionCard({
         boxShadow: isDragging ? '0 10px 24px rgba(15,23,42,0.16)' : 'none',
       }}
     >
-      {session.completed && (
+      {status === 'completed' && (
         <span className="absolute top-1.5 right-1.5 text-[10px] leading-none" style={{ color: '#2ECC71' }}>✓</span>
+      )}
+      {status === 'detected' && (
+        <span className="absolute top-1.5 right-1.5 text-[10px] leading-none" style={{ color: '#60a5fa' }}>◌</span>
+      )}
+      {status === 'skipped' && (
+        <span className="absolute top-1.5 right-1.5 text-[10px] leading-none" style={{ color: '#E74C3C' }}>✕</span>
       )}
       {typeLabel && (
         <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5 opacity-70">{typeLabel}</div>

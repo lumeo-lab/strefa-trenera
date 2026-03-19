@@ -21,6 +21,7 @@ import { HistoryTab } from './tabs/HistoryTab'
 import { PlanTab } from './tabs/PlanTab'
 import { useCustomSessionTypes } from '@/lib/useCustomSessionTypes'
 import { getActiveAthleteInjuries, parseAthleteInjuryHistory } from '@/lib/athlete-injuries'
+import { isSessionCompleted, isSessionOpenForExecution } from '@/lib/session-status'
 import type {
   CoachAthleteRow,
   CoachFeedbackRow,
@@ -142,13 +143,13 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
   // Derived data
   const lastCompletedSession = initialSessions
-    .filter(s => s.completed)
+    .filter((session) => isSessionCompleted(session))
     .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
   const daysSinceLastTraining = lastCompletedSession
     ? Math.floor((new Date(`${today}T12:00:00`).getTime() - new Date(`${lastCompletedSession.date}T12:00:00`).getTime()) / 86400000)
     : null
   const nextSession = initialSessions
-    .filter((session) => !session.completed && session.date >= today)
+    .filter((session) => isSessionOpenForExecution(session) && session.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at))[0] ?? null
   const activeInjuries = getActiveAthleteInjuries(parseAthleteInjuryHistory(athlete.injury_history, athlete.injuries))
   const daysToRace = summaryInfo.nextRace

@@ -36,7 +36,7 @@ export type DashboardMessageRow = {
   athletes: { name: string; avatar: string } | null
 }
 
-/** training_sessions (today) select: id, type, title, planned_distance, completed, athlete_id, athletes(name, avatar), feedback signal */
+/** training_sessions (today) select: id, type, title, planned_distance, completed, status, completion_source, athlete_id, athletes(name, avatar), feedback signal */
 export type DashboardSessionRow = {
   id: string
   date: string
@@ -44,16 +44,19 @@ export type DashboardSessionRow = {
   title: string
   planned_distance: number | null
   completed: boolean
+  status: SessionExecutionStatus
+  completion_source: SessionCompletionSource | null
   athlete_id: string
   athletes: { name: string; avatar: string } | null
   feedbackSignal?: string | null
 }
 
-/** training_sessions (week) select: athlete_id, date, completed, actual_distance */
+/** training_sessions (week) select: athlete_id, date, completed, status, actual_distance */
 export type DashboardWeekSessionRow = {
   athlete_id: string
   date: string
   completed: boolean
+  status: SessionExecutionStatus
   actual_distance: number | null
 }
 
@@ -78,3 +81,4 @@ export type DashboardInvoiceRow = {
   athlete_id: string
   athletes: { name: string; avatar: string } | null
 }
+import type { SessionCompletionSource, SessionExecutionStatus } from '@/lib/types'

@@ -29,6 +29,7 @@ import type {
   DashboardSessionRow,
   DashboardWeekSessionRow,
 } from './types'
+import { isSessionCompleted, isSessionOpenForExecution } from '@/lib/session-status'
 
 // ── Collapsible section wrapper ───────────────────────────────────────────────
 
@@ -131,7 +132,7 @@ export function DashboardClient({
     () =>
       new Set(
         weekSessions
-          .filter((session) => session.date > todayIso || (session.date === todayIso && !session.completed))
+          .filter((session) => session.date > todayIso || (session.date === todayIso && isSessionOpenForExecution(session)))
           .map((session) => session.athlete_id)
           .filter(Boolean),
       ),
@@ -141,7 +142,7 @@ export function DashboardClient({
     () => allAthletes.filter(a => a.status !== 'inactive' && !athleteIdsWithUpcomingPlan.has(a.id)),
     [allAthletes, athleteIdsWithUpcomingPlan],
   )
-  const todayCompleted = sessions.filter((s: { completed: boolean }) => s.completed).length
+  const todayCompleted = sessions.filter((session) => isSessionCompleted(session)).length
   const recentAthletesData = useMemo(
     () => [...allAthletes].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? '')).slice(0, 4),
     [allAthletes],

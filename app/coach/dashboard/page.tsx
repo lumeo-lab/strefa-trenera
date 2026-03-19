@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { addDaysToBusinessDate, getBusinessToday, getBusinessWeekday } from '@/lib/date'
+import { getSessionExecutionStatus, isSessionOpenForExecution } from '@/lib/session-status'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Dashboard | Strefa Trenera' }
@@ -119,13 +120,13 @@ export default async function DashboardPage() {
         .in('athlete_id', activeAthleteIds),
       supabase.from('invoices').select('amount, status, due_date, athlete_id').eq('coach_id', user!.id),
       supabase.from('training_sessions')
-        .select('id, date, type, title, planned_distance, completed, athlete_id, athletes(name, avatar), feedbacks(signal)')
+        .select('id, date, type, title, planned_distance, completed, status, completion_source, athlete_id, athletes(name, avatar), feedbacks(signal)')
         .eq('coach_id', user!.id)
         .in('athlete_id', activeAthleteIds)
         .eq('date', todayStr)
         .order('created_at'),
       supabase.from('training_sessions')
-        .select('athlete_id, date, completed, actual_distance')
+        .select('athlete_id, date, completed, status, actual_distance')
         .eq('coach_id', user!.id)
         .in('athlete_id', activeAthleteIds)
         .gte('date', todayStr)
@@ -176,6 +177,8 @@ export default async function DashboardPage() {
     title: string
     planned_distance: number | null
     completed: boolean
+    status: 'planned' | 'completed' | 'skipped' | 'detected'
+    completion_source: 'athlete' | 'coach' | 'strava' | 'imported' | null
     athlete_id: string
     athletes: Array<{ name: string; avatar: string }> | { name: string; avatar: string } | null
     feedbacks?: Array<{ signal: string | null }> | null
@@ -186,6 +189,8 @@ export default async function DashboardPage() {
     title: session.title,
     planned_distance: session.planned_distance,
     completed: session.completed,
+    status: getSessionExecutionStatus(session),
+    completion_source: session.completion_source,
     athlete_id: session.athlete_id,
     athletes: Array.isArray(session.athletes) ? (session.athletes[0] ?? null) : (session.athletes ?? null),
     feedbackSignal: session.feedbacks?.[0]?.signal ?? null,
@@ -229,7 +234,7 @@ export default async function DashboardPage() {
   )
   const noPlanAthleteIds = new Set(
     planningWindow
-      .filter((session) => session.date > todayStr || (session.date === todayStr && !session.completed))
+      .filter((session) => session.date > todayStr || (session.date === todayStr && isSessionOpenForExecution(session)))
       .map((session) => session.athlete_id),
   )
   const alertItems: DashboardAlertItem[] = allAthletes

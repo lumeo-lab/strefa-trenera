@@ -83,6 +83,27 @@ export function getSessionCompletionSource(session: SessionWithMeta): SessionCom
   return session.completion_source ?? null
 }
 
+export function getSessionCompletionSourceLabel(session: SessionWithMeta) {
+  const source = getSessionCompletionSource(session)
+  switch (source) {
+    case 'athlete':
+      return 'potwierdzone przez zawodnika'
+    case 'coach':
+      return 'oznaczone przez trenera'
+    case 'strava':
+      return 'wykryte na Stravie'
+    case 'imported':
+      return 'import historyczny'
+    default:
+      return null
+  }
+}
+
+export function isSessionOpenForExecution(session: SessionStatusLike) {
+  const status = getSessionExecutionStatus(session)
+  return status === 'planned' || status === 'detected'
+}
+
 export function getLegacyCompletedFromStatus(status: SessionExecutionStatus) {
   return status === 'completed'
 }

@@ -6,11 +6,15 @@ import { formatDate, intensityColor, plural, sessionTypeLabel } from '@/lib/util
 import type { SessionType } from '@/lib/types'
 import Link from 'next/link'
 import type { DashboardSessionRow } from '../types'
+import { getSessionCompletionSourceLabel, getSessionExecutionStatus, isSessionCompleted } from '@/lib/session-status'
 
 function sessionMetaLabel(session: DashboardSessionRow) {
   const parts: string[] = []
   if (session.planned_distance) parts.push(`${session.planned_distance} km`)
-  if (session.completed) parts.push('zrealizowane przez zawodnika')
+  const status = getSessionExecutionStatus(session)
+  if (status === 'completed') parts.push(getSessionCompletionSourceLabel(session) ?? 'wykonane')
+  else if (status === 'detected') parts.push('wykryto aktywność w Stravie')
+  else if (status === 'skipped') parts.push('pominięte')
   else parts.push('oczekuje na realizację')
   return parts.join(' · ')
 }
@@ -27,7 +31,9 @@ export function TodayPlanSection({ sessions, todayCompleted }: {
   todayCompleted: number
 }) {
   const sortedSessions = [...sessions].sort((a, b) => {
-    if (a.completed !== b.completed) return a.completed ? 1 : -1
+    const aCompleted = isSessionCompleted(a)
+    const bCompleted = isSessionCompleted(b)
+    if (aCompleted !== bCompleted) return aCompleted ? 1 : -1
     const signalRank: Record<string, number> = { red: 0, yellow: 1, green: 2, '': 3 }
     const aSignal = signalRank[a.feedbackSignal ?? ''] ?? 3
     const bSignal = signalRank[b.feedbackSignal ?? ''] ?? 3
@@ -35,8 +41,8 @@ export function TodayPlanSection({ sessions, todayCompleted }: {
     return a.title.localeCompare(b.title, 'pl')
   })
 
-  const openSessions = sortedSessions.filter((session) => !session.completed)
-  const doneSessions = sortedSessions.filter((session) => session.completed)
+  const openSessions = sortedSessions.filter((session) => !isSessionCompleted(session))
+  const doneSessions = sortedSessions.filter((session) => isSessionCompleted(session))
 
   return (
     <Card className="p-5">
@@ -84,6 +90,7 @@ export function TodayPlanSection({ sessions, todayCompleted }: {
                 {openSessions.map((session) => {
                   const athlete = session.athletes
                   const badge = feedbackBadge(session)
+                  const status = getSessionExecutionStatus(session)
                   return (
                     <Link
                       key={session.id}
@@ -101,6 +108,16 @@ export function TodayPlanSection({ sessions, todayCompleted }: {
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${intensityColor(session.type as SessionType)}`}>
                           {sessionTypeLabel(session.type as SessionType)}
                         </span>
+                        {status === 'detected' && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ color: '#60a5fa', background: 'rgba(96,165,250,0.12)' }}>
+                            Wykryte
+                          </span>
+                        )}
+                        {status === 'skipped' && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ color: '#E74C3C', background: 'rgba(231,76,60,0.12)' }}>
+                            Pominięte
+                          </span>
+                        )}
                         {badge && (
                           <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ color: badge.color, background: badge.bg }}>
                             {badge.label}
