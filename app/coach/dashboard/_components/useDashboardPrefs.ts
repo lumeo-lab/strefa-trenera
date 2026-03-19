@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,19 +84,26 @@ function mergeWithDefaults(saved: Partial<Prefs>): Prefs {
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useDashboardPrefs() {
-  const [prefs, setPrefs] = useState<Prefs>(() => {
-    if (typeof window === 'undefined') return DEFAULT_PREFS
-    try {
-      const s = localStorage.getItem(STORAGE_KEY)
-      if (s) return mergeWithDefaults(JSON.parse(s))
-    } catch { /* ignore */ }
-    return DEFAULT_PREFS
-  })
+  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [hintDismissed, setHintDismissed] = useState(() => {
-    if (typeof window === 'undefined') return true
-    return !!localStorage.getItem('dashboard-hint-dismissed')
-  })
+  const [hintDismissed, setHintDismissed] = useState(true)
+
+  useEffect(() => {
+    try {
+      const savedPrefs = localStorage.getItem(STORAGE_KEY)
+      if (savedPrefs) {
+        setPrefs(mergeWithDefaults(JSON.parse(savedPrefs)))
+      }
+    } catch {
+      // ignore corrupted local storage data
+    }
+
+    try {
+      setHintDismissed(!!localStorage.getItem('dashboard-hint-dismissed'))
+    } catch {
+      setHintDismissed(true)
+    }
+  }, [])
 
   function savePrefs(next: Prefs) {
     setPrefs(next)

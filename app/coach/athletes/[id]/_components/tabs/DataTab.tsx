@@ -22,20 +22,12 @@ interface DataTabProps {
     lastSeenAt: string | null
     sessionCreatedAt: string | null
   }
-  inviteUrl: string
-  inviteError: string | null
-  linkCopied: boolean
-  onCopyInviteLink: () => Promise<void>
 }
 
 export function DataTab({
   athlete,
   packages,
   accessInfo,
-  inviteUrl,
-  inviteError,
-  linkCopied,
-  onCopyInviteLink,
 }: DataTabProps) {
   const router = useRouter()
 
@@ -301,44 +293,18 @@ export function DataTab({
           </span>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between gap-4">
-              <span style={{ color: 'var(--text-muted)' }}>Ostatnia aktywność</span>
-              <span className="font-medium text-right">{accessInfo.lastSeenAt ? formatDate(accessInfo.lastSeenAt, { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span style={{ color: 'var(--text-muted)' }}>Link użyty</span>
-              <span className="font-medium text-right">{accessInfo.inviteUsedAt ? formatDate(accessInfo.inviteUsedAt, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Jeszcze nie'}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span style={{ color: 'var(--text-muted)' }}>Ważność linku</span>
-              <span className="font-medium text-right" style={{ color: 'var(--text-primary)' }}>Bezterminowo</span>
-            </div>
+        <div className="space-y-3 text-sm max-w-md">
+          <div className="flex justify-between gap-4">
+            <span style={{ color: 'var(--text-muted)' }}>Ostatnia aktywność</span>
+            <span className="font-medium text-right">{accessInfo.lastSeenAt ? formatDate(accessInfo.lastSeenAt, { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</span>
           </div>
-
-          <div>
-            <div className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Link zaproszenia</div>
-            <div className="text-[11px] mb-2" style={{ color: 'var(--text-muted)' }}>
-              Wyślij zawodnikowi ten link, aby mógł wejść do swojego prywatnego profilu.
-            </div>
-            {inviteError && (
-              <div className="text-[11px] mb-2" style={{ color: '#E74C3C' }}>{inviteError}</div>
-            )}
-            <code className="block w-full px-3 py-2 rounded-xl text-[11px] font-mono select-all overflow-x-auto" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-              {inviteUrl}
-            </code>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button onClick={() => void onCopyInviteLink()} className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0" style={{ background: linkCopied ? 'rgba(46,204,113,0.15)' : 'rgba(255,92,27,0.1)', color: linkCopied ? '#2ECC71' : '#FF5C1B' }}>
-                {linkCopied ? '✓ Skopiowano' : '📋 Kopiuj'}
-              </button>
-              <a href={`https://wa.me/?text=${encodeURIComponent(`Cześć! Oto Twój panel treningowy: ${inviteUrl}`)}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0" style={{ background: 'rgba(37,211,102,0.1)', color: '#25D366' }}>
-                WhatsApp
-              </a>
-              <a href={`mailto:${athlete.email || ''}?subject=${encodeURIComponent('Twój panel treningowy')}&body=${encodeURIComponent(`Cześć ${athlete.name}!\n\nTutaj znajdziesz swój panel treningowy:\n${inviteUrl}`)}`} className="px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer shrink-0" style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8' }}>
-                Email
-              </a>
-            </div>
+          <div className="flex justify-between gap-4">
+            <span style={{ color: 'var(--text-muted)' }}>Link użyty</span>
+            <span className="font-medium text-right">{accessInfo.inviteUsedAt ? formatDate(accessInfo.inviteUsedAt, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Jeszcze nie'}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span style={{ color: 'var(--text-muted)' }}>Ważność linku</span>
+            <span className="font-medium text-right" style={{ color: 'var(--text-primary)' }}>Bezterminowo</span>
           </div>
         </div>
 

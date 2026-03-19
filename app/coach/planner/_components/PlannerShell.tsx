@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PlanTab } from '@/app/coach/athletes/[id]/_components/tabs/PlanTab'
@@ -23,8 +24,10 @@ interface Props {
 }
 
 export function PlannerShell({ athletes, sessions, feedbacks, today, currentMonth, requestedAthleteId }: Props) {
+  const router = useRouter()
   const [selectedAthleteId, setSelectedAthleteId] = useState(athletes[0]?.id ?? '')
   const [ready, setReady] = useState(false)
+  const [switchingAthlete, setSwitchingAthlete] = useState(false)
 
   useEffect(() => {
     try {
@@ -50,11 +53,24 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
   }, [ready, requestedAthleteId, athletes])
 
   useEffect(() => {
+    if (!switchingAthlete) return
+    const timeout = window.setTimeout(() => setSwitchingAthlete(false), 500)
+    return () => window.clearTimeout(timeout)
+  }, [switchingAthlete])
+
+  useEffect(() => {
     if (!ready) return
     localStorage.setItem('coach_planner_shell', JSON.stringify({ selectedAthleteId }))
   }, [ready, selectedAthleteId])
 
   const selectedAthlete = athletes.find(a => a.id === selectedAthleteId)
+
+  function handleAthleteChange(nextAthleteId: string) {
+    if (!nextAthleteId || nextAthleteId === selectedAthleteId) return
+    setSwitchingAthlete(true)
+    setSelectedAthleteId(nextAthleteId)
+    router.replace(`/coach/planner?athlete=${nextAthleteId}`, { scroll: false })
+  }
 
   // Filter sessions for selected athlete
   const athleteSessions = useMemo(
@@ -123,8 +139,9 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
             </span>
             <select
               value={selectedAthleteId}
-              onChange={(e) => setSelectedAthleteId(e.target.value)}
-              className="px-3 py-2 rounded-xl text-sm font-medium cursor-pointer w-[min(58vw,14rem)] sm:w-56"
+              onChange={(e) => handleAthleteChange(e.target.value)}
+              disabled={switchingAthlete}
+              className="px-3 py-2 rounded-xl text-sm font-medium cursor-pointer disabled:cursor-wait disabled:opacity-70 w-[min(58vw,14rem)] sm:w-56"
               style={{
                 background: 'var(--bg-card)',
                 color: 'var(--text-primary)',
@@ -139,6 +156,11 @@ export function PlannerShell({ athletes, sessions, feedbacks, today, currentMont
                 </option>
               ))}
             </select>
+            {switchingAthlete && (
+              <span className="text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                Przełączanie...
+              </span>
+            )}
           </div>
         )}
       />

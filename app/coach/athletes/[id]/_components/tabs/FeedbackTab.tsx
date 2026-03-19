@@ -12,9 +12,10 @@ import { ProfileEmptyState, ProfileStatusNotice } from '../ProfileStates'
 interface FeedbackTabProps {
   athleteId: string
   feedbacks: CoachFeedbackRow[]
+  onFeedbackRead?: () => void
 }
 
-export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
+export function FeedbackTab({ athleteId, feedbacks, onFeedbackRead }: FeedbackTabProps) {
   const router = useRouter()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [replyingId, setReplyingId] = useState<string | null>(null)
@@ -42,6 +43,7 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
         return
       }
       showStatus('success', 'Feedback został oznaczony jako przeczytany.')
+      onFeedbackRead?.()
       startTransition(() => router.refresh())
     } finally {
       setMarkingReadId(null)
@@ -97,65 +99,36 @@ export function FeedbackTab({ athleteId, feedbacks }: FeedbackTabProps) {
   return (
     <div className="space-y-4">
       <div className="max-w-4xl mx-auto space-y-4">
-        <div className="rounded-3xl p-4 md:p-5" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))', border: '1px solid var(--border)' }}>
-          <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
-            <div>
-              <div className="text-sm font-semibold">Filtry feedbacku</div>
-              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                Zawęź listę po statusie odpowiedzi i poziomie sygnału.
-              </div>
-            </div>
-            <div className="text-sm px-3 py-2 rounded-xl shrink-0" style={{ background: 'rgba(255,92,27,0.08)', color: '#FFD2BD', border: '1px solid rgba(255,92,27,0.16)' }}>
+        <div className="rounded-2xl px-3 py-2.5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Szukaj..."
+              className="px-3 py-1.5 rounded-xl text-xs min-w-[120px] flex-1"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)', maxWidth: 220 }}
+            />
+            <SelectField value={readFilter} onChange={(value) => setReadFilter(value as typeof readFilter)} className="min-w-0">
+              <option value="all">Wszystkie</option>
+              <option value="unread">Nieprzeczytane</option>
+              <option value="replied">Z odpowiedzią</option>
+              <option value="no-reply">Bez odpowiedzi</option>
+            </SelectField>
+            <SelectField value={signalFilter} onChange={(value) => setSignalFilter(value as typeof signalFilter)} className="min-w-0">
+              <option value="all">Sygnał: wszystkie</option>
+              <option value="red">🔴 Czerwone</option>
+              <option value="yellow">🟡 Żółte</option>
+              <option value="green">🟢 Zielone</option>
+            </SelectField>
+            <SelectField value={dateFilter} onChange={(value) => setDateFilter(value as typeof dateFilter)} className="min-w-0">
+              <option value="all">Cały okres</option>
+              <option value="today">Dziś</option>
+              <option value="7days">7 dni</option>
+              <option value="30days">30 dni</option>
+            </SelectField>
+            <span className="text-xs ml-auto shrink-0" style={{ color: 'var(--text-muted)' }}>
               {filteredFeedbacks.length} {filteredFeedbacks.length === 1 ? 'wynik' : filteredFeedbacks.length < 5 ? 'wyniki' : 'wyników'}
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-2xl p-3 md:col-span-2" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
-                Szukaj w feedbacku
-              </div>
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Szukaj po treści feedbacku lub odpowiedzi trenera"
-                className="w-full px-3 py-2 rounded-xl text-sm"
-                style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-              />
-            </div>
-            <div className="rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
-                Odpowiedzi i odczyt
-              </div>
-              <SelectField value={readFilter} onChange={(value) => setReadFilter(value as typeof readFilter)}>
-                <option value="all">Wszystkie feedbacki</option>
-                <option value="unread">Nieprzeczytane</option>
-                <option value="replied">Z odpowiedzią</option>
-                <option value="no-reply">Bez odpowiedzi</option>
-              </SelectField>
-            </div>
-            <div className="rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
-                Sygnał
-              </div>
-              <SelectField value={signalFilter} onChange={(value) => setSignalFilter(value as typeof signalFilter)}>
-                <option value="all">Wszystkie sygnały</option>
-                <option value="red">Czerwone</option>
-                <option value="yellow">Żółte</option>
-                <option value="green">Zielone</option>
-              </SelectField>
-            </div>
-            <div className="rounded-2xl p-3 md:col-span-2" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
-                Zakres dat
-              </div>
-              <SelectField value={dateFilter} onChange={(value) => setDateFilter(value as typeof dateFilter)}>
-                <option value="all">Cały okres</option>
-                <option value="today">Tylko dziś</option>
-                <option value="7days">Ostatnie 7 dni</option>
-                <option value="30days">Ostatnie 30 dni</option>
-              </SelectField>
-            </div>
+            </span>
           </div>
         </div>
 

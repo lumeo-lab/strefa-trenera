@@ -47,18 +47,23 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [tab, setTab] = useState<'plan' | 'strava'>('plan')
   const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState(false)
   const [, startTransition] = useTransition()
   const router = useRouter()
 
   async function handleSync() {
     setSyncing(true)
+    setSyncError(false)
     try {
-      await fetch('/api/strava/sync', {
+      const res = await fetch('/api/strava/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slug: athlete.slug }),
       })
+      if (!res.ok) throw new Error('sync failed')
       startTransition(() => router.refresh())
+    } catch {
+      setSyncError(true)
     } finally {
       setSyncing(false)
     }
@@ -131,6 +136,12 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
               style={{ background: '#FC4C02', color: 'white', border: 'none', opacity: syncing ? 0.6 : 1 }}>
               {syncing ? 'Synchronizuję...' : '↻ Odśwież'}
             </button>
+          </div>
+        )}
+
+        {syncError && (
+          <div className="px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }}>
+            Nie udało się zsynchronizować aktywności. Spróbuj ponownie.
           </div>
         )}
 

@@ -14,6 +14,7 @@ export default async function InvoicesPage({
   const coachId = user?.id ?? ''
   const params = (await searchParams) ?? {}
   const athleteParam = Array.isArray(params.athlete) ? params.athlete[0] : params.athlete
+  const filterParam = Array.isArray(params.filter) ? params.filter[0] : params.filter
 
   const [{ data: invoices }, athletesResult] = await Promise.all([
     supabase
@@ -39,5 +40,12 @@ export default async function InvoicesPage({
 
   const athletes = athletesResult.error ? (fallbackAthletesResult?.data ?? []) : (athletesResult.data ?? [])
 
-  return <InvoicesClient invoices={invoices ?? []} athletes={athletes} initialAthleteId={athleteParam ?? ''} />
+  return (
+    <InvoicesClient
+      invoices={invoices ?? []}
+      athletes={athletes}
+      initialAthleteId={athleteParam ?? ''}
+      initialFilter={filterParam ?? 'all'}
+    />
+  )
 }

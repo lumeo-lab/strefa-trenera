@@ -4,7 +4,7 @@ import { ChatClient } from './_components/ChatClient'
 
 export const metadata: Metadata = { title: 'Czat | Strefa Trenera' }
 
-export default async function CoachChatPage({ searchParams }: { searchParams: Promise<{ athlete?: string }> }) {
+export default async function CoachChatPage({ searchParams }: { searchParams: Promise<{ athlete?: string; filter?: string }> }) {
   const supabase = await createClient()
   const params = await searchParams
 
@@ -63,6 +63,7 @@ export default async function CoachChatPage({ searchParams }: { searchParams: Pr
       coachId={coachId}
       coachName={coach?.name ?? ''}
       initialAthleteId={params.athlete}
+      initialFilter={params.filter}
     />
   )
 }

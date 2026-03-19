@@ -1,6 +1,6 @@
 'use client'
 
-import { startTransition, useState } from 'react'
+import { startTransition, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { type AthleteInjuryRecord, getActiveAthleteInjuries, parseAthleteInjuryHistory } from '@/lib/athlete-injuries'
@@ -37,6 +37,7 @@ export function InjuryEditor({ athleteId, injuryHistory, legacyInjuries }: Injur
   const [error, setError] = useState<string | null>(null)
   const [injuryInput, setInjuryInput] = useState('')
   const [injuryStartDate, setInjuryStartDate] = useState(todayInputValue())
+  const injuryInputRef = useRef<HTMLInputElement>(null)
 
   const activeInjuries = getActiveAthleteInjuries(localInjuries)
   const closedInjuries = localInjuries.filter((injury) => !!injury.ended_at)
@@ -86,6 +87,7 @@ export function InjuryEditor({ athleteId, injuryHistory, legacyInjuries }: Injur
     ])
     setInjuryInput('')
     setInjuryStartDate(todayInputValue())
+    setTimeout(() => injuryInputRef.current?.focus(), 0)
   }
 
   function removeInjury(id: string) {
@@ -206,6 +208,7 @@ export function InjuryEditor({ athleteId, injuryHistory, legacyInjuries }: Injur
                     addInjury()
                   }
                 }}
+                ref={injuryInputRef}
                 placeholder="np. Kolano lewe, ból pleców..."
                 className="w-full px-3 py-2 rounded-xl text-sm"
                 style={inputStyle}

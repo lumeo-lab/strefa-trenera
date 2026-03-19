@@ -11,14 +11,22 @@ const SIGNAL_COLOR: Record<string, string> = { green: '#2ECC71', yellow: '#F1C40
 
 // ── MessagesSection ──────────────────────────────────────────────────────────
 
-export function MessagesSection({ messages }: {
+export function MessagesSection({ messages, totalUnreadMessages }: {
   messages: DashboardMessageRow[]
+  totalUnreadMessages: number
 }) {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold">Nieprzeczytane wiadomości od zawodników</h3>
-        <Link href="/coach/chat" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Otwórz czat →</Link>
+        <div className="flex items-center gap-3">
+          {totalUnreadMessages > messages.length && (
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Pokazano {messages.length} z {totalUnreadMessages}
+            </span>
+          )}
+          <Link href="/coach/chat?filter=unread" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Otwórz czat →</Link>
+        </div>
       </div>
       {messages.length === 0 ? (
         <div className="text-center py-6" style={{ color: 'var(--text-muted)' }}>
@@ -50,14 +58,22 @@ export function MessagesSection({ messages }: {
 
 // ── FeedbackListSection ──────────────────────────────────────────────────────
 
-export function FeedbackListSection({ feedbacks }: {
+export function FeedbackListSection({ feedbacks, totalUnreadFeedback }: {
   feedbacks: DashboardFeedbackRow[]
+  totalUnreadFeedback: number
 }) {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold">Nieprzeczytane feedbacki</h3>
-        <Link href="/coach/feedback" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Wszystkie →</Link>
+        <div className="flex items-center gap-3">
+          {totalUnreadFeedback > feedbacks.length && (
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Pokazano {feedbacks.length} z {totalUnreadFeedback}
+            </span>
+          )}
+          <Link href="/coach/feedback?filter=unread" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Wszystkie →</Link>
+        </div>
       </div>
       {feedbacks.length === 0 ? (
         <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
@@ -70,7 +86,7 @@ export function FeedbackListSection({ feedbacks }: {
             const ath = f.athletes
             const sigColor = SIGNAL_COLOR[f.signal] ?? '#6B7280'
             return (
-              <Link key={f.id} href={`/coach/athletes/${f.athlete_id}`}
+              <Link key={f.id} href={`/coach/feedback?athlete=${f.athlete_id}&filter=unread`}
                 className="block p-3 rounded-xl hover:opacity-80 transition-opacity"
                 style={{ background: 'var(--bg-elevated)', borderLeft: `3px solid ${sigColor}` }}>
                 <div className="flex items-center justify-between mb-1">

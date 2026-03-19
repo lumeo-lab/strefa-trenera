@@ -3,7 +3,7 @@
 import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import Link from 'next/link'
-import type { DashboardAthleteRow } from '../types'
+import type { DashboardAlertItem, DashboardAthleteRow } from '../types'
 
 const ATHLETE_STATUS_INFO: Record<string, { label: string; color: string; bg: string }> = {
   alert:   { label: 'Alert',  color: '#E74C3C', bg: 'rgba(231,76,60,0.1)' },
@@ -13,7 +13,7 @@ const ATHLETE_STATUS_INFO: Record<string, { label: string; color: string; bg: st
 // ── AlertsSection ────────────────────────────────────────────────────────────
 
 export function AlertsSection({ alertAthletes }: {
-  alertAthletes: DashboardAthleteRow[]
+  alertAthletes: DashboardAlertItem[]
 }) {
   if (alertAthletes.length === 0) return null
   return (
@@ -23,15 +23,21 @@ export function AlertsSection({ alertAthletes }: {
         <Link href="/coach/athletes" className="text-xs hover:opacity-80" style={{ color: '#FF5C1B' }}>Wszyscy →</Link>
       </div>
       <div className="space-y-2">
-        {alertAthletes.map((a) => {
-          const info = ATHLETE_STATUS_INFO[a.status]
+        {alertAthletes.map(({ athlete, primaryReason, extraReasonCount }) => {
+          const info = ATHLETE_STATUS_INFO[athlete.status]
           return (
-            <Link key={a.id} href={`/coach/athletes/${a.id}`}
+            <Link key={athlete.id} href={`/coach/athletes/${athlete.id}`}
               className="flex items-center gap-3 p-3 rounded-xl hover:opacity-80 transition-opacity"
               style={{ background: 'var(--bg-elevated)' }}>
-              <Avatar initials={a.avatar} size="sm" />
-              <div className="flex-1 text-sm font-medium">{a.name}</div>
-              {info && <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: info.bg, color: info.color }}>{info.label}</span>}
+              <Avatar initials={athlete.avatar} size="sm" />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium">{athlete.name}</div>
+                <div className="mt-0.5 text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                  {primaryReason}
+                  {extraReasonCount > 0 ? ` · +${extraReasonCount} innych sygnałów` : ''}
+                </div>
+              </div>
+              {info && <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: info.bg, color: info.color }}>{info.label}</span>}
             </Link>
           )
         })}

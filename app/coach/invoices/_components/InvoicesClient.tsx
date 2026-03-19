@@ -56,10 +56,12 @@ export function InvoicesClient({
   invoices,
   athletes,
   initialAthleteId = '',
+  initialFilter = 'all',
 }: {
   invoices: InvoiceWithJoins[]
   athletes: AthleteOption[]
   initialAthleteId?: string
+  initialFilter?: string
 }) {
   const router = useRouter()
   const today = getBusinessToday()
@@ -67,7 +69,8 @@ export function InvoicesClient({
   const filtersMeasureRef = useRef<HTMLDivElement>(null)
 
   // ── Filter & sort ────────────────────────────────────────────────
-  const [filter, setFilter] = useState<Filter>('all')
+  const normalizedInitialFilter = (['all', 'pending', 'paid', 'overdue'].includes(initialFilter) ? initialFilter : 'all') as Filter
+  const [filter, setFilter] = useState<Filter>(normalizedInitialFilter)
   const [athleteFilter, setAthleteFilter] = useState<string>(initialAthleteId || 'all')
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey | null>(null)
@@ -86,6 +89,9 @@ export function InvoicesClient({
   useEffect(() => {
     setAthleteFilter(initialAthleteId || 'all')
   }, [initialAthleteId])
+  useEffect(() => {
+    setFilter(normalizedInitialFilter)
+  }, [normalizedInitialFilter])
   const [statusChangingId, setStatusChangingId] = useState<string | null>(null)
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)

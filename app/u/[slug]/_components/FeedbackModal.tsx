@@ -62,6 +62,7 @@ export function FeedbackModal({
   existingTextFeedback, existingVoiceFeedback, initialData, onSubmitted,
 }: FeedbackModalProps) {
   const [submitting, setSubmitting] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const [feeling, setFeeling] = useState(initialData?.feeling ?? '')
   const [trainingType, setTrainingType] = useState(initialData?.trainingType ?? '')
@@ -78,6 +79,7 @@ export function FeedbackModal({
   async function submitFeedback() {
     if (submitting) return
     setSubmitting(true)
+    setSaveError(null)
     try {
       const fd = new FormData()
       fd.set('slug', slug)
@@ -113,7 +115,7 @@ export function FeedbackModal({
         result = await createFeedback(fd)
       }
 
-      if (result && 'error' in result) { alert('Błąd zapisu: ' + result.error); return }
+      if (result && 'error' in result) { setSaveError(result.error ?? 'Nie udało się zapisać feedbacku.'); return }
 
       if (feedbackType === 'text') {
         onSubmitted({ feeling, trainingType, distanceKm, durationMin, intensity, notes, watchLink: watchLink || undefined }, 'text')
@@ -129,10 +131,17 @@ export function FeedbackModal({
   const canSaveVoice = !!(voiceTranscript.trim())
 
   const modalFooter = (
-    <Button className="w-full" onClick={submitFeedback}
-      disabled={(feedbackType === 'text' ? !canSaveText : !canSaveVoice) || submitting}>
-      {submitting ? 'Zapisywanie...' : 'Zapisz'}
-    </Button>
+    <div>
+      {saveError && (
+        <p role="alert" className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ color: '#f87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)' }}>
+          {saveError}
+        </p>
+      )}
+      <Button className="w-full" onClick={submitFeedback}
+        disabled={(feedbackType === 'text' ? !canSaveText : !canSaveVoice) || submitting}>
+        {submitting ? 'Zapisywanie...' : 'Zapisz'}
+      </Button>
+    </div>
   )
 
   return (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Tabs } from '@/components/ui/Tabs'
 import { Card } from '@/components/ui/Card'
@@ -71,12 +71,14 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [linkPanelOpen, setLinkPanelOpen] = useState(false)
   const [attentionModalOpen, setAttentionModalOpen] = useState(false)
 
-  // Feedback lookup
-  const feedbackBySession: FeedbackBySessionMap = Object.fromEntries(
-    athleteFeedbacks.filter(f => f.session_id).map(f => [f.session_id as string, f])
+  // Feedback lookup (memoized — avoids rebuilding on every render)
+  const feedbackBySession: FeedbackBySessionMap = useMemo(
+    () => Object.fromEntries(athleteFeedbacks.filter(f => f.session_id).map(f => [f.session_id as string, f])),
+    [athleteFeedbacks],
   )
-  const feedbackByDate: FeedbackByDateMap = Object.fromEntries(
-    athleteFeedbacks.filter(f => !f.session_id).map(f => [f.date, f])
+  const feedbackByDate: FeedbackByDateMap = useMemo(
+    () => Object.fromEntries(athleteFeedbacks.filter(f => !f.session_id).map(f => [f.date, f])),
+    [athleteFeedbacks],
   )
 
   // Date helpers
@@ -92,21 +94,21 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const inviteBaseUrl = appUrl.replace(/\/$/, '')
   const inviteUrl = `${inviteBaseUrl}/u/${athlete.slug}?t=${inviteToken}`
   const [inviteError, setInviteError] = useState<string | null>(null)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function copyInviteLink() {
     setInviteError(null)
     try {
       await navigator.clipboard.writeText(inviteUrl)
       setLinkCopied(true)
-      setTimeout(() => setLinkCopied(false), 2000)
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+      copyTimerRef.current = setTimeout(() => setLinkCopied(false), 2000)
     } catch {
       setInviteError('Nie udało się skopiować — skopiuj ręcznie z pola powyżej')
     }
   }
 
-  const unreadFeedbackCount = athleteFeedbacks.filter(f => !f.read).length
-  const completedSessionsCount = initialSessions.filter((session) => session.completed).length
-
+  const [unreadFeedbackCount, setUnreadFeedbackCount] = useState(() => athleteFeedbacks.filter(f => !f.read).length)
   const tabs = [
     { id: 'plan', label: 'Plan' },
     { id: 'history', label: 'Historia' },
@@ -117,14 +119,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
     { id: 'finance', label: 'Finanse' },
   ]
 
-  const completedSessions = initialSessions.filter(s => s.completed && s.actual_distance)
-  const totalKm = completedSessions.reduce((sum, s) => sum + (s.actual_distance || 0), 0)
-  const accessTone = accessInfo.hasActiveSession ? '#2ECC71' : accessInfo.inviteUsedAt ? '#F1C40F' : '#6B7280'
-  const accessLabel = accessInfo.hasActiveSession
-    ? 'Dostęp aktywowany'
-    : accessInfo.inviteUsedAt
-      ? 'Link użyty, brak aktywnej sesji'
-      : 'Dostęp jeszcze nieaktywowany'
+  const lastCompletedSession = initialSessions
+    .filter(s => s.completed)
+    .sort((a, b) => b.date.localeCompare(a.date))[0] ?? null
+  const daysSinceLastTraining = lastCompletedSession
+    ? Math.floor((new Date(`${today}T12:00:00`).getTime() - new Date(`${lastCompletedSession.date}T12:00:00`).getTime()) / 86400000)
+    : null
   const nextSession = initialSessions
     .filter((session) => !session.completed && session.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at))[0] ?? null
@@ -153,6 +153,10 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   useEffect(() => {
     setActiveTab(getSafeProfileTab(initialTab))
   }, [initialTab])
+
+  useEffect(() => {
+    setUnreadFeedbackCount(athleteFeedbacks.filter(f => !f.read).length)
+  }, [athleteFeedbacks])
 
   function handleTabChange(tabId: string) {
     const safeTab = getSafeProfileTab(tabId)
@@ -189,6 +193,10 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                       <Badge variant="gray">
                         {athlete.package} — {formatCurrency(athlete.package_price)}/mies.
                       </Badge>
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: accessInfo.hasActiveSession ? '#2ECC71' : '#E74C3C' }}>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: accessInfo.hasActiveSession ? '#2ECC71' : '#E74C3C' }} />
+                        {accessInfo.hasActiveSession ? 'Aktywny' : 'Nieaktywny'}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap text-sm" style={{ color: 'var(--text-muted)' }}>
                       {athlete.goal && <span>🎯 {athlete.goal}</span>}
@@ -212,12 +220,11 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                     <button
                       type="button"
                       onClick={() => setAttentionModalOpen(true)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium shrink-0 cursor-pointer"
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-opacity hover:opacity-80"
                       style={{
-                        background: attentionItems.length > 0 ? 'linear-gradient(135deg, rgba(255,92,27,0.22), rgba(231,76,60,0.18))' : 'rgba(255,92,27,0.1)',
-                        color: attentionItems.length > 0 ? '#FFF3EC' : '#FFB38F',
-                        border: attentionItems.length > 0 ? '1px solid rgba(255,122,66,0.42)' : '1px solid rgba(255,92,27,0.2)',
-                        boxShadow: attentionItems.length > 0 ? '0 10px 30px rgba(255,92,27,0.14)' : 'none',
+                        background: attentionItems.length > 0 ? 'rgba(255,92,27,0.12)' : 'var(--bg-elevated)',
+                        color: attentionItems.length > 0 ? '#FF5C1B' : 'var(--text-muted)',
+                        border: attentionItems.length > 0 ? '1px solid rgba(255,92,27,0.25)' : '1px solid var(--border)',
                       }}
                     >
                       Powiadomienia ({attentionItems.length})
@@ -229,28 +236,21 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Dostęp zawodnika</div>
-                <div className="mt-2 inline-flex items-center gap-2 text-sm font-medium" style={{ color: accessTone }}>
-                  <span className="w-2 h-2 rounded-full" style={{ background: accessTone }} />
-                  {accessLabel}
-                </div>
-                <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                  {accessInfo.lastSeenAt
-                    ? `Ostatnia aktywność: ${formatDate(accessInfo.lastSeenAt, { day: 'numeric', month: 'long', year: 'numeric' })}`
-                    : accessInfo.inviteUsedAt
-                    ? `Link użyty: ${formatDate(accessInfo.inviteUsedAt, { day: 'numeric', month: 'long', year: 'numeric' })}`
-                    : 'Zawodnik nie wszedł jeszcze do swojego panelu.'}
-                </div>
-              </div>
-
-              <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Aktywność treningowa</div>
-                <div className="mt-2 text-lg font-semibold">{totalKm > 0 ? `${totalKm.toFixed(0)} km` : 'Brak danych'}</div>
-                <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                  {completedSessionsCount > 0
-                    ? `${completedSessionsCount} ${completedSessionsCount === 1 ? 'ukończona sesja' : completedSessionsCount < 5 ? 'ukończone sesje' : 'ukończonych sesji'} w historii`
-                    : 'Brak ukończonych sesji zapisanych w profilu.'}
-                </div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Ostatni trening</div>
+                {lastCompletedSession ? (
+                  <>
+                    <div className="mt-2 text-sm font-semibold truncate">{lastCompletedSession.title}</div>
+                    <div className="text-xs mt-1" style={{ color: daysSinceLastTraining !== null && daysSinceLastTraining > 7 ? '#E74C3C' : 'var(--text-muted)' }}>
+                      {daysSinceLastTraining === 0 ? 'Dziś' : daysSinceLastTraining === 1 ? 'Wczoraj' : `${daysSinceLastTraining} dni temu`}
+                      {' · '}{formatDate(lastCompletedSession.date, { day: 'numeric', month: 'short' })}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mt-2 text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>Brak aktywności</div>
+                    <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Zawodnik nie ukończył jeszcze żadnej sesji</div>
+                  </>
+                )}
               </div>
 
               <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
@@ -262,12 +262,22 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               </div>
 
               <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Finanse i starty</div>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Finanse</div>
                 <div className="mt-2 text-lg font-semibold">
-                  {summaryInfo.unpaidInvoicesCount > 0 ? `${summaryInfo.unpaidInvoicesCount} otw.` : 'Brak zaległości'}
+                  {summaryInfo.unpaidInvoicesCount > 0 ? `${summaryInfo.unpaidInvoicesCount} otwarte` : 'Brak zaległości'}
+                </div>
+                <div className="text-xs mt-2" style={{ color: summaryInfo.unpaidInvoicesCount > 0 ? '#E74C3C' : 'var(--text-muted)' }}>
+                  {summaryInfo.unpaidInvoicesCount > 0 ? 'Faktury oczekujące lub przeterminowane' : 'Wszystkie płatności rozliczone'}
+                </div>
+              </div>
+
+              <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Najbliższy start</div>
+                <div className="mt-2 text-lg font-semibold">
+                  {summaryInfo.nextRace ? summaryInfo.nextRace.name : 'Brak startu'}
                 </div>
                 <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                  {summaryInfo.nextRace ? `Najbliższy start: ${summaryInfo.nextRace.name}` : 'Brak najbliższego startu w kalendarzu.'}
+                  {summaryInfo.nextRace ? `${formatDate(summaryInfo.nextRace.date, { day: 'numeric', month: 'long' })}${summaryInfo.nextRace.distance ? ` · ${summaryInfo.nextRace.distance}` : ''}` : 'Brak najbliższego startu w kalendarzu'}
                 </div>
               </div>
             </div>
@@ -298,6 +308,9 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   </button>
                 </div>
               </div>
+              {inviteError && (
+                <div className="mt-2 text-[11px]" style={{ color: '#E74C3C' }}>{inviteError}</div>
+              )}
               {linkPanelOpen && (
                 <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
                   <div className="text-[11px] mb-2" style={{ color: 'var(--text-muted)' }}>
@@ -337,7 +350,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         )}
 
         {activeTab === 'feedback' && (
-          <FeedbackTab athleteId={athlete.id} feedbacks={athleteFeedbacks} />
+          <FeedbackTab athleteId={athlete.id} feedbacks={athleteFeedbacks} onFeedbackRead={() => setUnreadFeedbackCount(c => Math.max(0, c - 1))} />
         )}
 
         {activeTab === 'races' && (
@@ -353,10 +366,6 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             athlete={athlete}
             packages={packages}
             accessInfo={accessInfo}
-            inviteUrl={inviteUrl}
-            inviteError={inviteError}
-            linkCopied={linkCopied}
-            onCopyInviteLink={copyInviteLink}
           />
         )}
 

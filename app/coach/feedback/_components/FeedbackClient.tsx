@@ -1,6 +1,6 @@
 'use client'
 
-import { startTransition, useMemo, useState } from 'react'
+import { startTransition, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { FeedbackCard } from '@/components/coach/FeedbackCard'
@@ -52,13 +52,27 @@ function OverviewStats({ feedbacks, today }: { feedbacks: FeedbackWithJoins[]; t
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: FeedbackWithJoins[] }) {
+export function FeedbackClient({
+  feedbacks: initialFeedbacks,
+  initialAthleteId = '',
+  initialFilter = 'all',
+}: {
+  feedbacks: FeedbackWithJoins[]
+  initialAthleteId?: string
+  initialFilter?: string
+}) {
   const router = useRouter()
   const today = getBusinessToday()
-  const [filter, setFilter] = useState<Filter>('all')
+  const normalizedInitialFilter = (
+    ['all', 'today', 'unread', 'needs_reply', 'warning', 'alarm'].includes(initialFilter)
+      ? initialFilter
+      : 'all'
+  ) as Filter
+  const [filter, setFilter] = useState<Filter>(normalizedInitialFilter)
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [viewMode, setViewMode] = useState<ViewMode>('chronological')
-  const [athleteFilter, setAthleteFilter] = useState<string>('all')
+  const [athleteFilter, setAthleteFilter] = useState<string>(initialAthleteId || 'all')
+  const [localFeedbacks, setLocalFeedbacks] = useState<FeedbackWithJoins[]>(initialFeedbacks)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [replyingId, setReplyingId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
@@ -71,20 +85,32 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
     return !!localStorage.getItem('feedback-hint-dismissed')
   })
 
+  useEffect(() => {
+    setAthleteFilter(initialAthleteId || 'all')
+  }, [initialAthleteId])
+
+  useEffect(() => {
+    setFilter(normalizedInitialFilter)
+  }, [normalizedInitialFilter])
+
+  useEffect(() => {
+    setLocalFeedbacks(initialFeedbacks)
+  }, [initialFeedbacks])
+
   // Unique athletes for dropdown
   const athletes = useMemo(() => {
     const map = new Map<string, { id: string; name: string; avatar: string }>()
-    for (const f of initialFeedbacks) {
+    for (const f of localFeedbacks) {
       if (f.athletes && !map.has(f.athletes.id)) {
         map.set(f.athletes.id, f.athletes)
       }
     }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'pl'))
-  }, [initialFeedbacks])
+  }, [localFeedbacks])
 
   // Filter
   const filtered = useMemo(() => {
-    let list = initialFeedbacks
+    let list = localFeedbacks
 
     // Athlete filter
     if (athleteFilter !== 'all') {
@@ -106,7 +132,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
     // 'date' is default from server (created_at DESC)
 
     return list
-  }, [initialFeedbacks, athleteFilter, filter, sortKey, today])
+  }, [localFeedbacks, athleteFilter, filter, sortKey, today])
 
   // Grouped by athlete
   const grouped = useMemo(() => {
@@ -136,7 +162,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
     })
   }, [filtered])
 
-  const unreadCount = useMemo(() => initialFeedbacks.filter(f => !f.read).length, [initialFeedbacks])
+  const unreadCount = useMemo(() => localFeedbacks.filter(f => !f.read).length, [localFeedbacks])
 
   async function handleExpand(id: string) {
     setExpandedId(prev => prev === id ? null : id)
@@ -144,11 +170,16 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
 
   async function handleMarkRead(id: string, athleteId?: string) {
     if (markingReadId) return
+    const previousFeedbacks = localFeedbacks
+    setLocalFeedbacks((current) =>
+      current.map((feedback) => (feedback.id === id ? { ...feedback, read: true } : feedback)),
+    )
     setMarkingReadId(id)
     clearStatus()
     try {
       const result = await markFeedbackRead(id, athleteId)
       if (result && 'error' in result) {
+        setLocalFeedbacks(previousFeedbacks)
         showStatus('error', `Nie udało się oznaczyć feedbacku jako przeczytany: ${result.error}`)
         return
       }
@@ -183,12 +214,12 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
   }
 
   const filterButtons: { id: Filter; label: string; count: number }[] = [
-    { id: 'all', label: 'Wszystkie', count: initialFeedbacks.length },
-    { id: 'today', label: 'Dziś', count: initialFeedbacks.filter(f => f.date === today).length },
+    { id: 'all', label: 'Wszystkie', count: localFeedbacks.length },
+    { id: 'today', label: 'Dziś', count: localFeedbacks.filter(f => f.date === today).length },
     { id: 'unread', label: 'Nieprzeczytane', count: unreadCount },
-    { id: 'needs_reply', label: 'Bez odpowiedzi', count: initialFeedbacks.filter(f => !f.coach_reply).length },
-    { id: 'warning', label: 'Średnie samopoczucie', count: initialFeedbacks.filter(f => f.signal === 'yellow').length },
-    { id: 'alarm', label: 'Słabe samopoczucie', count: initialFeedbacks.filter(f => f.signal === 'red').length },
+    { id: 'needs_reply', label: 'Bez odpowiedzi', count: localFeedbacks.filter(f => !f.coach_reply).length },
+    { id: 'warning', label: 'Średnie samopoczucie', count: localFeedbacks.filter(f => f.signal === 'yellow').length },
+    { id: 'alarm', label: 'Słabe samopoczucie', count: localFeedbacks.filter(f => f.signal === 'red').length },
   ]
 
   // Paginated list for chronological view
@@ -227,7 +258,7 @@ export function FeedbackClient({ feedbacks: initialFeedbacks }: { feedbacks: Fee
 
       <div className="p-6 max-w-4xl mx-auto">
         {/* Overview stats */}
-        <OverviewStats feedbacks={initialFeedbacks} today={today} />
+        <OverviewStats feedbacks={localFeedbacks} today={today} />
 
         {statusMessage && (
           <StatusMessage tone={statusMessage.tone} text={statusMessage.text} className="mb-6" />

@@ -9,17 +9,19 @@ interface SessionCardProps {
   typeStyle: React.CSSProperties
   completionStyle: React.CSSProperties
   isDragging: boolean
+  typeLabel?: string
   onClick: () => void
   onDragStart: (e: React.DragEvent) => void
   onDragEnd: () => void
 }
 
-export function SessionCard({
+export const SessionCard = React.memo(function SessionCard({
   session,
   density,
   typeStyle,
   completionStyle,
   isDragging,
+  typeLabel,
   onClick,
   onDragStart,
   onDragEnd,
@@ -39,6 +41,12 @@ export function SessionCard({
         boxShadow: isDragging ? '0 10px 24px rgba(15,23,42,0.16)' : 'none',
       }}
     >
+      {session.completed && (
+        <span className="absolute top-1.5 right-1.5 text-[10px] leading-none" style={{ color: '#2ECC71' }}>✓</span>
+      )}
+      {typeLabel && (
+        <div className="text-[10px] font-semibold uppercase tracking-wider mb-0.5 opacity-70">{typeLabel}</div>
+      )}
       <div className="font-semibold text-xs leading-tight mb-1">{session.title}</div>
       {density === 'full' && session.description && (
         <div className="text-xs opacity-60 leading-tight mb-1">{session.description}</div>
@@ -51,7 +59,7 @@ export function SessionCard({
       {density === 'full' && session.actual_distance && (
         <div className="flex flex-col gap-0.5 text-xs mt-1" style={{ color: 'rgba(46,204,113,0.9)' }}>
           <span>✓ {session.actual_distance} km</span>
-          {session.actual_pace && <span>⚡ {session.actual_pace}/km</span>}
+          {session.actual_pace && <span>{session.actual_pace}/km</span>}
         </div>
       )}
       {density === 'full' && session.url && (
@@ -67,4 +75,4 @@ export function SessionCard({
       )}
     </div>
   )
-}
+})

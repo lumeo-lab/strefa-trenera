@@ -98,10 +98,13 @@ export function TodayActionsSection({
       title: `${raceSoonCount} ${plural(raceSoonCount, 'start jest', 'starty są', 'startów jest')} dziś lub jutro`,
       description: 'Sprawdź, czy zawodnicy mają jasne wskazówki na ostatnie godziny przed startem.',
       tone: 'neutral',
-      href: '/coach/athletes',
+      href: '/coach/dashboard#upcoming-races',
       cta: 'Zobacz zawodników',
     })
   }
+
+  const toneRank: Record<ActionItem['tone'], number> = { danger: 0, warning: 1, neutral: 2 }
+  items.sort((a, b) => toneRank[a.tone] - toneRank[b.tone])
 
   return (
     <Card className="p-5">

@@ -80,64 +80,33 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, today,
 
   return (
     <div className="space-y-4">
-      <div className="rounded-3xl p-4 md:p-5" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015))', border: '1px solid var(--border)' }}>
-        <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
-          <div>
-            <div className="text-sm font-semibold">Filtry historii</div>
-            <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              Pokazujemy tu tylko sesje historyczne: wykonane albo pominięte.
-            </div>
-          </div>
-          <div className="text-sm px-3 py-2 rounded-xl shrink-0" style={{ background: 'rgba(255,92,27,0.08)', color: '#FFD2BD', border: '1px solid rgba(255,92,27,0.16)' }}>
+      <div className="rounded-2xl px-3 py-2.5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Szukaj..."
+            className="px-3 py-1.5 rounded-xl text-xs min-w-[120px] flex-1"
+            style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)', maxWidth: 220 }}
+          />
+          <SelectField value={statusFilter} onChange={(value) => setStatusFilter(value as typeof statusFilter)} className="min-w-0">
+            <option value="all">Wszystkie</option>
+            <option value="completed">Wykonane</option>
+            <option value="missed">Pominięte</option>
+          </SelectField>
+          <SelectField value={feedbackFilter} onChange={(value) => setFeedbackFilter(value as typeof feedbackFilter)} className="min-w-0">
+            <option value="all">Feedback: wszystkie</option>
+            <option value="with-feedback">Z feedbackiem</option>
+          </SelectField>
+          <SelectField value={typeFilter} onChange={(value) => setTypeFilter(value as 'all' | SessionType)} className="min-w-0">
+            <option value="all">Typ: wszystkie</option>
+            {allSessionTypes.map((type) => (
+              <option key={type.key} value={type.key}>{type.label}</option>
+            ))}
+          </SelectField>
+          <span className="text-xs ml-auto shrink-0" style={{ color: 'var(--text-muted)' }}>
             {filteredMonthSessions.length} {filteredMonthSessions.length === 1 ? 'sesja' : filteredMonthSessions.length < 5 ? 'sesje' : 'sesji'}
-          </div>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-4">
-          <div className="rounded-2xl p-3 md:col-span-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
-              Szukaj w historii
-            </div>
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Szukaj po nazwie sesji, opisie albo typie"
-              className="w-full px-3 py-2 rounded-xl text-sm"
-              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
-            />
-          </div>
-          <div className="rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
-              Status sesji
-            </div>
-            <SelectField value={statusFilter} onChange={(value) => setStatusFilter(value as typeof statusFilter)}>
-              <option value="all">Wszystkie sesje</option>
-              <option value="completed">Wykonane</option>
-              <option value="missed">Pominięte</option>
-            </SelectField>
-          </div>
-          <div className="rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
-              Feedback
-            </div>
-            <SelectField value={feedbackFilter} onChange={(value) => setFeedbackFilter(value as typeof feedbackFilter)}>
-              <option value="all">Cała historia</option>
-              <option value="with-feedback">Tylko z feedbackiem</option>
-            </SelectField>
-          </div>
-          <div className="rounded-2xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] mb-2" style={{ color: 'var(--text-muted)' }}>
-              Typ sesji
-            </div>
-            <SelectField value={typeFilter} onChange={(value) => setTypeFilter(value as 'all' | SessionType)}>
-              <option value="all">Wszystkie typy</option>
-              {allSessionTypes.map((type) => (
-                <option key={type.key} value={type.key}>
-                  {type.label}
-                </option>
-              ))}
-            </SelectField>
-          </div>
+          </span>
         </div>
       </div>
 

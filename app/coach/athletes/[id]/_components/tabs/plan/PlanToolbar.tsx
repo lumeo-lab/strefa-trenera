@@ -96,7 +96,11 @@ export function PlanToolbar({
           <button
             onClick={() => setShowFeedback((value) => !value)}
             className="px-3 py-1.5 rounded-xl text-sm font-medium cursor-pointer transition-all whitespace-nowrap inline-flex items-center gap-1.5"
-            style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            style={{
+              background: showFeedback ? 'rgba(255,92,27,0.10)' : 'var(--bg-card)',
+              color: showFeedback ? '#FF5C1B' : 'var(--text-muted)',
+              border: showFeedback ? '1px solid rgba(255,92,27,0.22)' : '1px solid var(--border)',
+            }}
           >
             <span>{showFeedback ? '🙈' : '💬'}</span>
             <span>{showFeedback ? 'Ukryj feedback' : 'Pokaż feedback'}</span>
@@ -133,13 +137,13 @@ export function PlanToolbar({
                 </div>
               ) : (
                 <>
-                  <button onClick={() => setCopyWeekConfirm(true)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                  <button onClick={() => setCopyWeekConfirm(true)} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ color: '#FF5C1B', border: '1px solid rgba(255,92,27,0.22)', background: 'rgba(255,92,27,0.06)' }}>
                     Skopiuj tydzień
                   </button>
-                  <button onClick={onSaveTemplate} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                  <button onClick={onSaveTemplate} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ color: '#FF5C1B', border: '1px solid rgba(255,92,27,0.22)', background: 'rgba(255,92,27,0.06)' }}>
                     Zapisz szablon
                   </button>
-                  <button onClick={onUseTemplate} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                  <button onClick={onUseTemplate} className="px-3 py-1.5 rounded-lg text-xs cursor-pointer" style={{ color: '#FF5C1B', border: '1px solid rgba(255,92,27,0.22)', background: 'rgba(255,92,27,0.06)' }}>
                     Użyj szablonu
                   </button>
                 </>

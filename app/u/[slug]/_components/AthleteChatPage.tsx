@@ -22,6 +22,7 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
   const router = useRouter()
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const { permission, subscribe } = usePushSubscription(athlete.id, 'athlete', athlete.slug)
@@ -57,12 +58,14 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
     if (!input.trim() || sending) return
     const content = input.trim()
     setSending(true)
+    setSendError(false)
     setInput('')
     try {
       await sendAthleteMessage(athlete.slug, content)
       startTransition(() => router.refresh())
     } catch {
       setInput(content)
+      setSendError(true)
     } finally {
       setSending(false)
     }
@@ -121,10 +124,15 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
 
       {/* Input */}
       <div className="px-5 py-3 border-t shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-base)', paddingBottom: 'max(12px, env(safe-area-inset-bottom))', marginBottom: '64px' }}>
+        {sendError && (
+          <div className="text-xs mb-2 px-1" style={{ color: '#E74C3C' }}>
+            Nie udało się wysłać wiadomości. Spróbuj ponownie.
+          </div>
+        )}
         <div className="flex items-center gap-3">
           <input
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={e => { setInput(e.target.value); setSendError(false) }}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder={`Napisz do ${coachName}...`}
             className="flex-1 px-4 py-3 rounded-2xl text-sm"

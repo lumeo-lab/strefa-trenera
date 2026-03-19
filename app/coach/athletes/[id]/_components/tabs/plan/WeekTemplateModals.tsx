@@ -16,7 +16,7 @@ interface WeekTemplateModalsProps {
   // Use template modal
   useOpen: boolean
   onUseClose: () => void
-  templates: Array<{ id: string; name: string; created_at: string }>
+  templates: Array<{ id: string; name: string; created_at: string; itemCount?: number }>
   templatesLoading: boolean
   onApplyTemplate: (templateId: string) => void
   applying: boolean
@@ -105,6 +105,7 @@ export function WeekTemplateModals({
                 <div className="min-w-0">
                   <div className="text-sm font-semibold">{template.name}</div>
                   <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {template.itemCount !== undefined && template.itemCount > 0 && `${template.itemCount} ${template.itemCount === 1 ? 'sesja' : template.itemCount < 5 ? 'sesje' : 'sesji'} · `}
                     Zapisano {formatDate(template.created_at, { day: 'numeric', month: 'short', year: 'numeric' })}
                   </div>
                 </div>

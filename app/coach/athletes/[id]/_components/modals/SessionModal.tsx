@@ -26,20 +26,12 @@ interface SessionModalProps {
   open: boolean
   onClose: () => void
   athleteId: string
-  today: string
   editSession?: CoachTrainingSessionRow | null
   initialDate?: string
   onActionComplete?: (notice: { tone: 'success' | 'error'; text: string }) => void
 }
 
-function shiftISODate(date: string, days: number): string {
-  if (!date) return ''
-  const dt = new Date(`${date}T12:00:00`)
-  dt.setDate(dt.getDate() + days)
-  return dt.toISOString().slice(0, 10)
-}
-
-export function SessionModal({ open, onClose, athleteId, today, editSession, initialDate, onActionComplete }: SessionModalProps) {
+export function SessionModal({ open, onClose, athleteId, editSession, initialDate, onActionComplete }: SessionModalProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -157,28 +149,6 @@ export function SessionModal({ open, onClose, athleteId, today, editSession, ini
 
   const sessionFooter = (
     <div className="space-y-2">
-      {editingSessionId && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => persistSession({ date: shiftISODate(draftDate || today, 1), successText: 'Sesja została przeniesiona na kolejny dzień.' })}
-            disabled={saving}
-            className="whitespace-nowrap"
-          >
-            Przenieś na jutro
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => persistSession({ date: shiftISODate(draftDate || today, 7), duplicate: true, successText: 'Sesja została skopiowana na kolejny tydzień.' })}
-            disabled={saving}
-            className="whitespace-nowrap"
-          >
-            Kopiuj na za tydzień
-          </Button>
-        </div>
-      )}
       <div className="flex flex-wrap items-center gap-2">
         {editingSessionId && (
           deleteConfirm ? (

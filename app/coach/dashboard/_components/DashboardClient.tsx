@@ -20,6 +20,7 @@ import { AlertsSection, NoSessionsSection, RecentAthletesSection } from './secti
 import { OverdueInvoicesSection, UpcomingRacesSection } from './sections/FinanceRaceSections'
 
 import type {
+  DashboardAlertItem,
   DashboardAthleteRow,
   DashboardFeedbackRow,
   DashboardInvoiceRow,
@@ -28,6 +29,56 @@ import type {
   DashboardSessionRow,
   DashboardWeekSessionRow,
 } from './types'
+
+function KpiCardLink({
+  href,
+  children,
+  tone = 'neutral',
+}: {
+  href: string
+  children: React.ReactNode
+  tone?: 'neutral' | 'warning' | 'danger' | 'positive'
+}) {
+  const toneStyles = {
+    neutral: {
+      border: 'var(--border)',
+      shadow: '0 0 0 1px rgba(255,255,255,0.01)',
+    },
+    warning: {
+      border: 'rgba(241,196,15,0.28)',
+      shadow: '0 10px 24px rgba(241,196,15,0.06)',
+    },
+    danger: {
+      border: 'rgba(231,76,60,0.3)',
+      shadow: '0 10px 24px rgba(231,76,60,0.08)',
+    },
+    positive: {
+      border: 'rgba(46,204,113,0.24)',
+      shadow: '0 10px 24px rgba(46,204,113,0.06)',
+    },
+  } as const
+
+  return (
+    <Link href={href} className="block rounded-2xl group focus-visible:outline-none">
+      <Card
+        className="p-4 cursor-pointer transition-all duration-200 group-hover:-translate-y-0.5 group-hover:opacity-100 group-hover:border-transparent group-hover:ring-1 group-hover:ring-[rgba(255,92,27,0.35)] group-focus-visible:ring-2 group-focus-visible:ring-[rgba(255,92,27,0.45)]"
+      >
+        <div
+          className="rounded-[inherit]"
+          style={{
+            margin: '-16px',
+            padding: '16px',
+            borderRadius: 'inherit',
+            border: `1px solid ${toneStyles[tone].border}`,
+            boxShadow: toneStyles[tone].shadow,
+          }}
+        >
+          {children}
+        </div>
+      </Card>
+    </Link>
+  )
+}
 
 // ── SettingsRow ───────────────────────────────────────────────────────────────
 
@@ -40,9 +91,9 @@ function SettingsRow({ icon, label, desc, visible, onToggle, onUp, onDown, canUp
     <div className="flex items-center gap-3 p-3 rounded-xl transition-colors"
       style={{ background: visible ? 'var(--bg-elevated)' : 'transparent' }}>
       <div className="flex flex-col gap-0.5 shrink-0">
-        <button onClick={onUp} disabled={!canUp}
+        <button onClick={onUp} disabled={!canUp} aria-label={`Przesuń ${label} wyżej`} title={`Przesuń ${label} wyżej`}
           className="text-xs cursor-pointer disabled:opacity-20 hover:opacity-70 leading-none px-1 py-0.5">▲</button>
-        <button onClick={onDown} disabled={!canDown}
+        <button onClick={onDown} disabled={!canDown} aria-label={`Przesuń ${label} niżej`} title={`Przesuń ${label} niżej`}
           className="text-xs cursor-pointer disabled:opacity-20 hover:opacity-70 leading-none px-1 py-0.5">▼</button>
       </div>
       <span className="text-base shrink-0">{icon}</span>
@@ -51,6 +102,8 @@ function SettingsRow({ icon, label, desc, visible, onToggle, onUp, onDown, canUp
         {desc && <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{desc}</div>}
       </div>
       <button onClick={onToggle}
+        aria-label={visible ? `Ukryj ${label}` : `Pokaż ${label}`}
+        title={visible ? `Ukryj ${label}` : `Pokaż ${label}`}
         className="relative w-10 h-6 rounded-full transition-colors shrink-0"
         style={{ background: visible ? '#FF5C1B' : 'var(--bg-raised)' }}>
         <div className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all"
@@ -77,12 +130,13 @@ interface Props {
   totalUnreadMessages: number
   estimatedMonthlyRevenue: number
   activeCount: number
+  archivedAthleteCount: number
   pendingAmount: number
   overdueAmount: number
   pendingCount: number
   overdueCount: number
   raceSoonCount: number
-  alertAthletes: DashboardAthleteRow[]
+  alertAthletes: DashboardAlertItem[]
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -90,7 +144,7 @@ interface Props {
 export function DashboardClient({
   coachName, todayIso, todayLabel, allAthletes, feedbacks, messages, sessions,
   weekSessions, races, overdueInvoices, totalUnread, totalUnreadMessages,
-  estimatedMonthlyRevenue, activeCount, pendingAmount, overdueAmount,
+  estimatedMonthlyRevenue, activeCount, archivedAthleteCount, pendingAmount, overdueAmount,
   pendingCount, overdueCount, raceSoonCount, alertAthletes,
 }: Props) {
 
@@ -102,13 +156,19 @@ export function DashboardClient({
     visibleKpi, fullSections, leftSections, rightSections,
   } = useDashboardPrefs()
 
-  const weekAthleteIds = useMemo(
-    () => new Set(weekSessions.map((s: { athlete_id?: string }) => s.athlete_id).filter(Boolean)),
-    [weekSessions],
+  const athleteIdsWithUpcomingPlan = useMemo(
+    () =>
+      new Set(
+        weekSessions
+          .filter((session) => session.date > todayIso || (session.date === todayIso && !session.completed))
+          .map((session) => session.athlete_id)
+          .filter(Boolean),
+      ),
+    [todayIso, weekSessions],
   )
   const noSessionsAthletes = useMemo(
-    () => allAthletes.filter(a => a.status !== 'inactive' && !weekAthleteIds.has(a.id)),
-    [allAthletes, weekAthleteIds],
+    () => allAthletes.filter(a => a.status !== 'inactive' && !athleteIdsWithUpcomingPlan.has(a.id)),
+    [allAthletes, athleteIdsWithUpcomingPlan],
   )
   const todayCompleted = sessions.filter((s: { completed: boolean }) => s.completed).length
   const recentAthletesData = useMemo(
@@ -121,57 +181,60 @@ export function DashboardClient({
   function renderKpi(id: KpiId) {
     switch (id) {
       case 'athletes': return (
-        <Link href="/coach/athletes">
-          <Card className="p-5 hover:opacity-80 transition-opacity cursor-pointer">
-            <div className="flex items-start justify-between mb-3">
-              <span className="text-2xl">👟</span>
+        <KpiCardLink href="/coach/athletes" tone={alertAthletes.length > 0 ? 'warning' : 'positive'}>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-lg shrink-0">👟</span>
+                <div className="text-xs font-medium truncate" style={{ color: 'var(--text-muted)' }}>Aktywni zawodnicy</div>
+              </div>
               {alertAthletes.length > 0 && (
                 <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>
                   {alertAthletes.length} {plural(alertAthletes.length, 'alert', 'alerty', 'alertów')}
                 </span>
               )}
             </div>
-            <div className="text-2xl font-bold mb-1">{activeCount}</div>
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Aktywni zawodnicy</div>
-            <div className="text-xs font-medium" style={{ color: '#2ECC71' }}>{allAthletes.length} wszystkich w bazie</div>
-          </Card>
-        </Link>
+            <div className="text-[1.7rem] leading-none font-bold mb-2">{activeCount}</div>
+            <div className="text-xs font-medium" style={{ color: archivedAthleteCount > 0 ? '#F39C12' : '#2ECC71' }}>
+              {archivedAthleteCount > 0 ? `${archivedAthleteCount} archiwalnych` : 'Brak archiwalnych'}
+            </div>
+        </KpiCardLink>
       )
       case 'feedback': return (
-        <Link href="/coach/feedback">
-          <Card className="p-5 hover:opacity-80 transition-opacity cursor-pointer">
-            <div className="mb-3 text-2xl">📥</div>
-            <div className="text-2xl font-bold mb-1">{totalUnread}</div>
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Feedback do przeczytania</div>
-            <div className="text-xs font-medium" style={{ color: totalUnread > 0 ? '#F1C40F' : '#2ECC71' }}>
-              {totalUnread > 0 ? 'Wymaga uwagi' : 'Wszystko odczytane'}
+        <KpiCardLink href="/coach/feedback" tone={totalUnread >= 3 ? 'danger' : totalUnread > 0 ? 'warning' : 'positive'}>
+            <div className="flex items-center gap-2 mb-3 min-w-0">
+              <span className="text-lg shrink-0">📥</span>
+              <div className="text-xs font-medium truncate" style={{ color: 'var(--text-muted)' }}>Feedback do przeczytania</div>
             </div>
-          </Card>
-        </Link>
+            <div className="text-[1.7rem] leading-none font-bold mb-2">{totalUnread}</div>
+            <div className="text-xs font-medium" style={{ color: totalUnread >= 3 ? '#E74C3C' : totalUnread > 0 ? '#F1C40F' : '#2ECC71' }}>
+              {totalUnread >= 3 ? 'Wysoki priorytet' : totalUnread > 0 ? 'Wymaga uwagi' : 'Wszystko odczytane'}
+            </div>
+        </KpiCardLink>
       )
       case 'revenue': return (
-        <Link href="/coach/analytics">
-          <Card className="p-5 hover:opacity-80 transition-opacity cursor-pointer">
-            <div className="mb-3 text-2xl">💰</div>
-            <div className="text-2xl font-bold mb-1">{formatCurrency(estimatedMonthlyRevenue)}</div>
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Szacowany przychód w miesiącu</div>
+        <KpiCardLink href="/coach/analytics" tone="neutral">
+            <div className="flex items-center gap-2 mb-3 min-w-0">
+              <span className="text-lg shrink-0">💰</span>
+              <div className="text-xs font-medium truncate" style={{ color: 'var(--text-muted)' }}>Szacowany przychód w miesiącu</div>
+            </div>
+            <div className="text-[1.7rem] leading-none font-bold mb-2">{formatCurrency(estimatedMonthlyRevenue)}</div>
             <div className="text-xs font-medium" style={{ color: '#FF5C1B' }}>Na podstawie aktywnych pakietów</div>
-          </Card>
-        </Link>
+        </KpiCardLink>
       )
       case 'payments': return (
-        <Link href="/coach/invoices">
-          <Card className="p-5 hover:opacity-80 transition-opacity cursor-pointer">
-            <div className="flex items-start justify-between mb-3">
-              <span className="text-2xl">💳</span>
+        <KpiCardLink href="/coach/invoices" tone={overdueAmount > 0 ? 'danger' : pendingAmount > 0 ? 'warning' : 'positive'}>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-lg shrink-0">💳</span>
+                <div className="text-xs font-medium truncate" style={{ color: 'var(--text-muted)' }}>Faktury do opłacenia</div>
+              </div>
               {overdueAmount > 0 && (
                 <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>Po terminie</span>
               )}
             </div>
-            <div className="text-2xl font-bold mb-1" style={{ color: overdueAmount > 0 ? '#E74C3C' : 'inherit' }}>
+            <div className="text-[1.7rem] leading-none font-bold mb-2" style={{ color: overdueAmount > 0 ? '#E74C3C' : 'inherit' }}>
               {formatCurrency(pendingAmount + overdueAmount)}
             </div>
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Faktury do opłacenia</div>
             <div className="text-xs font-medium" style={{ color: overdueAmount > 0 ? '#E74C3C' : pendingAmount > 0 ? '#F1C40F' : '#2ECC71' }}>
               {overdueAmount > 0
                 ? `${overdueCount} po terminie płatności`
@@ -179,8 +242,7 @@ export function DashboardClient({
                 ? `${pendingCount} czekają na wpłatę`
                 : 'Brak zaległości'}
             </div>
-          </Card>
-        </Link>
+        </KpiCardLink>
       )
     }
   }
@@ -200,10 +262,10 @@ export function DashboardClient({
         />
       )
       case 'today_plan':        return <TodayPlanSection sessions={sessions} todayCompleted={todayCompleted} />
-      case 'messages':          return <MessagesSection messages={messages} />
+      case 'messages':          return <MessagesSection messages={messages} totalUnreadMessages={totalUnreadMessages} />
       case 'alerts':            return <AlertsSection alertAthletes={alertAthletes} />
       case 'no_sessions_week':  return <NoSessionsSection noSessionsAthletes={noSessionsAthletes} />
-      case 'feedback_list':     return <FeedbackListSection feedbacks={feedbacks} />
+      case 'feedback_list':     return <FeedbackListSection feedbacks={feedbacks} totalUnreadFeedback={totalUnread} />
       case 'upcoming_races':    return <UpcomingRacesSection races={races} todayIso={todayIso} />
       case 'recent_athletes':   return <RecentAthletesSection recentAthletesData={recentAthletesData} />
       case 'overdue_invoices':  return <OverdueInvoicesSection overdueInvoices={overdueInvoices} todayIso={todayIso} />
@@ -214,6 +276,7 @@ export function DashboardClient({
 
   const hasLeft = leftSections.length > 0
   const hasRight = rightSections.length > 0
+  const hasAnyVisibleContent = visibleKpi.length > 0 || fullSections.length > 0 || hasLeft || hasRight
 
   return (
     <div>
@@ -259,6 +322,34 @@ export function DashboardClient({
               <div key={k.id}>{renderKpi(k.id)}</div>
             ))}
           </div>
+        )}
+
+        {!hasAnyVisibleContent && (
+          <Card className="p-8">
+            <div className="mx-auto max-w-xl text-center">
+              <div className="text-3xl mb-3">🧩</div>
+              <h3 className="text-lg font-semibold">Dashboard jest teraz pusty</h3>
+              <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                Ukryto wszystkie karty KPI i sekcje. Przywróć domyślny układ albo włącz wybrane moduły w ustawieniach widoku.
+              </p>
+              <div className="mt-5 flex justify-center gap-3">
+                <button
+                  onClick={() => savePrefs(DEFAULT_PREFS)}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                  style={{ background: '#FF5C1B', color: 'white' }}
+                >
+                  Przywróć domyślne
+                </button>
+                <button
+                  onClick={() => setSettingsOpen(true)}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                >
+                  Otwórz ustawienia
+                </button>
+              </div>
+            </div>
+          </Card>
         )}
 
         {/* Full-width sections */}
@@ -313,6 +404,12 @@ export function DashboardClient({
         }
       >
         <div className="space-y-6">
+          <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+            <div className="text-sm font-medium">Widoczne elementy</div>
+            <div className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+              {visibleKpi.length} kart KPI · {fullSections.length + leftSections.length + rightSections.length} sekcji
+            </div>
+          </div>
           {SETTINGS_GROUPS.map(group => {
             if (group.col === 'kpi') {
               return (

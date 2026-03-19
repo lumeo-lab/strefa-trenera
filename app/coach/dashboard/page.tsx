@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 export const metadata: Metadata = { title: 'Dashboard | Strefa Trenera' }
 import { DashboardClient } from './_components/DashboardClient'
 import type {
+  DashboardAlertItem,
   DashboardAthleteRow,
   DashboardFeedbackRow,
   DashboardInvoiceRow,
@@ -31,13 +32,17 @@ export default async function DashboardPage() {
   // 14 days ahead for races
   const twoWeeksStr = addDaysToBusinessDate(todayStr, 14)
 
-  const [{ data: coachRow }, athletesResult] = await Promise.all([
+  const [{ data: coachRow }, athletesResult, archivedAthletesCountResult] = await Promise.all([
     supabase.from('coaches').select('name').eq('id', user!.id).single(),
     supabase.from('athletes')
       .select('id, name, avatar, status, package, package_price, created_at')
       .eq('coach_id', user!.id)
       .is('archived_at', null)
       .order('created_at', { ascending: false }),
+    supabase.from('athletes')
+      .select('id', { count: 'exact', head: true })
+      .eq('coach_id', user!.id)
+      .not('archived_at', 'is', null),
   ])
 
   const fallbackAthletesResult = athletesResult.error
@@ -53,8 +58,10 @@ export default async function DashboardPage() {
   const [
     { count: unreadFeedbackCount },
     { data: unreadFeedbacks },
+    { data: unreadFeedbackMeta },
     { count: unreadMessagesCount },
     { data: unreadMessages },
+    { data: unreadMessageMeta },
     { data: invoices },
     { data: todaySessions },
     { data: planningSessions },
@@ -64,9 +71,11 @@ export default async function DashboardPage() {
     ? [
       { count: 0 },
       { data: [] },
+      { data: [] },
       { count: 0 },
       { data: [] },
-      await supabase.from('invoices').select('amount, status, due_date').eq('coach_id', user!.id),
+      { data: [] },
+      await supabase.from('invoices').select('amount, status, due_date, athlete_id').eq('coach_id', user!.id),
       { data: [] },
       { data: [] },
       { data: [] },
@@ -84,6 +93,11 @@ export default async function DashboardPage() {
         .in('athlete_id', activeAthleteIds)
         .order('created_at', { ascending: false })
         .limit(5),
+      supabase.from('feedbacks')
+        .select('athlete_id, signal')
+        .eq('coach_id', user!.id)
+        .eq('read', false)
+        .in('athlete_id', activeAthleteIds),
       supabase.from('messages')
         .select('*', { count: 'exact', head: true })
         .eq('coach_id', user!.id)
@@ -98,15 +112,21 @@ export default async function DashboardPage() {
         .in('athlete_id', activeAthleteIds)
         .order('created_at', { ascending: false })
         .limit(5),
-      supabase.from('invoices').select('amount, status, due_date').eq('coach_id', user!.id),
+      supabase.from('messages')
+        .select('athlete_id')
+        .eq('coach_id', user!.id)
+        .eq('sender_type', 'athlete')
+        .eq('read', false)
+        .in('athlete_id', activeAthleteIds),
+      supabase.from('invoices').select('amount, status, due_date, athlete_id').eq('coach_id', user!.id),
       supabase.from('training_sessions')
-        .select('id, type, title, planned_distance, completed, athlete_id, athletes(name, avatar)')
+        .select('id, date, type, title, planned_distance, completed, athlete_id, athletes(name, avatar), feedbacks(signal)')
         .eq('coach_id', user!.id)
         .in('athlete_id', activeAthleteIds)
         .eq('date', todayStr)
         .order('created_at'),
       supabase.from('training_sessions')
-        .select('athlete_id, completed, actual_distance')
+        .select('athlete_id, date, completed, actual_distance')
         .eq('coach_id', user!.id)
         .in('athlete_id', activeAthleteIds)
         .gte('date', todayStr)
@@ -132,10 +152,49 @@ export default async function DashboardPage() {
   const allInvoices = invoices ?? []
   const feedbacks = (unreadFeedbacks ?? []) as unknown as DashboardFeedbackRow[]
   const messages = (unreadMessages ?? []) as unknown as DashboardMessageRow[]
-  const sessions = (todaySessions ?? []) as unknown as DashboardSessionRow[]
+  const unreadFeedbackByAthlete = Object.fromEntries(
+    (unreadFeedbackMeta ?? []).reduce((map, row) => {
+      map.set(row.athlete_id, (map.get(row.athlete_id) ?? 0) + 1)
+      return map
+    }, new Map<string, number>()),
+  ) as Record<string, number>
+  const unreadRedFeedbackByAthlete = Object.fromEntries(
+    (unreadFeedbackMeta ?? []).reduce((map, row) => {
+      if (row.signal === 'red') map.set(row.athlete_id, (map.get(row.athlete_id) ?? 0) + 1)
+      return map
+    }, new Map<string, number>()),
+  ) as Record<string, number>
+  const unreadMessagesByAthlete = Object.fromEntries(
+    (unreadMessageMeta ?? []).reduce((map, row) => {
+      map.set(row.athlete_id, (map.get(row.athlete_id) ?? 0) + 1)
+      return map
+    }, new Map<string, number>()),
+  ) as Record<string, number>
+  const sessions = ((todaySessions ?? []) as unknown as Array<{
+    id: string
+    date: string
+    type: string
+    title: string
+    planned_distance: number | null
+    completed: boolean
+    athlete_id: string
+    athletes: Array<{ name: string; avatar: string }> | { name: string; avatar: string } | null
+    feedbacks?: Array<{ signal: string | null }> | null
+  }>).map((session) => ({
+    id: session.id,
+    date: session.date,
+    type: session.type,
+    title: session.title,
+    planned_distance: session.planned_distance,
+    completed: session.completed,
+    athlete_id: session.athlete_id,
+    athletes: Array.isArray(session.athletes) ? (session.athletes[0] ?? null) : (session.athletes ?? null),
+    feedbackSignal: session.feedbacks?.[0]?.signal ?? null,
+  }))
   const planningWindow = (planningSessions ?? []) as DashboardWeekSessionRow[]
   const races = (upcomingRaces ?? []) as unknown as DashboardRaceRow[]
   const allInvoiceRows = (invoiceList ?? []) as unknown as DashboardInvoiceRow[]
+  const archivedAthleteCount = archivedAthletesCountResult.count ?? 0
   const tomorrowStr = addDaysToBusinessDate(todayStr, 1)
   const overdueItems = allInvoiceRows
     .filter((invoice) =>
@@ -164,7 +223,37 @@ export default async function DashboardPage() {
   const overdueAmount = overdueInvoicesComputed.reduce((sum, invoice) => sum + invoice.amount, 0)
   const pendingCount = pendingInvoicesComputed.length
   const overdueCount = overdueInvoicesComputed.length
-  const alertAthletes = allAthletes.filter(a => a.status === 'alert' || a.status === 'warning')
+  const overdueAthleteIds = new Set(
+    overdueInvoicesComputed
+      .map((invoice) => ('athlete_id' in invoice ? invoice.athlete_id : null))
+      .filter((value): value is string => !!value),
+  )
+  const noPlanAthleteIds = new Set(
+    planningWindow
+      .filter((session) => session.date > todayStr || (session.date === todayStr && !session.completed))
+      .map((session) => session.athlete_id),
+  )
+  const alertItems: DashboardAlertItem[] = allAthletes
+    .filter((athlete) => athlete.status === 'alert' || athlete.status === 'warning')
+    .map((athlete) => {
+      const reasons: string[] = []
+      if (athlete.status === 'alert') reasons.push('Status: kontuzja lub pilny problem')
+      if (athlete.status === 'warning') reasons.push('Status: zawodnik pod obserwacją')
+      if (unreadRedFeedbackByAthlete[athlete.id] > 0) reasons.push('Czerwony feedback czeka na reakcję')
+      if (overdueAthleteIds.has(athlete.id)) reasons.push('Zaległa płatność wymaga kontaktu')
+      if (!noPlanAthleteIds.has(athlete.id)) {
+        reasons.push('Brak planu do końca tygodnia')
+      }
+      if (unreadFeedbackByAthlete[athlete.id] > 0) reasons.push(`${unreadFeedbackByAthlete[athlete.id]} nieprzeczytany feedback`)
+      if (unreadMessagesByAthlete[athlete.id] > 0) reasons.push(`${unreadMessagesByAthlete[athlete.id]} wiadomość od zawodnika czeka`)
+
+      const uniqueReasons = Array.from(new Set(reasons))
+      return {
+        athlete,
+        primaryReason: uniqueReasons[0] ?? 'Wymaga sprawdzenia',
+        extraReasonCount: Math.max(0, uniqueReasons.length - 1),
+      }
+    })
   const coachName = (coachRow?.name ?? '').split(' ')[0] || 'Trenerze'
   const totalUnread = unreadFeedbackCount ?? 0
   const totalUnreadMessages = unreadMessagesCount ?? 0
@@ -186,12 +275,13 @@ export default async function DashboardPage() {
       totalUnreadMessages={totalUnreadMessages}
       estimatedMonthlyRevenue={estimatedMonthlyRevenue}
       activeCount={activeCount}
+      archivedAthleteCount={archivedAthleteCount}
       pendingAmount={pendingAmount}
       overdueAmount={overdueAmount}
       pendingCount={pendingCount}
       overdueCount={overdueCount}
       raceSoonCount={raceSoonCount}
-      alertAthletes={alertAthletes}
+      alertAthletes={alertItems}
     />
   )
 }

@@ -9,25 +9,22 @@ import type { CoachFeedbackRow, CoachTrainingSessionRow } from '../../types'
 export function feedbackToneStyle(feedback: CoachFeedbackRow): React.CSSProperties {
   if (feedback.signal === 'red') {
     return {
-      background: 'linear-gradient(180deg, rgba(255,244,244,0.96) 0%, rgba(255,237,237,0.96) 100%)',
-      color: '#B42318',
-      border: '1px solid rgba(229,72,77,0.28)',
-      boxShadow: 'inset 3px 0 0 #E5484D',
+      background: 'rgba(239,68,68,0.10)',
+      color: '#DC2626',
+      border: '1px solid rgba(239,68,68,0.18)',
     }
   }
   if (feedback.signal === 'yellow') {
     return {
-      background: 'linear-gradient(180deg, rgba(255,249,235,0.98) 0%, rgba(255,244,214,0.98) 100%)',
-      color: '#B7791F',
-      border: '1px solid rgba(234,179,8,0.28)',
-      boxShadow: 'inset 3px 0 0 #EAB308',
+      background: 'rgba(234,179,8,0.10)',
+      color: '#CA8A04',
+      border: '1px solid rgba(234,179,8,0.18)',
     }
   }
   return {
-    background: 'linear-gradient(180deg, rgba(238,252,244,0.98) 0%, rgba(228,249,237,0.98) 100%)',
-    color: '#15803D',
-    border: '1px solid rgba(34,197,94,0.24)',
-    boxShadow: 'inset 3px 0 0 #22C55E',
+    background: 'rgba(34,197,94,0.10)',
+    color: '#16A34A',
+    border: '1px solid rgba(34,197,94,0.18)',
   }
 }
 
@@ -41,10 +38,9 @@ export function formatFeedbackBadgeLabel(sessionTitle: string, totalSessions: nu
 }
 
 const noFeedbackStyle: React.CSSProperties = {
-  background: 'linear-gradient(180deg, rgba(255,244,244,0.96) 0%, rgba(255,237,237,0.96) 100%)',
-  color: '#B42318',
-  border: '1px solid rgba(229,72,77,0.24)',
-  boxShadow: 'inset 3px 0 0 #E5484D',
+  background: 'rgba(255,255,255,0.04)',
+  color: 'var(--text-muted)',
+  border: '1px solid var(--border)',
 }
 
 // --- Component ---
@@ -53,17 +49,15 @@ interface DayFeedbackSectionProps {
   sessionFeedbacks: Array<{ session: CoachTrainingSessionRow; feedback: CoachFeedbackRow }>
   dateFeedback: CoachFeedbackRow | null
   showNoFeedback: boolean
-  missingSessionFeedbacksCount: number
   totalDaySessions: number
   onFeedbackClick: (feedback: CoachFeedbackRow) => void
   compact: boolean
 }
 
-export function DayFeedbackSection({
+export const DayFeedbackSection = React.memo(function DayFeedbackSection({
   sessionFeedbacks,
   dateFeedback,
   showNoFeedback,
-  missingSessionFeedbacksCount,
   totalDaySessions,
   onFeedbackClick,
   compact,
@@ -97,7 +91,7 @@ export function DayFeedbackSection({
               className="w-full text-center rounded-lg py-0.5"
               style={{ fontSize: '10px', ...noFeedbackStyle }}
             >
-              <span style={{ color: '#DC2626' }}>✕</span> {missingSessionFeedbacksCount > 1 ? 'brak feedbacku przy części treningów' : 'brak feedbacku'}
+              brak feedbacku
             </div>
           )}
         </div>
@@ -120,7 +114,7 @@ export function DayFeedbackSection({
           className="w-full text-center rounded-lg py-0.5"
           style={{ fontSize: '10px', ...noFeedbackStyle }}
         >
-          <span style={{ color: '#DC2626' }}>✕</span> {missingSessionFeedbacksCount > 1 ? 'brak feedbacku przy części treningów' : 'brak feedbacku'}
+          brak feedbacku
         </div>
       )
     }
@@ -135,7 +129,7 @@ export function DayFeedbackSection({
           <button
             key={feedback.id}
             onClick={() => onFeedbackClick(feedback)}
-            className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
+            className="w-full py-1 rounded-xl text-xs cursor-pointer flex items-center justify-center gap-1"
             style={feedbackToneStyle(feedback)}
           >
             <span>{feedbackToneIcon(feedback)}</span>
@@ -145,7 +139,7 @@ export function DayFeedbackSection({
         {dateFeedback && (
           <button
             onClick={() => onFeedbackClick(dateFeedback)}
-            className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
+            className="w-full py-1 rounded-xl text-xs cursor-pointer flex items-center justify-center gap-1"
             style={feedbackToneStyle(dateFeedback)}
           >
             <span>{feedbackToneIcon(dateFeedback)}</span>
@@ -154,11 +148,10 @@ export function DayFeedbackSection({
         )}
         {showNoFeedback && (
           <div
-            className="w-full py-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1"
+            className="w-full py-1 rounded-xl text-xs flex items-center justify-center gap-1"
             style={noFeedbackStyle}
           >
-            <span style={{ color: '#DC2626' }}>✕</span>
-            <span>{missingSessionFeedbacksCount > 1 ? 'brak feedbacku przy części treningów' : 'brak feedbacku'}</span>
+            brak feedbacku
           </div>
         )}
       </div>
@@ -168,7 +161,7 @@ export function DayFeedbackSection({
     return (
       <button
         onClick={() => onFeedbackClick(dateFeedback)}
-        className="w-full py-1 rounded-xl text-xs font-medium cursor-pointer flex items-center justify-center gap-1"
+        className="w-full py-1 rounded-xl text-xs cursor-pointer flex items-center justify-center gap-1"
         style={feedbackToneStyle(dateFeedback)}
       >
         <span>{feedbackToneIcon(dateFeedback)}</span>
@@ -179,13 +172,12 @@ export function DayFeedbackSection({
   if (showNoFeedback) {
     return (
       <div
-        className="w-full py-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1"
+        className="w-full py-1 rounded-xl text-xs flex items-center justify-center gap-1"
         style={noFeedbackStyle}
       >
-        <span style={{ color: '#DC2626' }}>✕</span>
-        <span>{missingSessionFeedbacksCount > 1 ? 'brak feedbacku przy części treningów' : 'brak feedbacku'}</span>
+        brak feedbacku
       </div>
     )
   }
   return null
-}
+})

@@ -31,11 +31,12 @@ type ThreadSummary = {
 
 type ThreadFilter = 'all' | 'unread'
 
-export function ChatClient({ threadSummaries, coachId, coachName, initialAthleteId }: {
+export function ChatClient({ threadSummaries, coachId, coachName, initialAthleteId, initialFilter }: {
   threadSummaries: ThreadSummary[]
   coachId: string
   coachName: string
   initialAthleteId?: string
+  initialFilter?: string
 }) {
   const router = useRouter()
   const [selectedAthleteId, setSelectedAthleteId] = useState(initialAthleteId ?? threadSummaries[0]?.athlete.id ?? '')
@@ -47,6 +48,7 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   const [sendError, setSendError] = useState(false)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<ThreadFilter>('all')
+  const [pageVisible, setPageVisible] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -55,6 +57,22 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
   useEffect(() => {
     if (initialAthleteId) setSelectedAthleteId(initialAthleteId)
   }, [initialAthleteId])
+
+  useEffect(() => {
+    setFilter(initialFilter === 'unread' ? 'unread' : 'all')
+  }, [initialFilter])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+
+    const syncVisibility = () => {
+      setPageVisible(document.visibilityState === 'visible')
+    }
+
+    syncVisibility()
+    document.addEventListener('visibilitychange', syncVisibility)
+    return () => document.removeEventListener('visibilitychange', syncVisibility)
+  }, [])
 
   // Load thread messages when selected athlete changes
   const loadMessages = useCallback(async (athleteId: string) => {
@@ -75,14 +93,22 @@ export function ChatClient({ threadSummaries, coachId, coachName, initialAthlete
     void loadMessages(selectedAthleteId)
   }, [selectedAthleteId, loadMessages])
 
-  // Poll: refresh sidebar summaries + current thread every 5s
+  // Poll: refresh sidebar summaries + current thread every 15s, only when tab is visible
   useEffect(() => {
-    const interval = setInterval(() => {
+    if (!pageVisible) return
+
+    const refreshVisibleData = () => {
       startTransition(() => router.refresh())
       if (selectedAthleteId) void loadMessages(selectedAthleteId)
-    }, 5000)
+    }
+
+    refreshVisibleData()
+
+    const interval = setInterval(() => {
+      refreshVisibleData()
+    }, 15000)
     return () => clearInterval(interval)
-  }, [router, selectedAthleteId, loadMessages])
+  }, [pageVisible, router, selectedAthleteId, loadMessages])
 
   // Mark athlete messages as read after the trainer has actively viewed the thread for a moment
   useEffect(() => {

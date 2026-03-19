@@ -11,6 +11,12 @@ export type DashboardAthleteRow = {
   created_at: string
 }
 
+export type DashboardAlertItem = {
+  athlete: DashboardAthleteRow
+  primaryReason: string
+  extraReasonCount: number
+}
+
 /** feedbacks select: id, athlete_id, created_at, transcript, signal, athletes(name, avatar) */
 export type DashboardFeedbackRow = {
   id: string
@@ -30,20 +36,23 @@ export type DashboardMessageRow = {
   athletes: { name: string; avatar: string } | null
 }
 
-/** training_sessions (today) select: id, type, title, planned_distance, completed, athlete_id, athletes(name, avatar) */
+/** training_sessions (today) select: id, type, title, planned_distance, completed, athlete_id, athletes(name, avatar), feedback signal */
 export type DashboardSessionRow = {
   id: string
+  date: string
   type: string
   title: string
   planned_distance: number | null
   completed: boolean
   athlete_id: string
   athletes: { name: string; avatar: string } | null
+  feedbackSignal?: string | null
 }
 
-/** training_sessions (week) select: athlete_id, completed, actual_distance */
+/** training_sessions (week) select: athlete_id, date, completed, actual_distance */
 export type DashboardWeekSessionRow = {
   athlete_id: string
+  date: string
   completed: boolean
   actual_distance: number | null
 }
