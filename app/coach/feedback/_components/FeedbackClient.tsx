@@ -1,6 +1,6 @@
 'use client'
 
-import { startTransition, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { FeedbackCard } from '@/components/coach/FeedbackCard'
@@ -11,6 +11,7 @@ import { SelectField } from '@/components/ui/SelectField'
 import { StatusMessage } from '@/components/ui/StatusMessage'
 import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
 import { getBusinessToday } from '@/lib/date'
+import { useClickOutside } from '@/lib/hooks/useClickOutside'
 import { plural } from '@/lib/utils'
 import { markFeedbackRead, markFeedbacksReadBulk, replyFeedback } from '@/lib/actions/feedback'
 import type { FeedbackRow } from '@/lib/supabase/database.types'
@@ -81,6 +82,10 @@ export function FeedbackClient({
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [search, setSearch] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [legendOpen, setLegendOpen] = useState(false)
+  const legendRef = useRef<HTMLDivElement>(null)
+  const closeLegend = useCallback(() => setLegendOpen(false), [])
+  useClickOutside(legendRef, closeLegend, legendOpen)
   const { statusMessage, showStatus, clearStatus } = useStatusMessage()
   const [hintDismissed, setHintDismissed] = useState(() => {
     if (typeof window === 'undefined') return true
@@ -368,9 +373,46 @@ export function FeedbackClient({
               <option value="urgency">Wg pilności</option>
             </SelectField>
 
-            <span className="text-xs ml-auto shrink-0 px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
-              {filtered.length} {filtered.length === 1 ? 'wynik' : filtered.length < 5 ? 'wyniki' : 'wyników'}
-            </span>
+            <div className="flex items-center gap-1.5 ml-auto shrink-0">
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+                {filtered.length} {filtered.length === 1 ? 'wynik' : filtered.length < 5 ? 'wyniki' : 'wyników'}
+              </span>
+              <div className="relative" ref={legendRef}>
+                <button
+                  onClick={() => setLegendOpen(o => !o)}
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs cursor-pointer transition-colors hover:bg-[var(--bg-hover)]"
+                  style={{ color: 'var(--text-muted)' }}
+                  title="Legenda sygnałów"
+                >
+                  ℹ️
+                </button>
+                {legendOpen && (
+                  <div className="absolute right-0 top-8 z-50 w-64 rounded-xl p-4 shadow-lg" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                    <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Legenda sygnałów</div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span>🟢</span>
+                        <span>Dobrze / Świetnie</span>
+                        <span style={{ color: 'var(--text-muted)' }}>😊 🤩</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>🟡</span>
+                        <span>Średnio</span>
+                        <span style={{ color: 'var(--text-muted)' }}>😐</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>🔴</span>
+                        <span>Słabo / Fatalnie</span>
+                        <span style={{ color: 'var(--text-muted)' }}>😕 😫</span>
+                      </div>
+                    </div>
+                    <p className="text-xs mt-3 pt-2" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+                      Sygnał ustawiany automatycznie na podstawie samopoczucia zawodnika.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
