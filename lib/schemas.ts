@@ -165,6 +165,33 @@ export const updateInvoiceStatusSchema = z.object({
   status: z.enum(['pending', 'paid', 'overdue', 'cancelled']),
 })
 
+// ── Race (form-level) ──────────────────────────────────────────────────────
+
+export const raceSchema = z.object({
+  name: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 200) : value, z.string().min(1, 'Nazwa zawodów jest wymagana').max(200)),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Nieprawidłowy format daty'),
+  distance: optionalTrimmedString(50),
+  goal_time: optionalTrimmedString(50),
+  status: z.enum(['planned', 'completed', 'dns', 'dnf']),
+  result: optionalTrimmedString(50),
+  notes: optionalTrimmedString(2000),
+})
+
+// ── Contact form ───────────────────────────────────────────────────────────
+
+export const contactFormSchema = z.object({
+  name: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 200) : value, z.string().min(1, 'Imię jest wymagane').max(200)),
+  email: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 200) : value, z.string().email('Nieprawidłowy email')),
+  subject: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 200) : value, z.string().min(1, 'Temat jest wymagany').max(200)),
+  message: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 5000) : value, z.string().min(1, 'Treść wiadomości jest wymagana').max(5000)),
+})
+
+// ── Coach notes ────────────────────────────────────────────────────────────
+
+export const coachNotesSchema = z.object({
+  coach_notes: z.preprocess((value) => typeof value === 'string' ? value.trim().slice(0, 50000) : value, z.string().max(50000)),
+})
+
 // ── Helper ──────────────────────────────────────────────────────────────────
 
 /** Extract FormData into object and validate with Zod schema */

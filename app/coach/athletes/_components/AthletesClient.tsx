@@ -17,6 +17,7 @@ import { AthletesActionMenu } from './AthletesActionMenu'
 import { AthletesCards } from './AthletesCards'
 import { AthletesFilters } from './AthletesFilters'
 import { AthletesStatusMenu } from './AthletesStatusMenu'
+import { AthletesQuickStats } from './AthletesQuickStats'
 import { AthletesTable } from './AthletesTable'
 import { AthletesToolbar } from './AthletesToolbar'
 import { StatusEditorModal } from './StatusEditorModal'
@@ -462,46 +463,16 @@ export function AthletesClient({
         )}
 
         {/* Quick stats + view toggle */}
-        {displayed.length > 0 && (() => {
-          const alertCount = displayed.filter(a => a.status === 'alert' || a.status === 'warning').length
-          const noPlanCount = displayed.filter(a => !nextSessionMap[a.id]).length
-          const unpaidCount = displayed.filter(a => unpaidInvoiceSet[a.id]).length
-          const redSignalCount = displayed.filter(a => signalMap[a.id] === 'red').length
-          const parts: string[] = [`${displayed.length} zawodników`]
-          if (alertCount > 0) parts.push(`${alertCount} z alertem`)
-          if (redSignalCount > 0) parts.push(`${redSignalCount} czerwony sygnał`)
-          if (noPlanCount > 0) parts.push(`${noPlanCount} bez planu`)
-          if (unpaidCount > 0) parts.push(`${unpaidCount} nieopłaconych`)
-          return (
-            <div className="flex items-center justify-between mb-3 px-1">
-              {parts.length > 1 ? (
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{parts.join(' · ')}</span>
-              ) : <span />}
-              <div className="flex items-center gap-1 rounded-lg p-0.5" style={{ background: 'var(--bg-elevated)' }}>
-                <button
-                  onClick={() => setViewMode('table')}
-                  className="px-2 py-1 rounded-md text-xs cursor-pointer transition-all"
-                  style={{ background: viewMode === 'table' ? 'var(--bg-card)' : 'transparent', color: viewMode === 'table' ? 'var(--text-primary)' : 'var(--text-muted)' }}
-                  title="Widok tabeli"
-                  aria-label="Widok tabeli"
-                  aria-pressed={viewMode === 'table'}
-                >
-                  ☰
-                </button>
-                <button
-                  onClick={() => setViewMode('cards')}
-                  className="px-2 py-1 rounded-md text-xs cursor-pointer transition-all"
-                  style={{ background: viewMode === 'cards' ? 'var(--bg-card)' : 'transparent', color: viewMode === 'cards' ? 'var(--text-primary)' : 'var(--text-muted)' }}
-                  title="Widok kart"
-                  aria-label="Widok kart"
-                  aria-pressed={viewMode === 'cards'}
-                >
-                  ▦
-                </button>
-              </div>
-            </div>
-          )
-        })()}
+        {displayed.length > 0 && (
+          <AthletesQuickStats
+            displayed={displayed}
+            nextSessionMap={nextSessionMap}
+            unpaidInvoiceSet={unpaidInvoiceSet}
+            signalMap={signalMap}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
+        )}
 
         {displayed.length > 0 && (
           <>
