@@ -102,6 +102,9 @@ export async function updateFeedback(formData: FormData) {
   const athlete = await getAthleteFromSession(slug)
   if (!athlete) return { error: AUTH_ERROR }
 
+  const ownsAthlete = await assertCoachOwnsAthlete(athlete.coach_id, athlete.id)
+  if (!ownsAthlete) return { error: AUTH_ERROR }
+
   const fields = buildFeedbackFields(formData)
 
   const { error } = await adminClient.from('feedbacks').update(fields)

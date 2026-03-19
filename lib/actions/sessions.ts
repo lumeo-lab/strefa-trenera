@@ -87,6 +87,9 @@ export async function markSessionCompleted(id: string, athleteId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
 
+  const ownsAthlete = await assertCoachOwnsAthlete(user.id, athleteId)
+  if (!ownsAthlete) return { error: AUTH_ERROR }
+
   const { error } = await supabase
     .from('training_sessions')
     .update({ completed: true })
@@ -103,6 +106,9 @@ export async function deleteSession(id: string, athleteId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: AUTH_ERROR }
+
+  const ownsAthlete = await assertCoachOwnsAthlete(user.id, athleteId)
+  if (!ownsAthlete) return { error: AUTH_ERROR }
 
   const { error } = await supabase
     .from('training_sessions')

@@ -100,6 +100,22 @@ export async function updateInvoice(id: string, data: {
   const parsed = updateInvoiceSchema.safeParse(data)
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? FIELDS_ERROR }
 
+  // Always verify coach owns the athlete, fetching athlete_id from the invoice if not provided
+  let resolvedAthleteId = athleteId
+  if (!resolvedAthleteId) {
+    const { data: inv } = await supabase
+      .from('invoices')
+      .select('athlete_id')
+      .eq('id', id)
+      .eq('coach_id', user.id)
+      .single()
+    if (!inv) return { error: AUTH_ERROR }
+    resolvedAthleteId = inv.athlete_id
+  }
+  if (!resolvedAthleteId) return { error: AUTH_ERROR }
+  const ownsAthlete = await assertCoachOwnsAthlete(user.id, resolvedAthleteId)
+  if (!ownsAthlete) return { error: AUTH_ERROR }
+
   const { error } = await supabase
     .from('invoices')
     .update(parsed.data)

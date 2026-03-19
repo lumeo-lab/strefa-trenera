@@ -2,9 +2,18 @@
 
 import { startTransition, useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import DOMPurify from 'dompurify'
 import { Card } from '@/components/ui/Card'
 import { updateAthlete } from '@/lib/actions/athletes'
 import { ProfileEmptyState, ProfileStatusNotice } from '../ProfileStates'
+
+const ALLOWED_TAGS = ['b', 'strong', 'i', 'em', 'u', 'ul', 'ol', 'li', 'h3', 'h4', 'p', 'br', 'div']
+const ALLOWED_ATTR: string[] = []
+
+function sanitize(html: string): string {
+  if (typeof window === 'undefined') return html
+  return DOMPurify.sanitize(html, { ALLOWED_TAGS, ALLOWED_ATTR })
+}
 
 interface NotesTabProps {
   athleteId: string
@@ -122,7 +131,7 @@ export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
             <div
               className="text-sm prose-notes"
               style={{ color: 'var(--text-primary)', lineHeight: 1.8 }}
-              dangerouslySetInnerHTML={{ __html: coachNotes }}
+              dangerouslySetInnerHTML={{ __html: sanitize(coachNotes) }}
             />
           </div>
         ) : (
@@ -163,7 +172,7 @@ export function NotesTab({ athleteId, initialNotes }: NotesTabProps) {
               color: 'var(--text-primary)',
               lineHeight: 1.8,
             }}
-            dangerouslySetInnerHTML={{ __html: coachNotes }}
+            dangerouslySetInnerHTML={{ __html: sanitize(coachNotes) }}
           />
         </div>
       )}
