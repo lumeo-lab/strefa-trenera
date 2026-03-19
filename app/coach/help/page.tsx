@@ -75,6 +75,26 @@ const FAQ: FaqItem[] = [
     q: 'Jak szybko przejść do innej strony?',
     a: 'Naciśnij Ctrl+K (lub Cmd+K na Macu), żeby otworzyć szybkie wyszukiwanie. Możesz wpisać nazwę modułu i od razu do niego przejść bez klikania w menu.',
   },
+  {
+    id: 'start-dashboard-customize',
+    category: 'start',
+    q: 'Jak dostosować dashboard do swoich potrzeb?',
+    a: 'Kliknij „⚙️ Dostosuj widok" w prawym górnym rogu dashboardu. Możesz: włączać i wyłączać karty KPI (np. schować „Szacowany przychód"), włączać i wyłączać sekcje (np. „Nadchodzące zawody"), zmieniać kolejność kart i sekcji strzałkami ▲▼. Zmiany zapisują się automatycznie. Przycisk „Przywróć domyślne" resetuje wszystko do ustawień fabrycznych.',
+    href: '/coach/dashboard',
+    cta: 'Otwórz dashboard',
+  },
+  {
+    id: 'start-dashboard-collapse',
+    category: 'start',
+    q: 'Czy mogę zwijać sekcje na dashboardzie?',
+    a: 'Tak — każda sekcja dashboardu (poza kartami KPI na górze) ma klikalny nagłówek. Kliknij w niego, żeby zwinąć lub rozwinąć sekcję. Stan zwinięcia zapamiętuje się między wizytami.',
+  },
+  {
+    id: 'start-sidebar',
+    category: 'start',
+    q: 'Jak zwinąć menu boczne?',
+    a: 'Kliknij przycisk ze strzałką na dole menu bocznego (sidebar). Menu zwinie się do samych ikon. Kliknij ponownie, żeby rozwinąć. Na telefonie menu otwiera się przyciskiem hamburger (☰) w lewym górnym rogu.',
+  },
 
   // ── Zawodnicy ──
   {
@@ -126,6 +146,36 @@ const FAQ: FaqItem[] = [
     a: 'W profilu zawodnika → zakładka „Dane" → sekcja „Sport i zdrowie" dodaj kontuzję z opisem i datą rozpoczęcia. Aktywne kontuzje (bez daty zakończenia) widać w profilu. Gdy kontuzja minie — ustaw datę zakończenia, trafi do historii.',
   },
   {
+    id: 'athlete-table-columns',
+    category: 'zawodnicy',
+    q: 'Jak dostosować kolumny w tabeli zawodników?',
+    a: 'Kliknij „⚙️ Edytuj tabelę" nad tabelą. Możesz włączać i wyłączać kolumny (np. telefon, wiek, miasto, pakiet, obciążenie 7 dni) oraz zmieniać ich kolejność strzałkami ↑↓. Domyślnie widoczne są: ostatni trening, następna sesja, realizacja, obciążenie i następne zawody. Przycisk „Przywróć domyślne" resetuje ustawienia.',
+    href: '/coach/athletes',
+    cta: 'Otwórz zawodników',
+  },
+  {
+    id: 'athlete-reorder',
+    category: 'zawodnicy',
+    q: 'Czy mogę zmienić kolejność zawodników na liście?',
+    a: 'Tak — przeciągnij wiersz zawodnika w górę lub w dół (drag & drop). Kolejność zapisuje się na serwerze, więc jest taka sama na każdym urządzeniu. Uwaga: zmiana kolejności działa tylko gdy nie sortujesz po żadnej kolumnie. Jeśli kliknąłeś nagłówek kolumny — wyczyść sortowanie, żeby wrócić do ręcznej kolejności.',
+    href: '/coach/athletes',
+    cta: 'Otwórz zawodników',
+  },
+  {
+    id: 'athlete-search-filter',
+    category: 'zawodnicy',
+    q: 'Jak filtrować i szukać zawodników?',
+    a: 'Nad tabelą masz: wyszukiwarkę (szuka po imieniu, emailu, telefonie, celu, pakiecie), filtr statusu (np. OK, Uwaga, Kontuzja) i filtr pakietu (widoczny gdy kolumna „Pakiet" jest włączona). Klikając nagłówki kolumn sortujesz tabelę rosnąco lub malejąco.',
+    href: '/coach/athletes',
+    cta: 'Otwórz zawodników',
+  },
+  {
+    id: 'athlete-weekly-load',
+    category: 'zawodnicy',
+    q: 'Co oznacza „Obciążenie 7 dni" w tabeli?',
+    a: 'To suma dystansów z zrealizowanych sesji treningowych w ostatnich 7 dniach plus liczba tych sesji, np. „42 km · 5 sesji". Bazuje na danych z planera (dystans faktyczny lub planowany jeśli nie ma faktycznego).',
+  },
+  {
     id: 'athlete-what-sees',
     category: 'zawodnicy',
     q: 'Co dokładnie widzi zawodnik w swoim panelu?',
@@ -166,6 +216,14 @@ const FAQ: FaqItem[] = [
     cta: 'Zarządzaj szablonami',
   },
   {
+    id: 'plan-views',
+    category: 'plan',
+    q: 'Jakie widoki ma planer?',
+    a: 'Planer ma dwa widoki: tygodniowy i miesięczny. Przełączasz je przyciskami w pasku narzędzi. Możesz też włączyć widok feedbacku (checkbox „Pokaż feedback"), żeby zobaczyć co zawodnik zgłosił przy każdym treningu. Wybrany widok zapamiętuje się osobno dla każdego zawodnika.',
+    href: '/coach/planner',
+    cta: 'Otwórz planer',
+  },
+  {
     id: 'plan-compliance',
     category: 'plan',
     q: 'Co oznacza „realizacja" (compliance) w liście zawodników?',
@@ -200,6 +258,14 @@ const FAQ: FaqItem[] = [
     category: 'feedback',
     q: 'Jak szybko oznaczyć wiele feedbacków jako przeczytane?',
     a: 'Nad listą feedbacków pojawia się przycisk „Oznacz widoczne jako przeczytane" — działa na aktualnie przefiltrowany widok. W trybie grupowania po zawodniku możesz oznaczyć feedbacki konkretnej osoby przyciskiem przy jej nazwisku.',
+    href: '/coach/feedback',
+    cta: 'Otwórz feedback',
+  },
+  {
+    id: 'feedback-views',
+    category: 'feedback',
+    q: 'Jakie tryby widoku ma strona Feedback?',
+    a: 'Trzy tryby: „Chronologicznie" — najnowsze na górze. „Po zawodniku" — feedbacki zgrupowane per osoba z podsumowaniem (można zwijać grupy). „Wg pilności" — najpierw czerwone, potem żółte, na końcu zielone. Wybrany tryb zapamiętuje się między wizytami.',
     href: '/coach/feedback',
     cta: 'Otwórz feedback',
   },
@@ -268,6 +334,15 @@ const FAQ: FaqItem[] = [
     category: 'faktury',
     q: 'Jakie pliki mogę załączyć do faktury?',
     a: 'Możesz załączyć PDF, JPG lub PNG do max 10 MB. Załącznik jest widoczny w tabeli faktur — przycisk „Pobierz" otwiera go w nowej karcie.',
+  },
+
+  {
+    id: 'invoice-analytics',
+    category: 'faktury',
+    q: 'Gdzie znajdę podsumowanie finansowe i trendy?',
+    a: 'W zakładce „Analityka" — zobaczysz opłacone w tym miesiącu vs poprzedni, łączne przychody, zaległości, wykres miesięczny, ranking zawodników po przychodzie i rozkład pakietów. Analityka pojawia się automatycznie po wystawieniu pierwszej faktury.',
+    href: '/coach/analytics',
+    cta: 'Otwórz analitykę',
   },
 
   // ── Pakiety ──
