@@ -426,7 +426,7 @@ export type Database = {
         Row: {
           id: string
           athlete_id: string
-          strava_athlete_id: number
+          strava_athlete_id: number | null
           access_token: string | null
           refresh_token: string | null
           expires_at: string | null
@@ -435,7 +435,7 @@ export type Database = {
         Insert: {
           id?: string
           athlete_id: string
-          strava_athlete_id: number
+          strava_athlete_id?: number | null
           access_token?: string | null
           refresh_token?: string | null
           expires_at?: string | null

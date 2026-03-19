@@ -36,10 +36,30 @@ export async function GET(req: NextRequest) {
 
   try {
     const tokens = await exchangeStravaCodeForTokens(code)
+    const stravaAthleteId = tokens.athlete?.id ?? null
+
+    if (stravaAthleteId) {
+      const { data: existingConnection, error: existingError } = await adminClient
+        .from('strava_connections')
+        .select('athlete_id')
+        .eq('strava_athlete_id', stravaAthleteId)
+        .maybeSingle()
+
+      if (existingError) {
+        console.error('[strava] existing connection check failed:', existingError.message)
+        return NextResponse.redirect(buildStravaErrorRedirect(appUrl, safeSlug, 'error', 'Nie udało się sprawdzić istniejącego połączenia'))
+      }
+
+      if (existingConnection && existingConnection.athlete_id !== oauthState.athlete_id) {
+        return NextResponse.redirect(
+          buildStravaErrorRedirect(appUrl, safeSlug, 'error', 'To konto Stravy jest już połączone z innym zawodnikiem')
+        )
+      }
+    }
 
     const { error: upsertError } = await adminClient.from('strava_connections').upsert({
       athlete_id: oauthState.athlete_id,
-      strava_athlete_id: tokens.athlete?.id ?? null,
+      strava_athlete_id: stravaAthleteId,
       access_token: tokens.access_token!,
       refresh_token: tokens.refresh_token!,
       expires_at: new Date(tokens.expires_at! * 1000).toISOString(),
@@ -47,7 +67,9 @@ export async function GET(req: NextRequest) {
 
     if (upsertError) {
       console.error('[strava] upsert failed:', upsertError.message)
-      return NextResponse.redirect(buildStravaErrorRedirect(appUrl, safeSlug, 'error', 'Nie udało się zapisać połączenia'))
+      return NextResponse.redirect(
+        buildStravaErrorRedirect(appUrl, safeSlug, 'error', `Nie udało się zapisać połączenia: ${upsertError.message}`)
+      )
     }
 
     try {
