@@ -529,3 +529,51 @@ Jeśli chcemy szybki, mocny upgrade `Sidebar + Topbar`, największy efekt dadzą
 
 ---
 
+### Uzupełnienie techniczne (z audytu kodu — plan2.md)
+
+Poniższe punkty zostały wykryte podczas audytu kodu i uzupełniają plan produktowy o konkretne detale implementacyjne.
+
+#### Deduplikacja `planLabel()`
+- Funkcja `planLabel()` istnieje identycznie w `CoachSidebar.tsx` i `SettingsClient.tsx`
+- Przenieść do `lib/utils.ts`, importować w obu plikach
+- **Wpada do:** Etap 3 (hierarchia sidebara) lub Etap 11 (architektura)
+
+#### `pb-64` na main content
+- `CoachShell.tsx` ma `pb-64` (256px padding-bottom) na `<main>` — zbyt dużo pustego miejsca na dole każdej strony
+- Zmniejszyć do `pb-20` (80px) — wystarczająco żeby nie obcinać sticky elementów
+- **Wpada do:** Etap 5 (responsywność) lub Etap 12 (final polish)
+
+#### Przycisk collapse sidebar
+- Przycisk ← → jest `w-7 h-7` (28px), brak hover state, trudno trafić na touch
+- Powiększyć do `w-8 h-8`, dodać hover background
+- **Wpada do:** Etap 3 (hierarchia sidebara) lub Etap 12 (final polish)
+
+#### NotificationBell — konkretny link
+- Kliknięcie powiadomienia kieruje na `/coach/feedback` — nie na profil zawodnika
+- Docelowo: link → `/coach/athletes/{athlete_id}?tab=feedback`
+- Wymaga dodania `athlete_id` do danych powiadomienia w `getUnreadNotifications()`
+- **Wpada do:** Etap 8 (NotificationBell)
+
+#### NotificationBell — `.catch()` na fetch
+- Już zrealizowane w ramach SEC3 (Error boundaries) — dodano `.catch(() => [])` na `getUnreadNotifications()`
+- **Status:** ✅ Zrobione
+
+#### Unread badges — źródło danych
+- `layout.tsx` powinien fetchować unread feedback count + unread messages count
+- Przekazywać do `CoachShell` → `CoachSidebar` jako props
+- **Wpada do:** Etap 2 (sidebar priorytetów)
+
+#### Pliki dotyczące tej sekcji
+- `components/coach/CoachSidebar.tsx`
+- `components/coach/CoachTopbar.tsx`
+- `components/coach/NotificationBell.tsx`
+- `app/coach/_components/CoachShell.tsx`
+- `app/coach/layout.tsx`
+
+#### Poza zakresem (z plan2)
+- Breadcrumbs w topbar
+- Unifikacja `CoachAvatarEl` z `components/ui/Avatar.tsx`
+- Topbar theme toggle animacja
+
+---
+

@@ -206,3 +206,8 @@ export function tenureLabel(joinDateStr: string): string {
   if (rem === 0) return `${years} ${yLabel}`
   return `${years} ${yLabel} ${rem} mies.`
 }
+
+export function planLabel(plan: string): string {
+  const map: Record<string, string> = { starter: 'Starter', pro: 'Pro', standard: 'Standard' }
+  return map[plan] ?? plan
+}

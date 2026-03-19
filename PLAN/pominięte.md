@@ -20,37 +20,57 @@ Ten plik zawiera wszystkie punkty z planów, które zostały świadomie pominię
 
 ## Faza 1: Login / Register (01-login-register.md Etapy 1-9)
 
-### Etap 3 punkt 4: Przypięcie błędu do konkretnego pola
+### Etap 3 punkt 4: Przypięcie błędu do konkretnego pola — POMINIĘTY
 **Powód:** Plan mówi "rozważyć lepsze przypięcie błędu do pola". Nie zrealizowane — błędy auth z Supabase nie wskazują konkretnego pola (np. "Invalid login credentials" nie mówi czy problem to email czy hasło). Zrealizowano ogólne mapowanie błędów na polskie komunikaty.
 **Skutek:** Błąd wyświetla się jako ogólny komunikat nad przyciskiem submit, nie przy konkretnym inpucie.
 
-### Etap 5 punkt 2: Pokaż / ukryj hasło (toggle visibility)
-**Powód:** Plan mówi "rozważyć". Nie zrealizowane — wymaga dodatkowego stanu per input + toggle button. Ryzyko rozwiązane inaczej: dodano "Powtórz hasło" w rejestracji (literówka w haśle nie blokuje konta).
-**Skutek:** Użytkownik nie może podejrzeć wpisywanego hasła. To standardowe zachowanie, nie krytyczne.
-
-### Etap 5 punkt 3: Wskaźnik siły hasła
-**Powód:** Plan mówi "rozważyć". Nie zrealizowane — `minLength={6}` + placeholder "min. 6 znaków" + walidacja server-side wystarczają. Wskaźnik siły wymaga dodatkowej logiki (entropia, common passwords).
-**Skutek:** Użytkownik widzi wymaganie "min. 6 znaków" ale nie dostaje real-time feedbacku o sile hasła.
-
-### Etap 7 punkt 4: Onboarding po pierwszym logowaniu
-**Powód:** Plan mówi "rozważyć późniejsze wejścia onboardingowe po pierwszym logowaniu (ustawienia profilu, pakiety, pierwszy zawodnik)". To duży feature wymagający nowej logiki (flaga `first_login`, onboarding flow, step-by-step wizard).
-**Skutek:** Po pierwszej rejestracji trener trafia od razu do listy zawodników bez prowadzenia za rękę.
-
-### Etap 8 punkt 1: Zod schematy walidacji dla login/register
+### Etap 8 punkt 1: Zod schematy walidacji dla login/register — POMINIĘTY
 **Powód:** Plan mówi "dodać schematy walidacji". Inline walidacja jest wystarczająca dla 3-4 pól. Reszta app używa Zod ale auth actions mają prostą logikę (email+password+name). Zod byłby overengineering.
 **Skutek:** Walidacja działa poprawnie, ale nie przez Zod — przez inline checks w server actions.
+
+### Wspólny AuthLayout komponent — POMINIĘTY
+**Powód:** Plan2 LR4 proponował wydzielenie wspólnego `AuthLayout` (logo + card wrapper + bottom link) z login i register. Nie zrealizowane — oba pliki mają ~160 linii, wspólny layout to ~20 linii. Przy 2 konsumentach wydzielenie dodałoby nowy plik z minimalną oszczędnością. Overengineering.
+**Skutek:** Login i register mają zduplikowany wrapper (logo, card, link, trust footer). Jeśli w przyszłości pojawią się kolejne ekrany auth (np. reset password page), warto wrócić do wydzielenia.
 
 ---
 
 ## Faza 2: Error states (02-error-states.md Etapy 1-9)
 
-### Etap 6: Szczegółowe rozdzielenie typów auth/session errors
+### Etap 6: Szczegółowe rozdzielenie typów auth/session errors — POMINIĘTY
 **Powód:** Plan mówi "rozdzielić: utratę sesji coacha, utratę sesji zawodnika, wygasły link zaproszenia, brak dostępu do zasobu". `classifyError()` ma jedną klasę `access` bez takiego rozróżnienia. Error boundary dostaje `Error` object z ogólnym `message` — nie ma w nim kontekstu czy to sesja coacha czy zawodnika.
-**Skutek:** Wszystkie błędy auth/session mają ten sam ekran `access`. Rozróżnienie wymagałoby custom error types rzucanych w app — do zrobienia w przyszłości.
+**Skutek:** Wszystkie błędy auth/session mają ten sam ekran `access`. Rozróżnienie wymagałoby custom error types rzucanych w app.
 
-### Etap 7: Upload error handling
+### Etap 7: Upload error handling — POMINIĘTY
 **Powód:** Plan wymienia "problem uploadu" jako inline error do obsłużenia. Nie zrealizowane — upload avatara w settings ma `avatarPending` state ale nie ma dedykowanego error UI (jest w planie S1 Ustawień, nie tu).
 **Skutek:** Upload errors obsługiwane przez `avatarState?.error` display — działa ale nie jest jeszcze produktowo dopracowane.
+
+---
+
+## Na przyszłość
+
+Elementy, które zostały świadomie odłożone jako duże feature'y lub nice-to-have wykraczające poza obecny zakres.
+
+### Login / Register
+- **Social login (Google)** — wymaga konfiguracji OAuth provider w Supabase + przycisk w UI
+- **Toggle "Pokaż hasło"** — dodatkowy stan per input + toggle button. Ryzyko literówki rozwiązane przez "Powtórz hasło"
+- **Terms/privacy checkbox** — wymaga stron regulaminu i polityki prywatności
+- **Rate limiting na formularzu auth** — Supabase ma wbudowany rate limiting na auth endpoints
+- **Onboarding po pierwszym logowaniu** — wizard (ustawienia profilu → pakiety → pierwszy zawodnik). Wymaga flagi `first_login`, nowego flow
+
+### Sidebar + Topbar
+- **Breadcrumbs w topbar** — wymaga śledzenia ścieżki nawigacji (np. "Zawodnicy → Jan Kowalski"), duża złożoność
+- **Unifikacja CoachAvatarEl z Avatar.tsx** — sidebar ma własny CoachAvatarEl obsługujący 3 tryby (URL, emoji, gradient), Avatar.tsx tylko inicjały. Wydzielenie wymaga przebudowy Avatar.tsx
+- **Topbar theme toggle animacja** — drobnostka, emoji ☀️/🌙 zmienia się natychmiast bez transition
+- **Etap 11: Wspólna warstwa danych globalnej nawigacji** — wydzielenie DTO sidebar/notification agregatów. Obecne rozwiązanie (layout.tsx fetchuje counts, NotificationBell fetchuje osobno) działa poprawnie. Refaktor na przyszłość gdy pojawi się więcej źródeł danych globalnych
+- **NotificationBell — link do konkretnego zawodnika** — plan mówił `/coach/athletes/{id}?tab=feedback`. Wymaga dodania `athlete_id` do danych powiadomienia w `getUnreadNotifications()`. Obecny link `/coach/feedback` działa ale jest mniej precyzyjny
+- **Pełne command palette z wyszukiwaniem zawodników** — obecna wersja QuickSearch to szybkie linki do modułów. Docelowo: wyszukiwanie zawodników po nazwie (fetch z Supabase), wyszukiwanie faktur, drilldown
+
+### Feedback
+- **Paginacja cursor-based zamiast `.limit(200)`** — plan Etap 8.1 mówi "odejść od prostego .limit(200)". Zrealizowano tymczasowe rozwiązanie: komunikat informacyjny na dole listy gdy wyświetlanych jest 200 feedbacków. Pełna paginacja wymaga server-side cursor logic, infinite scroll i przebudowy filtrowania. Obecny limit 200 jest wystarczający dla aktualnej skali.
+
+### Error states
+- **Custom error types** — rzucanie typed errors (np. `SessionExpiredError`, `AccessDeniedError`) zamiast generic `Error` — pozwoliłoby na dokładniejsze rozróżnienie w error boundaries
+- **Wskaźnik siły hasła** — real-time feedback przy wpisywaniu hasła (entropia, common passwords)
 
 ---
 

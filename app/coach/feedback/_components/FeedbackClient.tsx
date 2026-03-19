@@ -1,17 +1,18 @@
 'use client'
 
-import { startTransition, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { startTransition, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { FeedbackCard } from '@/components/coach/FeedbackCard'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { SelectField } from '@/components/ui/SelectField'
 import { StatusMessage } from '@/components/ui/StatusMessage'
 import { useStatusMessage } from '@/lib/hooks/useStatusMessage'
 import { getBusinessToday } from '@/lib/date'
 import { plural } from '@/lib/utils'
-import { markFeedbackRead, replyFeedback } from '@/lib/actions/feedback'
+import { markFeedbackRead, markFeedbacksReadBulk, replyFeedback } from '@/lib/actions/feedback'
 import type { FeedbackRow } from '@/lib/supabase/database.types'
 
 type FeedbackWithJoins = FeedbackRow & {
@@ -19,36 +20,16 @@ type FeedbackWithJoins = FeedbackRow & {
   training_sessions: { id: string; title: string } | null
 }
 
-type Filter = 'all' | 'today' | 'unread' | 'needs_reply' | 'warning' | 'alarm'
-type SortKey = 'date' | 'signal'
-type ViewMode = 'grouped' | 'chronological'
+type Filter = 'all' | 'today' | 'unread' | 'needs_action' | 'needs_reply'
+type ViewMode = 'grouped' | 'chronological' | 'urgency'
 
-const PAGE_SIZE = 30
-
-// ── Overview stats cards ──────────────────────────────────────────────────────
-
-function OverviewStats({ feedbacks, today }: { feedbacks: FeedbackWithJoins[]; today: string }) {
-  const todayCount = feedbacks.filter(f => f.date === today).length
-  const unreadCount = feedbacks.filter(f => !f.read).length
-  const noReplyCount = feedbacks.filter(f => !f.coach_reply).length
-
-  const stats = [
-    { label: 'Dziś', value: todayCount, color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
-    { label: 'Nieprzeczytane', value: unreadCount, color: '#FF5C1B', bg: 'rgba(255,92,27,0.1)' },
-    { label: 'Bez odpowiedzi', value: noReplyCount, color: '#F1C40F', bg: 'rgba(241,196,15,0.1)' },
-  ]
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-      {stats.map(s => (
-        <div key={s.label} className="rounded-xl p-3 text-center" style={{ background: s.bg, border: `1px solid ${s.color}20` }}>
-          <div className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
-          <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{s.label}</div>
-        </div>
-      ))}
-    </div>
-  )
+function needsAction(f: FeedbackWithJoins): boolean {
+  return (!f.read && (f.signal === 'red' || f.signal === 'yellow')) || (!f.coach_reply && (f.signal === 'red' || f.signal === 'yellow'))
 }
+
+const VALID_FILTERS: Filter[] = ['all', 'today', 'unread', 'needs_action', 'needs_reply']
+const PAGE_SIZE = 30
+const PREFS_KEY = 'feedback-view-prefs'
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -62,28 +43,58 @@ export function FeedbackClient({
   initialFilter?: string
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const today = getBusinessToday()
+
+  // URL params for deep linking
+  const urlView = searchParams.get('view') as ViewMode | null
+  const urlHighlight = searchParams.get('highlight')
+
   const normalizedInitialFilter = (
-    ['all', 'today', 'unread', 'needs_reply', 'warning', 'alarm'].includes(initialFilter)
+    VALID_FILTERS.includes(initialFilter as Filter)
       ? initialFilter
       : 'all'
   ) as Filter
+
+  // Hydration-safe: detect client
+  const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false)
+
   const [filter, setFilter] = useState<Filter>(normalizedInitialFilter)
-  const [sortKey, setSortKey] = useState<SortKey>('date')
-  const [viewMode, setViewMode] = useState<ViewMode>('chronological')
+  const [viewModeOverride, setViewModeOverride] = useState<ViewMode | null>(urlView)
+
+  // Computed: override > persisted > default (SSR-safe: default on server, persisted on client)
+  const viewMode: ViewMode = viewModeOverride ?? (hydrated ? (() => {
+    try {
+      const stored = localStorage.getItem(PREFS_KEY)
+      if (stored) return (JSON.parse(stored) as { viewMode?: ViewMode }).viewMode ?? 'chronological'
+    } catch { /* ignore */ }
+    return 'chronological'
+  })() : 'chronological')
   const [athleteFilter, setAthleteFilter] = useState<string>(initialAthleteId || 'all')
   const [localFeedbacks, setLocalFeedbacks] = useState<FeedbackWithJoins[]>(initialFeedbacks)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(urlHighlight)
   const [replyingId, setReplyingId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [markingReadId, setMarkingReadId] = useState<string | null>(null)
+  const [bulkMarking, setBulkMarking] = useState(false)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [search, setSearch] = useState('')
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const { statusMessage, showStatus, clearStatus } = useStatusMessage()
   const [hintDismissed, setHintDismissed] = useState(() => {
     if (typeof window === 'undefined') return true
     return !!localStorage.getItem('feedback-hint-dismissed')
   })
+
+  // Persist view preferences when user explicitly changes them
+  useEffect(() => {
+    if (viewModeOverride) {
+      try {
+        localStorage.setItem(PREFS_KEY, JSON.stringify({ viewMode }))
+      } catch { /* ignore */ }
+    }
+  }, [viewModeOverride, viewMode])
 
   useEffect(() => {
     setAthleteFilter(initialAthleteId || 'all')
@@ -112,6 +123,15 @@ export function FeedbackClient({
   const filtered = useMemo(() => {
     let list = localFeedbacks
 
+    // Search
+    const q = search.trim().toLowerCase()
+    if (q) {
+      list = list.filter(f => {
+        const haystack = [f.transcript, f.coach_reply, f.athletes?.name].filter(Boolean).join(' ').toLowerCase()
+        return haystack.includes(q)
+      })
+    }
+
     // Athlete filter
     if (athleteFilter !== 'all') {
       list = list.filter(f => f.athletes?.id === athleteFilter)
@@ -120,19 +140,18 @@ export function FeedbackClient({
     // Status filter
     if (filter === 'today') list = list.filter(f => f.date === today)
     else if (filter === 'unread') list = list.filter(f => !f.read)
+    else if (filter === 'needs_action') list = list.filter(f => needsAction(f))
     else if (filter === 'needs_reply') list = list.filter(f => !f.coach_reply)
-    else if (filter === 'warning') list = list.filter(f => f.signal === 'yellow')
-    else if (filter === 'alarm') list = list.filter(f => f.signal === 'red')
 
-    // Sort
-    if (sortKey === 'signal') {
+    // Sort by urgency if that view mode is active
+    if (viewMode === 'urgency') {
       const signalOrder: Record<string, number> = { red: 0, yellow: 1, green: 2 }
       list = [...list].sort((a, b) => (signalOrder[a.signal] ?? 2) - (signalOrder[b.signal] ?? 2))
     }
-    // 'date' is default from server (created_at DESC)
+    // 'chronological' uses default from server (created_at DESC)
 
     return list
-  }, [localFeedbacks, athleteFilter, filter, sortKey, today])
+  }, [localFeedbacks, athleteFilter, filter, viewMode, today, search])
 
   // Grouped by athlete
   const grouped = useMemo(() => {
@@ -164,6 +183,9 @@ export function FeedbackClient({
 
   const unreadCount = useMemo(() => localFeedbacks.filter(f => !f.read).length, [localFeedbacks])
 
+  // Count of unread in currently filtered/visible list
+  const filteredUnreadIds = useMemo(() => filtered.filter(f => !f.read).map(f => f.id), [filtered])
+
   async function handleExpand(id: string) {
     setExpandedId(prev => prev === id ? null : id)
   }
@@ -190,6 +212,30 @@ export function FeedbackClient({
     }
   }
 
+  async function handleBulkMarkRead(ids: string[]) {
+    if (bulkMarking || ids.length === 0) return
+    const previousFeedbacks = localFeedbacks
+    // Optimistic update
+    const idSet = new Set(ids)
+    setLocalFeedbacks((current) =>
+      current.map((f) => (idSet.has(f.id) ? { ...f, read: true } : f)),
+    )
+    setBulkMarking(true)
+    clearStatus()
+    try {
+      const result = await markFeedbacksReadBulk(ids)
+      if (result && 'error' in result) {
+        setLocalFeedbacks(previousFeedbacks)
+        showStatus('error', `Nie udało się oznaczyć feedbacków jako przeczytane: ${result.error}`)
+        return
+      }
+      showStatus('success', `Oznaczono ${ids.length} ${plural(ids.length, 'feedback', 'feedbacki', 'feedbacków')} jako przeczytane.`)
+      startTransition(() => router.refresh())
+    } finally {
+      setBulkMarking(false)
+    }
+  }
+
   async function handleReply(id: string, athleteId: string) {
     if (!replyText.trim() || submitting) return
     setSubmitting(true)
@@ -198,12 +244,17 @@ export function FeedbackClient({
     fd.set('id', id)
     fd.set('athlete_id', athleteId)
     fd.set('reply', replyText)
+    const replyValue = replyText.trim()
     try {
       const result = await replyFeedback(null, fd)
       if (result && 'error' in result) {
         showStatus('error', `Nie udało się zapisać odpowiedzi: ${result.error}`)
         return
       }
+      // Optimistic update for reply
+      setLocalFeedbacks((current) =>
+        current.map((f) => (f.id === id ? { ...f, coach_reply: replyValue, read: true } : f)),
+      )
       setReplyingId(null)
       setReplyText('')
       showStatus('success', 'Odpowiedź została zapisana.')
@@ -213,13 +264,15 @@ export function FeedbackClient({
     }
   }
 
+  // Filter counts respect athlete filter
+  const countBase = athleteFilter !== 'all' ? localFeedbacks.filter(f => f.athletes?.id === athleteFilter) : localFeedbacks
+
   const filterButtons: { id: Filter; label: string; count: number }[] = [
-    { id: 'all', label: 'Wszystkie', count: localFeedbacks.length },
-    { id: 'today', label: 'Dziś', count: localFeedbacks.filter(f => f.date === today).length },
-    { id: 'unread', label: 'Nieprzeczytane', count: unreadCount },
-    { id: 'needs_reply', label: 'Bez odpowiedzi', count: localFeedbacks.filter(f => !f.coach_reply).length },
-    { id: 'warning', label: 'Średnie samopoczucie', count: localFeedbacks.filter(f => f.signal === 'yellow').length },
-    { id: 'alarm', label: 'Słabe samopoczucie', count: localFeedbacks.filter(f => f.signal === 'red').length },
+    { id: 'all', label: 'Wszystkie', count: countBase.length },
+    { id: 'needs_action', label: 'Wymaga reakcji', count: countBase.filter(f => needsAction(f)).length },
+    { id: 'unread', label: 'Nieprzeczytane', count: countBase.filter(f => !f.read).length },
+    { id: 'needs_reply', label: 'Bez odpowiedzi', count: countBase.filter(f => !f.coach_reply).length },
+    { id: 'today', label: 'Dziś', count: countBase.filter(f => f.date === today).length },
   ]
 
   // Paginated list for chronological view
@@ -229,6 +282,15 @@ export function FeedbackClient({
   function dismissHint() {
     setHintDismissed(true)
     localStorage.setItem('feedback-hint-dismissed', '1')
+  }
+
+  function toggleGroup(athleteId: string) {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(athleteId)) next.delete(athleteId)
+      else next.add(athleteId)
+      return next
+    })
   }
 
   function renderCardForFb(fb: FeedbackWithJoins, showAthleteName: boolean) {
@@ -257,11 +319,77 @@ export function FeedbackClient({
       <CoachTopbar title="Feedback" subtitle={`${unreadCount} nieprzeczytanych`} />
 
       <div className="p-6 max-w-4xl mx-auto">
-        {/* Overview stats */}
-        <OverviewStats feedbacks={localFeedbacks} today={today} />
-
         {statusMessage && (
-          <StatusMessage tone={statusMessage.tone} text={statusMessage.text} className="mb-6" />
+          <StatusMessage tone={statusMessage.tone} text={statusMessage.text} className="mb-4" />
+        )}
+
+        {/* Compact toolbar */}
+        <div className="mb-4 rounded-2xl pl-4 pr-3 py-2.5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: '3px solid #FF5C1B' }}>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Szukaj..."
+              className="px-3 py-1.5 rounded-xl text-xs min-w-[120px] flex-1"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border)', maxWidth: 200 }}
+            />
+            <SelectField
+              value={filter}
+              onChange={(value) => {
+                setFilter(value as Filter)
+                setVisibleCount(PAGE_SIZE)
+              }}
+              className="min-w-0"
+            >
+              {filterButtons.map(f => (
+                <option key={f.id} value={f.id}>
+                  {f.label} ({f.count})
+                </option>
+              ))}
+            </SelectField>
+
+            <SelectField
+              value={athleteFilter}
+              onChange={(value) => {
+                setAthleteFilter(value)
+                setVisibleCount(PAGE_SIZE)
+              }}
+              className="min-w-0"
+            >
+              <option value="all">Zawodnik: wszyscy ({athletes.length})</option>
+              {athletes.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </SelectField>
+
+            <SelectField value={viewMode} onChange={(value) => setViewModeOverride(value as ViewMode)} className="min-w-0">
+              <option value="chronological">Chronologicznie</option>
+              <option value="grouped">Po zawodniku</option>
+              <option value="urgency">Wg pilności</option>
+            </SelectField>
+
+            <span className="text-xs ml-auto shrink-0 px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}>
+              {filtered.length} {filtered.length === 1 ? 'wynik' : filtered.length < 5 ? 'wyniki' : 'wyników'}
+            </span>
+          </div>
+        </div>
+
+        {/* Bulk action bar */}
+        {filteredUnreadIds.length > 0 && (
+          <div className="flex items-center gap-3 mb-4 px-4 py-2.5 rounded-2xl text-sm"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <span style={{ color: 'var(--text-muted)' }}>
+              {filteredUnreadIds.length} {plural(filteredUnreadIds.length, 'nieprzeczytany', 'nieprzeczytane', 'nieprzeczytanych')} w widoku
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleBulkMarkRead(filteredUnreadIds)}
+              disabled={bulkMarking}
+            >
+              {bulkMarking ? 'Oznaczanie...' : 'Oznacz widoczne jako przeczytane'}
+            </Button>
+          </div>
         )}
 
         {!hintDismissed && (
@@ -279,84 +407,65 @@ export function FeedbackClient({
           </div>
         )}
 
-        {/* Toolbar: filters + view mode + sort + athlete dropdown */}
-        <div className="mb-6 rounded-2xl p-3 sm:p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[185px_minmax(220px,1fr)_150px_minmax(220px,240px)] gap-2 items-center">
-            <SelectField
-              value={filter}
-              onChange={(value) => {
-                setFilter(value as Filter)
-                setVisibleCount(PAGE_SIZE)
-              }}
-            >
-              {filterButtons.map(f => (
-                <option key={f.id} value={f.id}>
-                  {f.label} ({f.count})
-                </option>
-              ))}
-            </SelectField>
-
-            <SelectField
-              value={athleteFilter}
-              onChange={(value) => {
-                setAthleteFilter(value)
-                setVisibleCount(PAGE_SIZE)
-              }}
-            >
-              <option value="all">Wszyscy zawodnicy ({athletes.length})</option>
-              {athletes.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </SelectField>
-
-            <SelectField value={sortKey} onChange={(value) => setSortKey(value as SortKey)}>
-              <option value="date">Najnowsze</option>
-              <option value="signal">Najważniejsze</option>
-            </SelectField>
-
-            <SelectField value={viewMode} onChange={(value) => setViewMode(value as ViewMode)}>
-              <option value="grouped">Grupuj po zawodniku</option>
-              <option value="chronological">Chronologicznie</option>
-            </SelectField>
-          </div>
-        </div>
-
         {/* Feed */}
         {filtered.length === 0 ? (
-          <div className="text-center py-12" style={{ color: 'var(--text-muted)' }}>
-            Brak feedbacków w tej kategorii
-          </div>
+          <EmptyState
+            icon="📥"
+            title="Brak feedbacków w tej kategorii"
+            description="Zmień filtry lub wybierz innego zawodnika, aby zobaczyć więcej wpisów."
+          />
         ) : viewMode === 'grouped' ? (
           /* ── Grouped view ── */
-          <div className="space-y-6">
-            {grouped.map(group => (
-              <div key={group.athlete.id}>
-                {/* Group header */}
-                <div className="flex items-center gap-3 mb-3">
-                  <Avatar initials={group.athlete.avatar || '?'} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <span className="font-semibold text-sm">{group.athlete.name}</span>
-                    <span className="text-xs ml-2" style={{ color: 'var(--text-muted)' }}>
-                      {group.feedbacks.length} {plural(group.feedbacks.length, 'feedback', 'feedbacki', 'feedbacków')}
-                    </span>
+          <div className="space-y-2">
+            {grouped.map((group, gi) => {
+              const isCollapsed = collapsedGroups.has(group.athlete.id)
+              const groupUnreadIds = group.feedbacks.filter(f => !f.read).map(f => f.id)
+              return (
+                <div key={group.athlete.id}>
+                  {gi > 0 && <div className="border-t my-4" style={{ borderColor: 'var(--border)' }} />}
+                  {/* Group header with summary */}
+                  <div
+                    className="flex items-center gap-3 mb-3 cursor-pointer rounded-xl px-2 py-1.5 -mx-2 transition-colors hover:bg-[var(--bg-hover)]"
+                    onClick={() => toggleGroup(group.athlete.id)}
+                  >
+                    <Avatar initials={group.athlete.avatar || '?'} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-semibold text-sm">{group.athlete.name}</span>
+                      <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                        <span>{group.feedbacks.length} {plural(group.feedbacks.length, 'feedback', 'feedbacki', 'feedbacków')}</span>
+                        {group.hasUnread && <span>· {group.feedbacks.filter(f => !f.read).length} nowych</span>}
+                        {group.hasAlert && <span>· {group.feedbacks.some(f => f.signal === 'red') ? 'sygnał czerwony' : 'sygnał żółty'}</span>}
+                        {group.feedbacks.some(f => !f.coach_reply) && <span>· brak odpowiedzi</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {groupUnreadIds.length > 0 && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); handleBulkMarkRead(groupUnreadIds) }}
+                          disabled={bulkMarking}
+                        >
+                          Przeczytane ({groupUnreadIds.length})
+                        </Button>
+                      )}
+                      {group.hasUnread && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(255,92,27,0.15)', color: '#FF5C1B' }}>
+                          {group.feedbacks.filter(f => !f.read).length} nowych
+                        </span>
+                      )}
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{isCollapsed ? '▶' : '▼'}</span>
+                    </div>
                   </div>
-                  {group.hasUnread && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,92,27,0.15)', color: '#FF5C1B' }}>
-                      {group.feedbacks.filter(f => !f.read).length} nowych
-                    </span>
-                  )}
-                  {group.hasAlert && (
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C' }}>
-                      Alert
-                    </span>
+                  {/* Group feedbacks */}
+                  {!isCollapsed && (
+                    <div className="space-y-2 pl-2">
+                      {group.feedbacks.map(fb => renderCardForFb(fb, false))}
+                    </div>
                   )}
                 </div>
-                {/* Group feedbacks */}
-                <div className="space-y-2 pl-2">
-                  {group.feedbacks.map(fb => renderCardForFb(fb, false))}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           /* ── Chronological view ── */
@@ -369,6 +478,13 @@ export function FeedbackClient({
                 </Button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Limit 200 info */}
+        {initialFeedbacks.length >= 200 && (
+          <div className="mt-6 text-center text-xs py-3 rounded-xl" style={{ color: 'var(--text-muted)', background: 'var(--bg-subtle)' }}>
+            Wyświetlasz ostatnie 200 feedbacków. Starsze wpisy nie są widoczne.
           </div>
         )}
       </div>

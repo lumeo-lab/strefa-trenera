@@ -54,7 +54,7 @@ export function TodayActionsSection({
       title: `${unreadFeedbackCount} ${plural(unreadFeedbackCount, 'nieprzeczytany feedback czeka', 'nieprzeczytane feedbacki czekają', 'nieprzeczytanych feedbacków czeka')}`,
       description: 'Przejrzyj nowe sygnały od zawodników i odpowiedz tam, gdzie sprawa nadal wymaga reakcji.',
       tone: unreadFeedbackCount >= 3 ? 'warning' : 'neutral',
-      href: '/coach/feedback',
+      href: '/coach/feedback?filter=needs_action',
       cta: 'Otwórz feedback',
     })
   }

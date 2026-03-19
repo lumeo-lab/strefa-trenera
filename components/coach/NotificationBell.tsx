@@ -20,8 +20,17 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const ref = useRef<HTMLDivElement>(null)
 
+  // Fetch on mount + poll every 30s (only when visible)
   useEffect(() => {
-    getUnreadNotifications().then(setNotifications).catch(() => setNotifications([]))
+    function load() {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+      getUnreadNotifications().then(setNotifications).catch(() => setNotifications([]))
+    }
+    load()
+    const interval = setInterval(load, 30000)
+    function onVisChange() { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onVisChange)
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisChange) }
   }, [])
 
   useEffect(() => {

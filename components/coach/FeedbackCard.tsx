@@ -49,37 +49,67 @@ export function FeedbackCard({
   const label = feedbackLabel(parsed)
   const signalDot = fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'
 
+  // Better source label
+  const hasText = !!(parsed.feeling || parsed.trainingType || parsed.distance || parsed.duration || parsed.intensity || parsed.notes)
+  const sourceLabel = hasText && parsed.voice
+    ? '📝🎤 Tekst + głos'
+    : parsed.voice
+      ? '🎤 Głos'
+      : fb.source === 'auto'
+        ? '⌚ Zegarek'
+        : '✏️ Tekst'
+
+  // Content preview for collapsed state
+  const preview = !isExpanded ? (() => {
+    if (parsed.notes) return parsed.notes.length > 80 ? parsed.notes.slice(0, 80) + '…' : parsed.notes
+    if (parsed.voice) return parsed.voice.length > 80 ? parsed.voice.slice(0, 80) + '…' : parsed.voice
+    return ''
+  })() : ''
+
+  // Stronger risk highlight
+  const riskBorder = fb.signal === 'red'
+    ? 'ring-1 ring-red-500/20'
+    : fb.signal === 'yellow'
+      ? 'ring-1 ring-yellow-500/15'
+      : ''
+
   return (
-    <Card className={`overflow-hidden border-l-4 ${signalColor(fb.signal as FeedbackSignal)} ${!fb.read ? 'ring-1 ring-white/5' : ''}`}>
+    <Card className={`overflow-hidden border-l-4 ${signalColor(fb.signal as FeedbackSignal)} ${!fb.read ? 'ring-1 ring-white/5' : riskBorder}`}>
       <div className="p-4">
         <div className="flex items-start gap-3">
           {showAthleteName && athlete && <Avatar initials={athlete.avatar || '?'} size="sm" />}
 
           <div className="flex-1 min-w-0">
-            {/* Name row */}
+            {/* Header row: signal · type · reply status · freshness */}
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="text-sm">{signalDot}</span>
               {showAthleteName && athlete && <span className="font-semibold text-sm">{athlete.name}</span>}
               {!fb.read && <Badge variant="orange">Nowy</Badge>}
-              <span className="text-sm">{signalDot} {label}</span>
+              <span className="text-sm">{label}</span>
               {fb.coach_reply && (
                 <span className="text-xs" style={{ color: '#2ECC71' }}>✓ Odpowiedziano</span>
               )}
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{timeAgo(fb.created_at)}</span>
             </div>
             {/* Meta row */}
             <div className="flex items-center gap-1.5 text-xs flex-wrap" style={{ color: 'var(--text-muted)' }}>
-              <span>{parsed.voice ? '🎤 Głosowy' : fb.source === 'auto' ? '⌚ Zegarek' : '✏️ Tekstowy'}</span>
+              <span>{sourceLabel}</span>
               {session && <><span>·</span><span>{session.title}</span></>}
               <span>·</span>
               <span>{formatDate(fb.date, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-              <span>·</span>
-              <span>{timeAgo(fb.created_at)}</span>
             </div>
+            {/* Content preview (collapsed) */}
+            {preview && (
+              <p className="text-xs mt-1.5 truncate italic" style={{ color: 'var(--text-muted)' }}>
+                &ldquo;{preview}&rdquo;
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
             {!fb.read && (
               <Button variant="secondary" size="sm" onClick={onMarkRead} disabled={markingRead}>
-                {markingRead ? 'Zapisywanie...' : 'Oznacz jako przeczytane'}
+                {markingRead ? '...' : 'Przeczytane'}
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={onExpand}>
@@ -163,6 +193,9 @@ export function FeedbackCard({
             {/* Reply form */}
             {isReplying ? (
               <div className="space-y-2">
+                {fb.coach_reply && (
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Edytujesz istniejącą odpowiedź. Zapisanie zastąpi poprzednią.</p>
+                )}
                 <textarea
                   value={replyText}
                   onChange={e => onReplyChange(e.target.value)}

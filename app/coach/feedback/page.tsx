@@ -15,6 +15,7 @@ export default async function FeedbackPage({
   const coachId = user?.id ?? ''
   const athleteParam = Array.isArray(params.athlete) ? params.athlete[0] : params.athlete
   const filterParam = Array.isArray(params.filter) ? params.filter[0] : params.filter
+  // Deep link params: view, sort, highlight are read client-side via useSearchParams
   const { data: activeAthletes } = await supabase
     .from('athletes')
     .select('id')

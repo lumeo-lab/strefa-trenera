@@ -5,23 +5,23 @@ import { usePathname } from 'next/navigation'
 import { logout } from '@/lib/actions/auth'
 import { Logo, LogoMark } from '@/components/ui/Logo'
 import { GRADIENT_MAP } from '@/lib/constants'
-import { getInitials } from '@/lib/utils'
+import { getInitials, planLabel } from '@/lib/utils'
 
 const navSections = [
   {
     label: 'Zawodnicy',
     items: [
-      { href: '/coach/athletes', icon: '👟', label: 'Zawodnicy' },
-      { href: '/coach/planner', icon: '📅', label: 'Planer' },
-      { href: '/coach/feedback', icon: '📥', label: 'Feedback' },
-      { href: '/coach/chat', icon: '💬', label: 'Czat' },
+      { href: '/coach/athletes', icon: '👟', label: 'Zawodnicy', badgeKey: null },
+      { href: '/coach/planner', icon: '📅', label: 'Planer', badgeKey: null },
+      { href: '/coach/feedback', icon: '📥', label: 'Feedback', badgeKey: 'feedback' as const },
+      { href: '/coach/chat', icon: '💬', label: 'Czat', badgeKey: 'messages' as const },
     ],
   },
   {
     label: 'Finanse',
     items: [
-      { href: '/coach/invoices', icon: '💳', label: 'Faktury' },
-      { href: '/coach/analytics', icon: '📊', label: 'Analityka' },
+      { href: '/coach/invoices', icon: '💳', label: 'Faktury', badgeKey: null },
+      { href: '/coach/analytics', icon: '📊', label: 'Analityka', badgeKey: null },
     ],
   },
 ]
@@ -37,6 +37,10 @@ interface Props {
   coachName: string
   coachPlan: string
   coachAvatar: string
+  unreadFeedback: number
+  unreadMessages: number
+  mobileOpen: boolean
+  onMobileClose: () => void
 }
 
 function CoachAvatarEl({ avatar, name, size }: { avatar: string; name: string; size: 'sm' | 'lg' }) {
@@ -65,18 +69,16 @@ function CoachAvatarEl({ avatar, name, size }: { avatar: string; name: string; s
   )
 }
 
-function planLabel(plan: string) {
-  const map: Record<string, string> = { starter: 'Plan Starter', pro: 'Plan Pro', standard: 'Plan Standard' }
-  return map[plan] ?? plan
-}
-
-function NavLink({ href, icon, label, collapsed }: { href: string; icon: string; label: string; collapsed: boolean }) {
+function NavLink({ href, icon, label, collapsed, badge, onNavigate }: {
+  href: string; icon: string; label: string; collapsed: boolean; badge?: number; onNavigate?: () => void
+}) {
   const pathname = usePathname()
   const isActive = pathname === href || pathname.startsWith(href + '/')
   return (
     <Link
       href={href}
-      className="flex items-center rounded-xl transition-all"
+      onClick={onNavigate}
+      className="flex items-center rounded-xl transition-all relative"
       style={{
         gap: collapsed ? '0' : '10px',
         padding: collapsed ? '10px 0' : '10px 12px',
@@ -89,60 +91,93 @@ function NavLink({ href, icon, label, collapsed }: { href: string; icon: string;
     >
       <span className="text-base w-5 text-center shrink-0">{icon}</span>
       {!collapsed && <span className="text-sm font-medium">{label}</span>}
+      {badge !== undefined && badge > 0 && (
+        <span
+          className="absolute flex items-center justify-center text-white font-bold rounded-full"
+          style={{
+            top: collapsed ? 2 : 6,
+            right: collapsed ? 8 : 8,
+            minWidth: 18, height: 18,
+            fontSize: 10,
+            background: '#FF5C1B',
+            lineHeight: 1,
+            padding: '0 4px',
+          }}
+        >
+          {badge > 9 ? '9+' : badge}
+        </span>
+      )}
     </Link>
   )
 }
 
-export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan, coachAvatar }: Props) {
+export function CoachSidebar({
+  collapsed, onToggle, coachName, coachPlan, coachAvatar,
+  unreadFeedback, unreadMessages, mobileOpen, onMobileClose,
+}: Props) {
   const w = collapsed ? '64px' : '256px'
+  const isExpanded = !collapsed || mobileOpen
+
+  const badgeMap: Record<string, number> = {
+    feedback: unreadFeedback,
+    messages: unreadMessages,
+  }
 
   return (
     <aside
-      className="h-screen flex flex-col fixed left-0 top-0 z-30 transition-all duration-200 overflow-hidden"
-      style={{ width: w, background: 'var(--bg-card)', borderRight: '1px solid var(--border)' }}
+      role="navigation"
+      aria-label="Menu główne"
+      className={`h-screen flex flex-col fixed left-0 top-0 z-50 transition-all duration-200 overflow-hidden
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+      style={{ width: mobileOpen ? '256px' : w, background: 'var(--bg-card)', borderRight: '1px solid var(--border)' }}
     >
       {/* Header */}
       <div
-        className={`flex border-b shrink-0 ${collapsed ? 'flex-col items-center justify-center gap-2 py-3 px-2' : 'items-center justify-between px-4 py-5'}`}
+        className={`flex border-b shrink-0 ${!isExpanded ? 'flex-col items-center justify-center gap-2 py-3 px-2' : 'items-center justify-between px-4 py-5'}`}
         style={{ borderColor: 'var(--border)', minHeight: '72px' }}
       >
-        {!collapsed && (
-          <Link href="/">
+        {isExpanded && (
+          <Link href="/" onClick={onMobileClose}>
             <Logo size="md" />
           </Link>
         )}
-        {collapsed && <LogoMark size={28} />}
+        {!isExpanded && <LogoMark size={28} />}
         <button
-          onClick={onToggle}
-          className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+          onClick={mobileOpen ? onMobileClose : onToggle}
+          className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors hover:opacity-80"
           style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
-          title={collapsed ? 'Rozwiń menu' : 'Zwiń menu'}
+          title={mobileOpen ? 'Zamknij menu' : collapsed ? 'Rozwiń menu' : 'Zwiń menu'}
         >
-          <span className="text-sm leading-none">{collapsed ? '→' : '←'}</span>
+          <span className="text-sm leading-none">{mobileOpen ? '✕' : collapsed ? '→' : '←'}</span>
         </button>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 flex flex-col gap-4">
-        {/* Dashboard */}
         <ul className="space-y-0.5">
-          <li><NavLink href="/coach/dashboard" icon="🏠" label="Dashboard" collapsed={collapsed} /></li>
+          <li><NavLink href="/coach/dashboard" icon="🏠" label="Dashboard" collapsed={!isExpanded} onNavigate={onMobileClose} /></li>
         </ul>
 
-        {/* Sections */}
         <div className="space-y-4">
           {navSections.map(section => (
             <div key={section.label}>
-              {!collapsed && (
+              {isExpanded && (
                 <div className="px-3 mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>
                   {section.label}
                 </div>
               )}
-              {collapsed && <div className="border-t mx-2 mb-1" style={{ borderColor: 'var(--border)' }} />}
+              {!isExpanded && <div className="border-t mx-2 mb-1" style={{ borderColor: 'var(--border)' }} />}
               <ul className="space-y-0.5">
                 {section.items.map(item => (
                   <li key={item.href}>
-                    <NavLink {...item} collapsed={collapsed} />
+                    <NavLink
+                      href={item.href}
+                      icon={item.icon}
+                      label={item.label}
+                      collapsed={!isExpanded}
+                      badge={item.badgeKey ? badgeMap[item.badgeKey] : undefined}
+                      onNavigate={onMobileClose}
+                    />
                   </li>
                 ))}
               </ul>
@@ -150,22 +185,21 @@ export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan, coachA
           ))}
         </div>
 
-        {/* Bottom items: Settings + Help */}
         <div className="mt-auto">
-          {!collapsed && <div className="border-t mb-2 mx-1" style={{ borderColor: 'var(--border)' }} />}
+          {isExpanded && <div className="border-t mb-2 mx-1" style={{ borderColor: 'var(--border)' }} />}
           <ul className="space-y-0.5">
             {bottomItems.map(item => (
               <li key={item.href}>
-                <NavLink {...item} collapsed={collapsed} />
+                <NavLink href={item.href} icon={item.icon} label={item.label} collapsed={!isExpanded} onNavigate={onMobileClose} />
               </li>
             ))}
           </ul>
         </div>
       </nav>
 
-      {/* Footer: user + theme + logout */}
+      {/* Footer */}
       <div className="p-3 border-t shrink-0" style={{ borderColor: 'var(--border)' }}>
-        {collapsed ? (
+        {!isExpanded ? (
           <div className="flex flex-col items-center gap-2">
             <Link href="/coach/settings" title="Ustawienia profilu" className="hover:opacity-80 transition-opacity cursor-pointer">
               <CoachAvatarEl avatar={coachAvatar} name={coachName} size="sm" />
@@ -174,7 +208,7 @@ export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan, coachA
               <button
                 type="submit"
                 title="Wyloguj"
-                className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+                className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors hover:opacity-80"
                 style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: '12px' }}
               >
                 ↩
@@ -183,12 +217,12 @@ export function CoachSidebar({ collapsed, onToggle, coachName, coachPlan, coachA
           </div>
         ) : (
           <>
-            <Link href="/coach/settings" className="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors hover:opacity-80"
+            <Link href="/coach/settings" onClick={onMobileClose} className="flex items-center gap-3 px-3 py-2 rounded-xl transition-colors hover:opacity-80"
               style={{ background: 'var(--bg-subtle)' }}>
               <CoachAvatarEl avatar={coachAvatar} name={coachName} size="sm" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{coachName}</div>
-                <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{planLabel(coachPlan)}</div>
+                <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>Plan {planLabel(coachPlan)}</div>
               </div>
             </Link>
             <form action={logout}>

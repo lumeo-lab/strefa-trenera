@@ -132,6 +132,25 @@ export async function markFeedbackRead(id: string, athleteId?: string) {
   return { success: true }
 }
 
+export async function markFeedbacksReadBulk(ids: string[]) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: AUTH_ERROR }
+  if (ids.length === 0) return { success: true }
+
+  const { error } = await supabase
+    .from('feedbacks')
+    .update({ read: true })
+    .in('id', ids)
+    .eq('coach_id', user.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/coach/feedback')
+  revalidatePath('/coach/athletes')
+  return { success: true }
+}
+
 export async function replyFeedback(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

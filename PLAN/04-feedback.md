@@ -350,3 +350,54 @@ Jeśli chcemy szybki, mocny upgrade `Feedback`, największy efekt dadzą:
 
 ---
 
+### Uzupełnienie techniczne (z audytu kodu — plan2.md)
+
+Poniższe punkty zostały wykryte podczas audytu kodu i uzupełniają plan produktowy o konkretne detale implementacyjne.
+
+#### Kompresja toolbara filtrów na głównej stronie
+- Obecny toolbar: 4 osobne selecty w gridzie `grid-cols-[185px_1fr_150px_240px]` + OverviewStats nad nimi = ~350px UI przed pierwszym feedbackiem
+- Skompresować do jednego wiersza (ten sam wzorzec co FeedbackTab w profilu i HistoryTab — już zrobiony)
+- Dodać search input (jest w profilu, brakuje na głównej stronie)
+- Hint zostawić ale przesunąć pod filtry
+- **Wpada do:** Etap 2 (statystyki) — przebudowa górnej części ekranu
+
+#### Stats reagujące na filtr zawodnika
+- OverviewStats (Dziś/Nieprzeczytane/Bez odpowiedzi) zawsze liczą z `initialFeedbacks`
+- Gdy trener filtruje po zawodniku — stats się nie zmieniają. Mylące.
+- Filter counts (`filterButtons`) też powinny reagować na wybranego zawodnika
+- **Wpada do:** Etap 2 (statystyki)
+
+#### Optimistic mark-as-read
+- Po kliknięciu "Oznacz jako przeczytane" → spinner → czeka na server → `router.refresh()` → dopiero wtedy karta zmienia wygląd
+- Lokalnie ustawić `read: true` na feedbacku natychmiast po kliknięciu
+- Badge "Nowy" znika od razu, karta traci `ring-1 ring-white/5`
+- **Wpada do:** Etap 6 (odpowiedź trenera i lokalny stan UI)
+
+#### Ostrzeżenie przy nadpisywaniu reply
+- Kliknięcie "Edytuj odpowiedź" otwiera textarea z poprzednią treścią bez ostrzeżenia
+- Dodać notkę nad textarea: "Edytujesz istniejącą odpowiedź. Zapisanie zastąpi poprzednią."
+- **Wpada do:** Etap 6 (odpowiedź trenera i lokalny stan UI)
+
+#### Empty state + separator grup + krótszy przycisk
+- Empty state "Brak feedbacków w tej kategorii" — zamienić na `EmptyState` z `components/ui/` z ikoną
+- Grouped view: dodać delikatny separator między grupami (border-top) żeby się nie zlewały
+- Przycisk "Oznacz jako przeczytane" — za długi na wąskich ekranach. Skrócić do "Przeczytane"
+- **Wpada do:** Etap 5 (karta feedbacku) i Etap 8 (final polish)
+
+#### Info o limicie 200 feedbacków
+- Serwer zwraca max 200 feedbacków (`.limit(200)` w page.tsx). Trener nie wie że widzi tylko ostatnie 200.
+- Jeśli `initialFeedbacks.length >= 200` — pokazać info na dole listy
+- Docelowo: paginacja (plan3 Etap 8), tymczasowo: komunikat
+- **Wpada do:** Etap 8 (skala i final polish)
+
+#### Pliki dotyczące tej sekcji
+- `app/coach/feedback/page.tsx`
+- `app/coach/feedback/_components/FeedbackClient.tsx`
+- `components/coach/FeedbackCard.tsx`
+- `app/coach/athletes/[id]/_components/tabs/FeedbackTab.tsx`
+
+#### Poza zakresem (z plan2)
+- Brak dodatkowych punktów — wszystkie z plan2 zmapowane powyżej
+
+---
+

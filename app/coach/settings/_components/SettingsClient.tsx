@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { updateCoachAvatar, updateCoachEmail, updateCoachName, updateCoachPassword } from '@/lib/actions/profile'
 import { PackagesClient } from '@/app/coach/packages/_components/PackagesClient'
-import { getInitials } from '@/lib/utils'
+import { getInitials, planLabel } from '@/lib/utils'
 import { INPUT_STYLE } from '@/lib/styles'
 import { SettingsArchiveTab } from './SettingsArchiveTab'
 
@@ -35,11 +35,6 @@ const AVATAR_EMOJIS = [
 function currentEmoji(avatar: string): string {
   if (avatar.startsWith('emoji:')) return avatar.slice(6)
   return ''
-}
-
-function planLabel(plan: string) {
-  const map: Record<string, string> = { starter: 'Starter', pro: 'Pro', standard: 'Standard' }
-  return map[plan] ?? plan
 }
 
 export function SettingsClient({ email, name, plan, avatar, packages, archivedAthletes }: Props) {

@@ -1,6 +1,7 @@
 'use client'
 import { useTheme } from '@/lib/theme'
 import { NotificationBell } from './NotificationBell'
+import { QuickSearch } from './QuickSearch'
 
 interface CoachTopbarProps {
   title: string
@@ -13,15 +14,16 @@ export function CoachTopbar({ title, subtitle, actions }: CoachTopbarProps) {
   return (
     <header className="h-16 flex items-center justify-between px-6 border-b sticky top-0 z-20"
       style={{ background: theme === 'dark' ? 'rgba(13,15,20,0.9)' : 'rgba(244,246,251,0.95)', backdropFilter: 'blur(20px)', borderColor: 'var(--border)' }}>
-      <div>
-        <h1 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h1>
-        {subtitle && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>}
+      <div className="min-w-0 flex-1">
+        <h1 className="text-base font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{title}</h1>
+        {subtitle && <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 shrink-0 ml-4">
         {actions}
+        <QuickSearch />
         <button
           onClick={toggle}
-          className="p-2 rounded-xl transition-colors cursor-pointer"
+          className="p-2 rounded-xl transition-colors cursor-pointer hover:opacity-80"
           style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
           title={theme === 'dark' ? 'Tryb jasny' : 'Tryb ciemny'}
           aria-label={theme === 'dark' ? 'Przełącz na tryb jasny' : 'Przełącz na tryb ciemny'}

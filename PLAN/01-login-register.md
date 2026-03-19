@@ -441,5 +441,16 @@ Poniższe punkty zostały wykryte podczas audytu kodu i uzupełniają powyższy 
 - `lib/actions/auth.ts`
 - `app/api/auth/callback/route.ts`
 
+#### Wspólny layout (z plan2 LR4)
+- Login i register mają ~80% wspólnego kodu (layout, logo, card wrapper, input styles)
+- Rozważyć wydzielenie `AuthLayout` komponentu — logo + card + bottom link
+- **Wpada do:** Etap 9 (final polish) lub osobny refaktor
+
+#### Poza zakresem (z plan2)
+- Social login (Google)
+- Toggle "Pokaż hasło"
+- Terms/privacy checkbox przy rejestracji
+- Rate limiting na formularzu auth
+
 ---
 
