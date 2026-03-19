@@ -154,6 +154,7 @@ function CollapsibleSection({ title, icon, collapsed, onToggle, children }: {
       <button
         onClick={onToggle}
         className="flex items-center gap-2 w-full text-left mb-0 cursor-pointer group"
+        aria-expanded={!collapsed}
       >
         <span className="text-xs transition-transform" style={{ color: 'var(--text-muted)', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0)' }}>▼</span>
         <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>{icon} {title}</span>

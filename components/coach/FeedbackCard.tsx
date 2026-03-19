@@ -112,7 +112,7 @@ export function FeedbackCard({
                 {markingRead ? '...' : 'Przeczytane'}
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={onExpand}>
+            <Button variant="ghost" size="sm" onClick={onExpand} aria-expanded={isExpanded}>
               {isExpanded ? '▲ Zwiń' : '▼ Rozwiń'}
             </Button>
           </div>
@@ -158,6 +158,7 @@ export function FeedbackCard({
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-sm px-3 py-2.5 rounded-xl transition-opacity hover:opacity-80"
                 style={{ background: 'rgba(255,92,27,0.08)', color: '#FF5C1B', border: '1px solid rgba(255,92,27,0.2)' }}
+                aria-label="Otwórz link do zegarka"
               >
                 ⌚ <span className="underline truncate">{fb.watch_link}</span>
                 <span className="shrink-0 ml-auto text-xs opacity-70">↗</span>

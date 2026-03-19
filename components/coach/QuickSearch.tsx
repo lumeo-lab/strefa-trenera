@@ -57,6 +57,7 @@ export function QuickSearch() {
         className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm cursor-pointer transition-opacity hover:opacity-80"
         style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)', minWidth: 180 }}
         title="Szybkie przejście (Ctrl+K)"
+        aria-label="Szybkie wyszukiwanie"
       >
         <span>🔍</span>
         <span className="hidden lg:inline">Szukaj...</span>
@@ -67,10 +68,10 @@ export function QuickSearch() {
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-50 bg-black/50 cursor-pointer" onClick={() => setOpen(false)} />
+      <div className="fixed inset-0 z-50 bg-black/50 cursor-pointer" onClick={() => setOpen(false)} aria-hidden="true" />
 
       {/* Modal */}
-      <div className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[51] w-full max-w-md">
+      <div className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[51] w-full max-w-md" role="dialog" aria-label="Wyszukiwarka">
         <div className="rounded-2xl overflow-hidden shadow-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
           <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
             <input

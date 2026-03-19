@@ -484,6 +484,8 @@ export function AthletesClient({
                   className="px-2 py-1 rounded-md text-xs cursor-pointer transition-all"
                   style={{ background: viewMode === 'table' ? 'var(--bg-card)' : 'transparent', color: viewMode === 'table' ? 'var(--text-primary)' : 'var(--text-muted)' }}
                   title="Widok tabeli"
+                  aria-label="Widok tabeli"
+                  aria-pressed={viewMode === 'table'}
                 >
                   ☰
                 </button>
@@ -492,6 +494,8 @@ export function AthletesClient({
                   className="px-2 py-1 rounded-md text-xs cursor-pointer transition-all"
                   style={{ background: viewMode === 'cards' ? 'var(--bg-card)' : 'transparent', color: viewMode === 'cards' ? 'var(--text-primary)' : 'var(--text-muted)' }}
                   title="Widok kart"
+                  aria-label="Widok kart"
+                  aria-pressed={viewMode === 'cards'}
                 >
                   ▦
                 </button>

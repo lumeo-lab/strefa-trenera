@@ -147,6 +147,7 @@ export function CoachSidebar({
           className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors hover:opacity-80"
           style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
           title={mobileOpen ? 'Zamknij menu' : collapsed ? 'Rozwiń menu' : 'Zwiń menu'}
+          aria-label={mobileOpen ? 'Zamknij menu' : collapsed ? 'Rozwiń menu' : 'Zwiń menu'}
         >
           <span className="text-sm leading-none">{mobileOpen ? '✕' : collapsed ? '→' : '←'}</span>
         </button>

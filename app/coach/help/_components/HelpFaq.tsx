@@ -107,6 +107,7 @@ export function HelpFaq() {
                 onClick={() => setOpen(open === item.id ? null : item.id)}
                 className="w-full flex items-center justify-between px-5 py-4 text-left cursor-pointer"
                 style={{ background: 'none', border: 'none', color: 'var(--text-primary)' }}
+                aria-expanded={open === item.id}
               >
                 <div className="pr-4">
                   <div className="text-xs mb-1" style={{ color: '#FF5C1B' }}>{CATEGORY_LABELS[item.category]}</div>
