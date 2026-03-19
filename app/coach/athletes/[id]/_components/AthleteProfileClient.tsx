@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Modal } from '@/components/ui/Modal'
+import { TabErrorBoundary } from '@/components/ui/TabErrorBoundary'
 import { getBusinessToday } from '@/lib/date'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
@@ -428,49 +429,63 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         <Tabs tabs={tabs} active={activeTab} onChange={handleTabChange} className="mb-6" />
 
         {activeTab === 'plan' && (
-          <PlanTab
-            athleteId={athlete.id}
-            sessions={initialSessions}
-            feedbackBySession={feedbackBySession}
-            feedbackByDate={feedbackByDate}
-            today={today}
-            currentMonth={currentMonth}
-          />
+          <TabErrorBoundary tabName="Plan">
+            <PlanTab
+              athleteId={athlete.id}
+              sessions={initialSessions}
+              feedbackBySession={feedbackBySession}
+              feedbackByDate={feedbackByDate}
+              today={today}
+              currentMonth={currentMonth}
+            />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'history' && (
-          <HistoryTab
-            sessions={initialSessions}
-            feedbackBySession={feedbackBySession}
-            feedbackByDate={feedbackByDate}
-            today={today}
-            currentMonth={currentMonth}
-            allSessionTypes={allSessionTypes}
-          />
+          <TabErrorBoundary tabName="Historia">
+            <HistoryTab
+              sessions={initialSessions}
+              feedbackBySession={feedbackBySession}
+              feedbackByDate={feedbackByDate}
+              today={today}
+              currentMonth={currentMonth}
+              allSessionTypes={allSessionTypes}
+            />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'feedback' && (
-          <FeedbackTab athleteId={athlete.id} feedbacks={athleteFeedbacks} onFeedbackRead={() => setUnreadFeedbackCount(c => Math.max(0, c - 1))} />
+          <TabErrorBoundary tabName="Feedback">
+            <FeedbackTab athleteId={athlete.id} feedbacks={athleteFeedbacks} onFeedbackRead={() => setUnreadFeedbackCount(c => Math.max(0, c - 1))} />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'races' && (
-          <RacesTab athleteId={athlete.id} races={initialRaces} today={today} />
+          <TabErrorBoundary tabName="Zawody">
+            <RacesTab athleteId={athlete.id} races={initialRaces} today={today} />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'notes' && (
-          <NotesTab athleteId={athlete.id} initialNotes={athlete.coach_notes ?? ''} />
+          <TabErrorBoundary tabName="Notatki">
+            <NotesTab athleteId={athlete.id} initialNotes={athlete.coach_notes ?? ''} />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'data' && (
-          <DataTab
-            athlete={athlete}
-            packages={packages}
-            accessInfo={accessInfo}
-          />
+          <TabErrorBoundary tabName="Dane">
+            <DataTab
+              athlete={athlete}
+              packages={packages}
+              accessInfo={accessInfo}
+            />
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'finance' && (
-          <FinanceTab athleteId={athlete.id} athletePackage={athlete.package} invoices={athleteInvoices} />
+          <TabErrorBoundary tabName="Finanse">
+            <FinanceTab athleteId={athlete.id} athletePackage={athlete.package} invoices={athleteInvoices} />
+          </TabErrorBoundary>
         )}
       </div>
 

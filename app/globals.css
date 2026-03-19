@@ -14,6 +14,9 @@
   --border-strong: rgba(255,255,255,0.15);
   --orange: #FF5C1B;
   --orange-light: #FF7A42;
+  --success: #2ECC71;
+  --warning: #F1C40F;
+  --danger: #E74C3C;
 }
 
 .theme-light {
@@ -30,6 +33,9 @@
   --border-strong: rgba(0,0,0,0.18);
   --orange: #FF5C1B;
   --orange-light: #FF7A42;
+  --success: #2ECC71;
+  --warning: #F1C40F;
+  --danger: #E74C3C;
 }
 
 /* ── Kolory typów sesji — tryb ciemny (domyślny) ── */
