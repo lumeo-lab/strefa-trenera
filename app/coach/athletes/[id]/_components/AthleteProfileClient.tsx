@@ -466,6 +466,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               sessions={initialSessions}
               feedbacks={athleteFeedbacks}
               stravaActivities={stravaActivities}
+              nextRace={summaryInfo.nextRace}
               today={today}
             />
           </TabErrorBoundary>

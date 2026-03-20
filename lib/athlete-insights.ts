@@ -219,6 +219,13 @@ export type AthleteInsights = {
     unplannedRatio: number | null
     chaosSignals: string[]
   }
+  phase: {
+    detected: 'taper' | 'race-specific' | 'recovery' | 'build'
+    label: string
+    detail: string
+    daysToRace: number | null
+    raceName: string | null
+  }
   unplannedActivities: Array<{
     stravaId: number
     startDate: string
@@ -400,10 +407,12 @@ export function buildAthleteInsights({
   feedbacks,
   stravaActivities = [],
   today,
+  nextRace,
 }: {
   sessions: InsightSession[]
   feedbacks: InsightFeedback[]
   stravaActivities?: InsightStravaActivity[]
+  nextRace?: { name: string; date: string; distance: string | null } | null
   today: string
 }): AthleteInsights {
   const last28Start = addDaysToBusinessDate(today, -27)
@@ -719,6 +728,29 @@ export function buildAthleteInsights({
     keySessions28.length,
   )
 
+  // Phase detection from race data
+  const daysToRace = nextRace ? Math.ceil((new Date(nextRace.date).getTime() - new Date(today).getTime()) / 86400000) : null
+  let detectedPhase: AthleteInsights['phase']['detected'] = 'build'
+  let phaseLabel = 'Budowanie formy'
+  let phaseDetail = 'Brak zaplanowanego startu w najbliższym czasie. Standardowa analiza.'
+  if (daysToRace != null && daysToRace >= 0) {
+    if (daysToRace <= 21) {
+      detectedPhase = 'taper'
+      phaseLabel = `Taper — start za ${daysToRace} dni`
+      phaseDetail = `${nextRace!.name}${nextRace!.distance ? ` (${nextRace!.distance})` : ''}. Spadek objętości jest pożądany. Nie dokładaj ciężkich sesji.`
+    } else if (daysToRace <= 56) {
+      detectedPhase = 'race-specific'
+      phaseLabel = `Przygotowanie startowe — ${daysToRace} dni do startu`
+      phaseDetail = `${nextRace!.name}. Priorytet na kluczowe sesje i tempo startowe. Kontroluj obciążenie.`
+    }
+  }
+  // Recovery detection: last completed race within 7 days + low volume
+  if (detectedPhase === 'build' && weeklyLoadDelta != null && weeklyLoadDelta <= -30) {
+    detectedPhase = 'recovery'
+    phaseLabel = 'Regeneracja'
+    phaseDetail = 'Objętość wyraźnie spadła. Jeśli to po starcie lub ciężkim bloku — to normalne.'
+  }
+
   const recommendationReasons: string[] = []
   let recommendationTone: AthleteInsights['recommendation']['tone'] = 'green'
   let recommendationTitle = 'Można ostrożnie progresować'
@@ -773,6 +805,24 @@ export function buildAthleteInsights({
       recommendationTitle = 'Kontynuuj plan — zawodnik reaguje dobrze'
       recommendationConfidence = sessionsWithActuals28.length >= 3 ? 'high' : 'medium'
     }
+  }
+
+  // Phase-aware overrides
+  if (detectedPhase === 'taper' && recommendationTone === 'orange' && acwr != null && acwr < 0.8) {
+    recommendationTone = 'green'
+    recommendationTitle = `Taper przebiega prawidłowo — start za ${daysToRace} dni`
+    recommendationReasons.push('Spadek objętości przed startem jest zamierzony i pożądany.')
+  }
+  if (detectedPhase === 'recovery' && recommendationTone !== 'red') {
+    recommendationTone = 'blue'
+    recommendationTitle = 'Regeneracja — niskie obciążenie jest w porządku'
+    recommendationReasons.push('Po ciężkim bloku lub starcie organizm potrzebuje odpoczynku.')
+  }
+  if (detectedPhase === 'taper') {
+    recommendationReasons.push(`Start za ${daysToRace} dni (${nextRace?.name ?? ''}). Kontroluj samopoczucie, nie objętość.`)
+  }
+  if (detectedPhase === 'race-specific') {
+    recommendationReasons.push(`Do startu ${daysToRace} dni. Priorytet: kluczowe sesje i tempo startowe.`)
   }
 
   if (recommendationReasons.length === 0) {
@@ -943,6 +993,13 @@ export function buildAthleteInsights({
       monotony,
       unplannedRatio,
       chaosSignals,
+    },
+    phase: {
+      detected: detectedPhase,
+      label: phaseLabel,
+      detail: phaseDetail,
+      daysToRace,
+      raceName: nextRace?.name ?? null,
     },
     unplannedActivities,
     typeStats: typeStatsList,

@@ -74,6 +74,9 @@ Elementy, które zostały świadomie odłożone jako duże feature'y lub nice-to
 - **Dane firmy i rozliczeń (Etap 6)** — wymaga nowej tabeli w Supabase (company_info), migracji i server action. Brak modelu danych w bazie. Odłożone do momentu gdy trener będzie potrzebował generować faktury z danymi firmy.
 - **Powiadomienia i preferencje (Etap 7)** — wymaga nowej tabeli notification_preferences + UI toggleów. Obecne push subscription działa bez konfiguracji per typ. Odłożone.
 
+### Analiza zawodnika
+- **Pełny model faz treningowych** — ręczny wybór fazy przez trenera (base/build/race-specific/taper/recovery) + cel fazy (np. "maraton sub 3:30, 15 kwietnia"). Wymaga migracji bazy (nowe pola training_phase, phase_goal), UI wyboru fazy w profilu zawodnika, mapowanie celów na konkretne zalecenia. Obecnie system automatycznie wykrywa fazę z dat zawodów — wystarczające na start. Rozbudować gdy trenerzy zaczną potrzebować ręcznej kontroli nad periodyzacją.
+
 ### Dashboard
 - **Preferencje dashboardu w backendzie (Etap 8.1)** — plan zakładał wyniesienie preferencji (kolejność KPI, widoczność sekcji, dismiss hint) z localStorage do Supabase. Wymaga nowej tabeli, migracji i server action. W praktyce trener korzysta z jednej przeglądarki — localStorage jest wystarczający. Warto wrócić jeśli pojawi się tryb multi-device.
 

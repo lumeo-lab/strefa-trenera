@@ -12,6 +12,7 @@ interface InsightsTabProps {
   feedbacks: CoachFeedbackRow[]
   stravaActivities: CoachStravaActivityRow[]
   today: string
+  nextRace?: { name: string; date: string; distance: string | null } | null
 }
 
 type InsightView = 'decision' | 'load' | 'response'
@@ -121,9 +122,9 @@ function WeeklyZonesChart({ weeks }: { weeks: Array<{ label: string; total: numb
 
 // ── Main component ──────────────────────────────────────────────────────
 
-export function InsightsTab({ sessions, feedbacks, stravaActivities, today }: InsightsTabProps) {
+export function InsightsTab({ sessions, feedbacks, stravaActivities, today, nextRace }: InsightsTabProps) {
   const [view, setView] = useState<InsightView>('decision')
-  const insights = buildAthleteInsights({ sessions, feedbacks, stravaActivities, today })
+  const insights = buildAthleteInsights({ sessions, feedbacks, stravaActivities, today, nextRace })
 
   if (insights.overview.dueSessions === 0 && feedbacks.length === 0) {
     return (
@@ -182,6 +183,20 @@ export function InsightsTab({ sessions, feedbacks, stravaActivities, today }: In
               </div>
             )}
           </div>
+
+          {/* Phase context */}
+          {insights.phase.detected !== 'build' && (
+            <div className="rounded-xl px-4 py-3 flex items-center gap-3" style={{
+              background: insights.phase.detected === 'taper' ? 'rgba(96,165,250,0.08)' : insights.phase.detected === 'recovery' ? 'rgba(46,204,113,0.08)' : 'rgba(255,92,27,0.08)',
+              border: `1px solid ${insights.phase.detected === 'taper' ? 'rgba(96,165,250,0.2)' : insights.phase.detected === 'recovery' ? 'rgba(46,204,113,0.2)' : 'rgba(255,92,27,0.2)'}`,
+            }}>
+              <span className="text-lg">{insights.phase.detected === 'taper' ? '🏁' : insights.phase.detected === 'recovery' ? '🛌' : '🎯'}</span>
+              <div>
+                <div className="text-sm font-semibold">{insights.phase.label}</div>
+                <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{insights.phase.detail}</div>
+              </div>
+            </div>
+          )}
 
           {/* Key stats */}
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
