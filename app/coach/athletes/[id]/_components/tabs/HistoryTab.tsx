@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useState } from 'react'
 import { formatDate, sessionTypeLabel } from '@/lib/utils'
 import { SessionType } from '@/lib/types'
 import { FeedbackDetail } from '@/components/coach/FeedbackCard'
@@ -9,8 +9,8 @@ import { SessionTypeDef } from '@/lib/session-type-defs'
 import { ProfileEmptyState } from '../ProfileStates'
 import { getSessionCompletionSourceLabel, getSessionExecutionLabel, getSessionExecutionStatus } from '@/lib/session-status'
 import type {
-  CoachTrainingSessionRow,
   CoachStravaActivityRow,
+  CoachTrainingSessionRow,
   FeedbackByDateMap,
   FeedbackBySessionMap,
 } from '../types'
@@ -126,6 +126,8 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, strava
     .filter((session) => getSessionExecutionStatus(session) !== 'planned' || session.date < today)
     .sort((a, b) => b.date.localeCompare(a.date))
 
+  // TODO: Etap 2 — render month summary bar above table
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const monthSummary = monthSessions.reduce(
     (acc, session) => {
       const status = getSessionExecutionStatus(session)
@@ -151,11 +153,6 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, strava
 
   const stravaActivityById = new Map(
     stravaActivities.map((activity) => [activity.strava_id, activity] as const),
-  )
-
-  const unresolvedSessions = useMemo(
-    () => monthSessions.filter((session) => getSessionExecutionStatus(session) === 'planned' && session.date < today),
-    [monthSessions, today],
   )
 
   const filteredMonthSessions = monthSessions.filter((session) => {
@@ -269,6 +266,8 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, strava
               const isExpanded = expandedRows.has(session.id)
               const isDescriptionExpanded = expandedDescriptions.has(session.id)
               const status = getSessionExecutionStatus(session)
+              // TODO: Etap 2 — show source label in table row
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
               const sourceLabel = getSessionCompletionSourceLabel(session)
               const statusLabel = status === 'planned' && session.date < today
                 ? 'Brak potwierdzenia'

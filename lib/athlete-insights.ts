@@ -6,10 +6,10 @@ import {
   shouldCountSessionInCompliance,
 } from '@/lib/session-status'
 import type {
-  SessionGoal,
   SessionActualDataSource,
   SessionCompletionSource,
   SessionExecutionStatus,
+  SessionGoal,
   SessionPriority,
   SessionType,
   TrainingLoadSource,
@@ -237,6 +237,8 @@ type NormalizedFeedback = {
   voice: string | null
 }
 
+// Used in Etap 5 (feeling trend analysis) — keep for upcoming work
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const FEELING_SCORE: Record<string, number> = {
   '😫': 1,
   '😕': 2,
@@ -536,11 +538,6 @@ export function buildAthleteInsights({
       if (status === 'detected') existing.detected += 1
       if (isSessionPastUnresolved(session, today)) existing.unresolved += 1
       if (feedback?.painFlag) existing.painCount += 1
-      const rpeValues = feedback?.rpe != null ? [feedback.rpe] : []
-      existing.avgRpe = average([
-        ...(existing.avgRpe != null ? Array(Math.max(existing.sessions - 1, 0)).fill(existing.avgRpe) : []),
-        ...rpeValues,
-      ])
       acc.set(session.type, existing)
       return acc
     }, new Map())
