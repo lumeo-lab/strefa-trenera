@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getBusinessToday } from '@/lib/date'
 import { formatDate, intensityColor, sessionTypeLabel } from '@/lib/utils'
 import { isSessionCompleted, isSessionSkipped } from '@/lib/session-status'
-import { AthleteHeaderAvatar } from './AthleteHeaderAvatar'
+
 import { monthLabel, shiftMonth } from '@/lib/calendar'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
@@ -79,13 +79,8 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
     <div style={{ color: 'var(--text-primary)', paddingBottom: '90px' }}>
       {/* Header */}
       <div className="px-5 pt-12 pb-4 border-b" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{athlete.name}</div>
-            <h1 className="text-xl font-bold">Wykonanie</h1>
-          </div>
-          <AthleteHeaderAvatar slug={athlete.slug} name={athlete.name} avatar={athlete.avatar} />
-        </div>
+        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{athlete.name}</div>
+        <h1 className="text-xl font-bold">Wykonanie</h1>
       </div>
 
       <div className="p-5 space-y-4">
@@ -282,7 +277,7 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
 
       </div>
 
-      <AthleteBottomNav slug={athlete.slug} />
+      <AthleteBottomNav slug={athlete.slug} athleteName={athlete.name} athleteAvatar={athlete.avatar} />
     </div>
   )
 }

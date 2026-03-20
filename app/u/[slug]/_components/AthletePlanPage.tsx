@@ -9,7 +9,7 @@ import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
 import type { AthletePlanFeedbackMap, AthleteTrainingSessionRow } from '@/lib/athlete-data'
 import { SESSION_TYPES } from '@/lib/constants'
-import { AthleteHeaderAvatar } from './AthleteHeaderAvatar'
+
 
 interface Props {
   athlete: AthleteSession
@@ -34,13 +34,8 @@ export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) 
     <div style={{ color: 'var(--text-primary)', paddingBottom: '90px' }}>
       {/* Header */}
       <div className="px-5 pt-12 pb-4 border-b" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{athlete.name}</div>
-            <h1 className="text-xl font-bold">Plan treningowy</h1>
-          </div>
-          <AthleteHeaderAvatar slug={athlete.slug} name={athlete.name} avatar={athlete.avatar} />
-        </div>
+        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{athlete.name}</div>
+        <h1 className="text-xl font-bold">Plan treningowy</h1>
       </div>
 
       <div className="p-5">
@@ -222,7 +217,7 @@ export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) 
         </div>
       </div>
 
-      <AthleteBottomNav slug={athlete.slug} />
+      <AthleteBottomNav slug={athlete.slug} athleteName={athlete.name} athleteAvatar={athlete.avatar} />
     </div>
   )
 }

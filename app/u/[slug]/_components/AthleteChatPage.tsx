@@ -11,7 +11,7 @@ import { AthleteSession } from '@/lib/athlete-auth'
 import { markAthleteThreadRead, sendAthleteMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 import type { AthleteMessageRow } from '@/lib/athlete-data'
-import { AthleteHeaderAvatar } from './AthleteHeaderAvatar'
+
 
 interface Props {
   athlete: AthleteSession
@@ -202,15 +202,12 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
     <div style={{ color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', height: '100vh' }}>
       {/* Header */}
       <div className="px-5 pt-12 pb-4 border-b shrink-0" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar initials={coachInitials} size="sm" />
-            <div>
-              <div className="font-semibold text-sm">{coachName}</div>
-              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Twój trener</div>
-            </div>
+        <div className="flex items-center gap-3">
+          <Avatar initials={coachInitials} size="sm" />
+          <div>
+            <div className="font-semibold text-sm">{coachName}</div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Twój trener</div>
           </div>
-          <AthleteHeaderAvatar slug={athlete.slug} name={athlete.name} avatar={athlete.avatar} />
         </div>
       </div>
 
@@ -302,7 +299,7 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
         </div>
       </div>
 
-      <AthleteBottomNav slug={athlete.slug} />
+      <AthleteBottomNav slug={athlete.slug} athleteName={athlete.name} athleteAvatar={athlete.avatar} />
     </div>
   )
 }

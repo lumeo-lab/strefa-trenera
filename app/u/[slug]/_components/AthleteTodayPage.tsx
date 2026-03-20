@@ -11,7 +11,7 @@ import { dbRowToFeedback, FeedbackData, FeedbackModal } from './FeedbackModal'
 import { FEELING_LABELS } from '@/lib/constants'
 import { getSessionExecutionLabel, getSessionExecutionStatus, getSessionExecutionTone, isSessionCompleted, isSessionSkipped } from '@/lib/session-status'
 import { markSessionCompletedByAthlete, markSessionSkippedByAthlete } from '@/lib/actions/sessions'
-import { AthleteHeaderAvatar } from './AthleteHeaderAvatar'
+
 
 interface Props {
   athlete: AthleteSession
@@ -246,10 +246,7 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
     <div style={{ color: 'var(--text-primary)', paddingBottom: '90px' }}>
       {/* Header */}
       <div className="px-5 pt-12 pb-5 lg:px-8 lg:pt-8" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Cześć, {athlete.name.split(' ')[0]}! 👋</div>
-          <AthleteHeaderAvatar slug={athlete.slug} name={athlete.name} avatar={athlete.avatar} />
-        </div>
+        <div className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Cześć, {athlete.name.split(' ')[0]}! 👋</div>
         <div className="flex items-center justify-between gap-3">
           <button onClick={() => navigate(-1)} disabled={!canGoBack}
             className="w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-30 disabled:cursor-default"
@@ -560,7 +557,7 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
       />
 
       <PWAInstallBanner />
-      <AthleteBottomNav slug={athlete.slug} />
+      <AthleteBottomNav slug={athlete.slug} athleteName={athlete.name} athleteAvatar={athlete.avatar} />
     </div>
   )
 }

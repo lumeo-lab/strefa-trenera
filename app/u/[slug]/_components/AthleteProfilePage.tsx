@@ -254,7 +254,7 @@ export function AthleteProfilePage({ athlete, profile }: Props) {
         </form>
       </div>
 
-      <AthleteBottomNav slug={athlete.slug} />
+      <AthleteBottomNav slug={athlete.slug} athleteName={athlete.name} athleteAvatar={athlete.avatar} />
     </div>
   )
 }
