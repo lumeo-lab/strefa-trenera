@@ -263,6 +263,39 @@ export function InsightsTab({ sessions, feedbacks, stravaActivities, today }: In
               </div>
             </Section>
           )}
+
+          {/* Discipline section */}
+          {(insights.advanced.monotony != null || insights.advanced.unplannedRatio != null || insights.advanced.chaosSignals.length > 0) && (
+            <Section title="Dyscyplina planu">
+              <div className="grid gap-2 md:grid-cols-3">
+                {insights.advanced.monotony != null && (() => {
+                  const m = insights.advanced.monotony
+                  const mTone = m > 2.0 ? 'red' : m > 1.5 ? 'orange' : 'green'
+                  const mLabel = m > 2.0 ? 'Za monotonne — brak kontrastu między dniami'
+                    : m > 1.5 ? 'Umiarkowana zmienność'
+                    : 'Dobra zmienność — ciężkie i lekkie dni się różnią'
+                  return (
+                    <Stat label="Zmienność treningowa" value={`${m}`} detail={mLabel} tone={mTone}
+                      tooltip="Stosunek średniego dziennego obciążenia do jego odchylenia. >2.0 = za monotonne, badania łączą to z większym ryzykiem choroby i kontuzji." />
+                  )
+                })()}
+                {insights.advanced.unplannedRatio != null && (
+                  <Stat label="Poza planem" value={`${insights.advanced.unplannedRatio}%`}
+                    detail={insights.advanced.unplannedRatio >= 30 ? 'Dużo aktywności nieplanowanych' : 'W normie'}
+                    tone={insights.advanced.unplannedRatio >= 30 ? 'orange' : 'green'} />
+                )}
+              </div>
+              {insights.advanced.chaosSignals.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {insights.advanced.chaosSignals.map(s => (
+                    <div key={s} className="text-xs flex items-start gap-2 py-1" style={{ color: '#FF5C1B' }}>
+                      <span>⚠️</span><span>{s}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
+          )}
         </div>
       )}
 

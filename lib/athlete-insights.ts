@@ -215,6 +215,9 @@ export type AthleteInsights = {
     bestToleratedType: string | null
     painHeavyType: string | null
     easyRunRpeTrend: number[]
+    monotony: number | null
+    unplannedRatio: number | null
+    chaosSignals: string[]
   }
   unplannedActivities: Array<{
     stravaId: number
@@ -581,6 +584,39 @@ export function buildAthleteInsights({
     .filter((stat) => stat.painCount > 0)
     .sort((a, b) => b.painCount - a.painCount)[0]?.label ?? null
 
+  // Training Monotony (discipline signal)
+  // = mean(daily load) / stdev(daily load) over last 14 days
+  const dailyLoads14 = Array.from({ length: 14 }, (_, i) => {
+    const day = addDaysToBusinessDate(today, -13 + i)
+    return nonRestSessions
+      .filter((s) => s.date === day)
+      .reduce((sum, s) => {
+        const fb = getFeedbackForSession(normalizedFeedbacks, s)
+        const load = s.training_load ?? (fb?.rpe != null && s.actual_duration ? (s.actual_duration * fb.rpe / 10) : 0)
+        return sum + load
+      }, 0)
+  })
+  const meanDailyLoad = dailyLoads14.reduce((s, v) => s + v, 0) / 14
+  const stdevDailyLoad = Math.sqrt(dailyLoads14.reduce((s, v) => s + (v - meanDailyLoad) ** 2, 0) / 14)
+  const monotony = stdevDailyLoad > 0 ? round1(meanDailyLoad / stdevDailyLoad) : null
+
+  // Unplanned ratio
+  const unplannedCount28 = stravaActivities.filter((a) =>
+    a.start_date && isWithinRange(a.start_date.slice(0, 10), last28Start, today) &&
+    !nonRestSessions.some((s) => s.linked_strava_activity_id === a.strava_id)
+  ).length
+  const totalActivities28 = dueSessions28.length + unplannedCount28
+  const unplannedRatio = totalActivities28 > 0 ? Math.round((unplannedCount28 / totalActivities28) * 100) : null
+
+  // Chaos signals
+  const chaosSignals: string[] = []
+  if (monotony != null && monotony > 2.0) chaosSignals.push(`Zmienność treningowa: ${monotony} (za monotonne — brak kontrastu między ciężkimi i lekkimi dniami)`)
+  if (unplannedRatio != null && unplannedRatio >= 30) chaosSignals.push(`${unplannedRatio}% aktywności poza planem — trener i zawodnik mogą nie być zsynchronizowani`)
+  const keyMissRate = keySessions28.length > 0
+    ? Math.round((keySessions28.filter((s) => getSessionExecutionStatus(s) === 'skipped').length / keySessions28.length) * 100)
+    : null
+  if (keyMissRate != null && keyMissRate >= 40) chaosSignals.push(`${keyMissRate}% kluczowych sesji pominięte — najważniejsze bodźce nie wchodzą`)
+
   const painCount14 = feedback14.filter((feedback) => feedback.painFlag).length
   const skipped14 = nonRestSessions.filter((session) =>
     isWithinRange(session.date, last14Start, today) && getSessionExecutionStatus(session) === 'skipped'
@@ -881,6 +917,9 @@ export function buildAthleteInsights({
       bestToleratedType,
       painHeavyType,
       easyRunRpeTrend,
+      monotony,
+      unplannedRatio,
+      chaosSignals,
     },
     unplannedActivities,
     typeStats: typeStatsList,
