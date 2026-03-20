@@ -434,11 +434,11 @@ Ryzyko: **Niskie**
 
 ---
 
-### Etap 8: `Zawody` jako wspólna przestrzeń
+### Etap 8: `Zawody` jako wspólna przestrzeń ✅
 
 Priorytet: **Bardzo wysoki**
 Ryzyko: **Niskie**
-**Status: DO ZROBIENIA**
+**Status: WDROŻONY**
 
 #### Cel
 

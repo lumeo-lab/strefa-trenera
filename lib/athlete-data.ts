@@ -113,6 +113,17 @@ export async function getAthletePlanData(athleteId: string, from: string, to: st
   }
 }
 
+export type AthleteRaceRow = Database['public']['Tables']['athlete_races']['Row']
+
+export async function getAthleteRaces(athleteId: string): Promise<AthleteRaceRow[]> {
+  const { data } = await adminClient
+    .from('athlete_races')
+    .select('*')
+    .eq('athlete_id', athleteId)
+    .order('date', { ascending: false })
+  return data ?? []
+}
+
 export interface AthleteProfileData {
   name: string
   avatar: string
