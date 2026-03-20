@@ -119,31 +119,6 @@ function WeeklyZonesChart({ weeks }: { weeks: Array<{ label: string; total: numb
   )
 }
 
-function SessionTypeCard({ label, sessions, completionRate, avgRpe, painCount, skipped }: {
-  label: string; sessions: number; completionRate: number | null; avgRpe: number | null; painCount: number; skipped: number
-}) {
-  const tone = completionRate != null && completionRate >= 80 ? 'green' : completionRate != null && completionRate >= 60 ? 'orange' : 'red'
-  const badgeStyles = { green: { bg: 'rgba(46,204,113,0.12)', color: '#2ECC71' }, orange: { bg: 'rgba(255,92,27,0.12)', color: '#FF5C1B' }, red: { bg: 'rgba(231,76,60,0.12)', color: '#E74C3C' } }[tone]
-  return (
-    <div className="rounded-xl p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="text-sm font-semibold">{label}</div>
-          <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{sessions} sesji (56 dni)</div>
-        </div>
-        <span className="text-[11px] rounded-full px-2 py-0.5" style={{ background: badgeStyles.bg, color: badgeStyles.color }}>
-          {completionRate != null ? `${completionRate}%` : '—'}
-        </span>
-      </div>
-      <div className="flex gap-3 mt-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-        <span>RPE {avgRpe ?? '—'}</span>
-        <span>Pominięte {skipped}</span>
-        {painCount > 0 && <span style={{ color: '#E74C3C' }}>Ból {painCount}</span>}
-      </div>
-    </div>
-  )
-}
-
 // ── Main component ──────────────────────────────────────────────────────
 
 export function InsightsTab({ sessions, feedbacks, stravaActivities, today }: InsightsTabProps) {
@@ -385,59 +360,152 @@ export function InsightsTab({ sessions, feedbacks, stravaActivities, today }: In
       })()}
 
       {/* ── RESPONSE VIEW ── */}
-      {view === 'response' && (
-        <div className="space-y-4">
-          <div className="grid gap-2 md:grid-cols-4">
-            <Stat label="Średnie RPE" value={insights.reaction.avgRpe != null ? `${insights.reaction.avgRpe}` : '—'} detail={insights.reaction.rpeDelta != null ? `${insights.reaction.rpeDelta > 0 ? '+' : ''}${insights.reaction.rpeDelta} vs poprzednie 14 dni` : '—'} tone={reactionTone} />
-            <Stat label="Zgłoszenia bólu" value={`${insights.reaction.painCount}`} detail="Ostatnie 14 dni" tone={insights.reaction.painCount > 0 ? 'orange' : 'green'} />
-            <Stat label="Pokrycie feedbackiem" value={insights.overview.feedbackCoverage != null ? `${insights.overview.feedbackCoverage}%` : '—'} detail={`${insights.reaction.feedbackCount} feedbacków`} />
-            <Stat label="Samopoczucie" value={insights.reaction.dominantFeeling ? `${insights.reaction.dominantFeeling} ${FEELING_LABELS[insights.reaction.dominantFeeling] ?? ''}` : '—'} detail={insights.reaction.dominantFeelingLabel ?? 'Brak wzorca'} />
+      {view === 'response' && (() => {
+        const adv = insights.advanced
+        const easyTrend = adv.easyRunRpeTrend
+        const easyRising = easyTrend.length >= 3 && easyTrend[easyTrend.length - 1] - easyTrend[0] >= 1
+        const keySess = insights.keySessions
+        const keyInterpretation = keySess.due > 0
+          ? `${keySess.completed} z ${keySess.due} kluczowych wykonane. ${keySess.skipped > 0 ? `${keySess.skipped} pominięte.` : ''} ${keySess.avgRpe != null ? `Reakcja: RPE ${keySess.avgRpe}.` : ''} ${keySess.painCount > 0 ? `Ból: ${keySess.painCount}×.` : 'Bez bólu.'}`
+          : 'Brak kluczowych sesji w oknie analizy.'
+        // Stimulus summary
+        const stimulusSummary: string[] = []
+        if (adv.bestToleratedType) stimulusSummary.push(`Najlepiej tolerowany: ${adv.bestToleratedType}`)
+        if (adv.highestRpeType) stimulusSummary.push(`Najtrudniejszy: ${adv.highestRpeType}`)
+        if (adv.mostSkippedType) stimulusSummary.push(`Najczęściej pomijany: ${adv.mostSkippedType}`)
+        if (adv.painHeavyType) stimulusSummary.push(`Ból przy: ${adv.painHeavyType}`)
+
+        return (
+          <div className="space-y-4">
+            <div className="grid gap-2 md:grid-cols-4">
+              <Stat label="Średnie RPE" value={insights.reaction.avgRpe != null ? `${insights.reaction.avgRpe}` : '—'} detail={insights.reaction.rpeDelta != null ? `${insights.reaction.rpeDelta > 0 ? '+' : ''}${insights.reaction.rpeDelta} vs poprzednie 14 dni` : '—'} tone={reactionTone} />
+              <Stat label="Zgłoszenia bólu" value={`${insights.reaction.painCount}`} detail="Ostatnie 14 dni" tone={insights.reaction.painCount > 0 ? 'orange' : 'green'} />
+              <Stat label="Pokrycie feedbackiem" value={insights.overview.feedbackCoverage != null ? `${insights.overview.feedbackCoverage}%` : '—'} detail={`${insights.reaction.feedbackCount} feedbacków`} />
+              <Stat label="Samopoczucie" value={insights.reaction.dominantFeeling ? `${insights.reaction.dominantFeeling} ${FEELING_LABELS[insights.reaction.dominantFeeling] ?? ''}` : '—'} detail={insights.reaction.dominantFeelingLabel ?? 'Brak wzorca'} />
+            </div>
+
+            {/* Easy run RPE trend — fatigue signal */}
+            {easyTrend.length >= 3 && (
+              <div className="rounded-xl p-3" style={{
+                background: easyRising ? 'rgba(255,92,27,0.08)' : 'var(--bg-card)',
+                border: `1px solid ${easyRising ? 'rgba(255,92,27,0.2)' : 'var(--border)'}`,
+              }}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: easyRising ? '#FF5C1B' : 'var(--text-muted)' }}>
+                    RPE na łatwych biegach
+                  </span>
+                  <span className="text-[10px] cursor-help" title="Jeśli RPE na łatwych biegach rośnie przy stałej objętości — to sygnał narastającego zmęczenia bazowego." style={{ color: 'var(--text-muted)' }}>ℹ️</span>
+                </div>
+                <div className="flex items-end gap-1 h-10">
+                  {easyTrend.map((rpe, i) => (
+                    <div key={i} className="flex-1 rounded-t" style={{
+                      height: `${Math.max((rpe / 10) * 100, 15)}%`,
+                      background: rpe >= 6 ? '#FF5C1B' : rpe >= 5 ? '#F1C40F' : '#2ECC71',
+                    }} title={`RPE ${rpe}`} />
+                  ))}
+                </div>
+                <div className="flex justify-between text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                  <span>starsze →</span>
+                  <span>→ nowsze</span>
+                </div>
+                <div className="text-xs mt-2 italic" style={{ color: easyRising ? '#FF5C1B' : 'var(--text-muted)' }}>
+                  {easyRising
+                    ? `RPE na łatwych biegach rośnie (${easyTrend[0]} → ${easyTrend[easyTrend.length - 1]}). To może oznaczać narastające zmęczenie.`
+                    : `RPE stabilne (~${(easyTrend.reduce((s, v) => s + v, 0) / easyTrend.length).toFixed(1)}). Brak sygnału zmęczenia bazowego.`
+                  }
+                </div>
+              </div>
+            )}
+
+            {/* Key sessions review */}
+            {keySess.due > 0 && (
+              <Section title="Kluczowe sesje">
+                <div className="grid gap-2 md:grid-cols-3">
+                  <Stat label="Wykonane" value={`${keySess.completed}/${keySess.due}`} detail={keySess.completionRate != null ? `${keySess.completionRate}% realizacji` : '—'} tone={keySess.completionRate != null && keySess.completionRate >= 75 ? 'green' : 'orange'} />
+                  <Stat label="Reakcja" value={keySess.avgRpe != null ? `RPE ${keySess.avgRpe}` : '—'} detail={keySess.painCount > 0 ? `${keySess.painCount} zgłoszeń bólu` : 'Bez bólu'} tone={keySess.painCount > 0 ? 'orange' : 'green'} />
+                  <Stat label="Pominięte" value={`${keySess.skipped}`} detail={keySess.skipped > 0 ? 'Warto sprawdzić przyczynę' : 'Brak pominięć'} tone={keySess.skipped > 0 ? 'red' : 'green'} />
+                </div>
+                <div className="text-xs mt-2 italic" style={{ color: 'var(--text-muted)' }}>{keyInterpretation}</div>
+              </Section>
+            )}
+
+            {/* Session types with mini-trend */}
+            {topTypes.length > 0 && (
+              <Section title="Typy sesji">
+                <div className="grid gap-2 xl:grid-cols-2">
+                  {topTypes.map(stat => (
+                    <div key={stat.type} className="rounded-xl p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="text-sm font-semibold">{stat.label}</div>
+                          <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{stat.sessions} sesji (56 dni)</div>
+                        </div>
+                        <span className="text-[11px] rounded-full px-2 py-0.5" style={{
+                          background: stat.completionRate != null && stat.completionRate >= 80 ? 'rgba(46,204,113,0.12)' : stat.completionRate != null && stat.completionRate >= 60 ? 'rgba(255,92,27,0.12)' : 'rgba(231,76,60,0.12)',
+                          color: stat.completionRate != null && stat.completionRate >= 80 ? '#2ECC71' : stat.completionRate != null && stat.completionRate >= 60 ? '#FF5C1B' : '#E74C3C',
+                        }}>{stat.completionRate != null ? `${stat.completionRate}%` : '—'}</span>
+                      </div>
+                      <div className="flex gap-3 mt-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                        <span>RPE {stat.avgRpe ?? '—'}</span>
+                        <span>Pominięte {stat.skipped}</span>
+                        {stat.painCount > 0 && <span style={{ color: '#E74C3C' }}>Ból {stat.painCount}</span>}
+                      </div>
+                      {/* Mini RPE trend */}
+                      {stat.recentRpe.length >= 2 && (
+                        <div className="flex items-end gap-0.5 h-5 mt-2">
+                          {[...stat.recentRpe].reverse().map((rpe, i) => (
+                            <div key={i} className="flex-1 rounded-t" style={{
+                              height: `${Math.max((rpe / 10) * 100, 15)}%`,
+                              background: rpe >= 7 ? '#FF5C1B' : rpe >= 5 ? '#F1C40F' : '#2ECC71',
+                            }} title={`RPE ${rpe}`} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {/* Stimulus summary */}
+            {stimulusSummary.length > 0 && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs px-2" style={{ color: 'var(--text-muted)' }}>
+                {stimulusSummary.map(s => <span key={s}>{s}</span>)}
+              </div>
+            )}
+
+            {/* Unplanned + Flags */}
+            {insights.unplannedActivities.length > 0 && (
+              <Section title={`Aktywności poza planem (${insights.unplannedActivities.length})`}>
+                <div className="space-y-1">
+                  {insights.unplannedActivities.slice(0, 5).map(a => (
+                    <div key={a.stravaId} className="flex items-center gap-3 text-xs py-1.5 px-2 rounded-lg" style={{ background: 'var(--bg-elevated)' }}>
+                      <span className="w-14 shrink-0" style={{ color: 'var(--text-muted)' }}>{formatDate(a.startDate, { day: 'numeric', month: 'short' })}</span>
+                      <span className="flex-1 truncate">{a.distanceKm != null ? `${a.distanceKm.toFixed(1)} km` : '—'} · {a.movingTime != null ? `${Math.round(a.movingTime / 60)} min` : '—'}</span>
+                      {a.averageHeartrate && <span style={{ color: 'var(--text-muted)' }}>{a.averageHeartrate} bpm</span>}
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
+            {insights.flags.length > 0 && (
+              <Section title="Sygnały">
+                <div className="grid gap-2 md:grid-cols-2">
+                  {insights.flags.map(flag => (
+                    <div key={`${flag.title}-${flag.detail}`} className="rounded-xl p-3 text-sm" style={{
+                      background: flag.tone === 'green' ? 'rgba(46,204,113,0.08)' : flag.tone === 'red' ? 'rgba(231,76,60,0.08)' : flag.tone === 'orange' ? 'rgba(255,92,27,0.08)' : 'rgba(241,196,15,0.08)',
+                      border: '1px solid var(--border)',
+                    }}>
+                      <div className="font-semibold">{flag.title}</div>
+                      <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{flag.detail}</div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
           </div>
-
-          {/* Session types */}
-          {topTypes.length > 0 && (
-            <Section title="Typy sesji">
-              <div className="grid gap-2 xl:grid-cols-2">
-                {topTypes.map(stat => (
-                  <SessionTypeCard key={stat.type} label={stat.label} sessions={stat.sessions} completionRate={stat.completionRate} avgRpe={stat.avgRpe} painCount={stat.painCount} skipped={stat.skipped} />
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {/* Unplanned activities */}
-          {insights.unplannedActivities.length > 0 && (
-            <Section title={`Aktywności poza planem (${insights.unplannedActivities.length})`}>
-              <div className="space-y-1">
-                {insights.unplannedActivities.slice(0, 5).map(a => (
-                  <div key={a.stravaId} className="flex items-center gap-3 text-xs py-1.5 px-2 rounded-lg" style={{ background: 'var(--bg-elevated)' }}>
-                    <span className="w-14 shrink-0" style={{ color: 'var(--text-muted)' }}>{formatDate(a.startDate, { day: 'numeric', month: 'short' })}</span>
-                    <span className="flex-1 truncate">{a.distanceKm != null ? `${a.distanceKm.toFixed(1)} km` : '—'} · {a.movingTime != null ? `${Math.round(a.movingTime / 60)} min` : '—'}</span>
-                    {a.averageHeartrate && <span style={{ color: 'var(--text-muted)' }}>{a.averageHeartrate} bpm</span>}
-                  </div>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {/* Flags */}
-          {insights.flags.length > 0 && (
-            <Section title="Sygnały">
-              <div className="grid gap-2 md:grid-cols-2">
-                {insights.flags.map(flag => (
-                  <div key={`${flag.title}-${flag.detail}`} className="rounded-xl p-3 text-sm" style={{
-                    background: flag.tone === 'green' ? 'rgba(46,204,113,0.08)' : flag.tone === 'red' ? 'rgba(231,76,60,0.08)' : flag.tone === 'orange' ? 'rgba(255,92,27,0.08)' : 'rgba(241,196,15,0.08)',
-                    border: '1px solid var(--border)',
-                  }}>
-                    <div className="font-semibold">{flag.title}</div>
-                    <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{flag.detail}</div>
-                  </div>
-                ))}
-              </div>
-            </Section>
-          )}
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

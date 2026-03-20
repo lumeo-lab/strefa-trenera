@@ -88,6 +88,7 @@ export type AthleteInsightTypeStat = {
   completionRate: number | null
   avgRpe: number | null
   painCount: number
+  recentRpe: number[] // last 3-5 RPE values for this type (newest first)
 }
 
 export type AthleteInsightRecentSession = {
@@ -211,6 +212,9 @@ export type AthleteInsights = {
     weeklyDurationDelta: number | null
     highestRpeType: string | null
     mostSkippedType: string | null
+    bestToleratedType: string | null
+    painHeavyType: string | null
+    easyRunRpeTrend: number[]
   }
   unplannedActivities: Array<{
     stravaId: number
@@ -531,6 +535,7 @@ export function buildAthleteInsights({
         completionRate: null,
         avgRpe: null,
         painCount: 0,
+        recentRpe: [],
       }
       const status = getSessionExecutionStatus(session)
       existing.sessions += 1
@@ -544,17 +549,37 @@ export function buildAthleteInsights({
     }, new Map())
 
   const typeStatsList = [...typeStats.values()]
-    .map((stat) => ({
-      ...stat,
-      completionRate: percentage(stat.completed, stat.sessions),
-      avgRpe: average(
-        nonRestSessions
-          .filter((session) => session.type === stat.type && isWithinRange(session.date, last56Start, today))
-          .map((session) => getFeedbackForSession(normalizedFeedbacks, session)?.rpe)
-          .filter((value): value is number => value != null),
-      ),
-    }))
+    .map((stat) => {
+      const typeSessions = nonRestSessions
+        .filter((session) => session.type === stat.type && isWithinRange(session.date, last56Start, today))
+        .sort((a, b) => b.date.localeCompare(a.date))
+      const rpeValues = typeSessions
+        .map((session) => getFeedbackForSession(normalizedFeedbacks, session)?.rpe)
+        .filter((value): value is number => value != null)
+      return {
+        ...stat,
+        completionRate: percentage(stat.completed, stat.sessions),
+        avgRpe: average(rpeValues),
+        recentRpe: rpeValues.slice(0, 5), // newest first
+      }
+    })
     .sort((a, b) => b.sessions - a.sessions)
+
+  // Easy run RPE trend (fatigue signal)
+  const easyRunRpeTrend = nonRestSessions
+    .filter((session) => session.type === 'easy' && isWithinRange(session.date, last56Start, today))
+    .sort((a, b) => a.date.localeCompare(b.date)) // oldest first
+    .map((session) => getFeedbackForSession(normalizedFeedbacks, session)?.rpe)
+    .filter((value): value is number => value != null)
+    .slice(-8) // last 8 easy runs
+
+  // Best tolerated + pain heavy types
+  const bestToleratedType = [...typeStatsList]
+    .filter((stat) => stat.sessions >= 2 && stat.avgRpe != null)
+    .sort((a, b) => (a.avgRpe ?? 10) - (b.avgRpe ?? 10))[0]?.label ?? null
+  const painHeavyType = [...typeStatsList]
+    .filter((stat) => stat.painCount > 0)
+    .sort((a, b) => b.painCount - a.painCount)[0]?.label ?? null
 
   const painCount14 = feedback14.filter((feedback) => feedback.painFlag).length
   const skipped14 = nonRestSessions.filter((session) =>
@@ -853,6 +878,9 @@ export function buildAthleteInsights({
       weeklyDurationDelta,
       highestRpeType,
       mostSkippedType,
+      bestToleratedType,
+      painHeavyType,
+      easyRunRpeTrend,
     },
     unplannedActivities,
     typeStats: typeStatsList,
