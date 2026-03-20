@@ -1,6 +1,6 @@
 'use client'
 
-import { startTransition, useEffect, useState } from 'react'
+import { startTransition, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { getWeekDays, intensityColor, sessionTypeLabel, toISODate } from '@/lib/utils'
 import { AthleteBottomNav } from './AthleteBottomNav'
@@ -9,7 +9,7 @@ import { PWAInstallBanner } from '@/components/ui/PWAInstallBanner'
 import type { AthleteFeedbackByDay, AthleteTrainingSessionRow } from '@/lib/athlete-data'
 import { dbRowToFeedback, FeedbackData, FeedbackModal } from './FeedbackModal'
 import { FEELING_LABELS } from '@/lib/constants'
-import { getSessionExecutionLabel, getSessionExecutionStatus, getSessionExecutionTone, isSessionCompleted, isSessionSkipped } from '@/lib/session-status'
+import { getSessionExecutionStatus, isSessionCompleted, isSessionSkipped } from '@/lib/session-status'
 import { markSessionCompletedByAthlete, markSessionSkippedByAthlete } from '@/lib/actions/sessions'
 
 
@@ -135,12 +135,22 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
   const weekDays = getWeekDays(0)
   const coachReply = textFeedback?.coach_reply || voiceFeedback?.coach_reply || null
   const sessionStatus = daySession ? (optimisticSessionStatus ?? getSessionExecutionStatus(daySession)) : null
-  const sessionTone = daySession ? getSessionExecutionTone({ ...daySession, status: sessionStatus ?? undefined }) : 'muted'
 
-  useEffect(() => {
+  function resetDayState() {
+    setOptimisticTextFeedback(null)
+    setOptimisticVoiceFeedback(null)
+    setOptimisticSessionStatus(null)
+    setStatusError(null)
+    setSkipFlowOpen(false)
+    setCompletedToast(false)
+  }
+
+  // Sync selectedDate when initialDate prop changes (key prop or server re-render)
+  const [trackedInitial, setTrackedInitial] = useState(initialDate)
+  if (trackedInitial !== initialDate) {
+    setTrackedInitial(initialDate)
     setSelectedDate(initialDate)
-    resetDayState()
-  }, [initialDate])
+  }
 
   function updateDateInUrl(dateStr: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -151,15 +161,6 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
     }
     const query = params.toString()
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
-  }
-
-  function resetDayState() {
-    setOptimisticTextFeedback(null)
-    setOptimisticVoiceFeedback(null)
-    setOptimisticSessionStatus(null)
-    setStatusError(null)
-    setSkipFlowOpen(false)
-    setCompletedToast(false)
   }
 
   const canGoBack = selectedDate > minDate

@@ -572,11 +572,11 @@ Tabela `invoices` istnieje z pełną strukturą. Coach-side CRUD działa w `lib/
 
 ---
 
-### Etap 11: Stany błędu, puste stany, dostęp
+### Etap 11: Stany błędu, puste stany, dostęp ✅
 
 Priorytet: **Średni**
 Ryzyko: **Niskie**
-**Status: DO ZROBIENIA**
+**Status: WDROŻONY**
 
 #### Zakres
 
@@ -610,11 +610,11 @@ Ryzyko: **Niskie**
 
 ---
 
-### Etap 12: Spójność danych, dat i architektury
+### Etap 12: Spójność danych, dat i architektury ✅
 
 Priorytet: **Średni**
 Ryzyko: **Średnie**
-**Status: DO ZROBIENIA**
+**Status: WDROŻONY**
 
 #### Zakres
 
@@ -643,11 +643,11 @@ Ryzyko: **Średnie**
 
 ---
 
-### Etap 13: Final polish UX/UI
+### Etap 13: Final polish UX/UI ✅
 
 Priorytet: **Średni**
 Ryzyko: **Niskie**
-**Status: DO ZROBIENIA**
+**Status: WDROŻONY**
 
 #### Zakres
 

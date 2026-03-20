@@ -26,12 +26,12 @@ export default function AthleteError({ error, reset }: { error: Error; reset: ()
     <div className="min-h-screen flex items-center justify-center p-8" style={{ background: 'var(--bg-base)' }}>
       <ErrorScreen
         variant={variant}
-        title={variant === 'access' ? 'Sesja wygasła' : undefined}
+        title={variant === 'access' ? 'Sesja wygasła' : variant === 'data' ? 'Błąd ładowania' : 'Coś poszło nie tak'}
         description={variant === 'access'
-          ? 'Twój dostęp wygasł. Poproś trenera o nowy link zaproszenia.'
+          ? 'Twoja sesja wygasła. Kliknij ponownie link od trenera, żeby się zalogować.'
           : variant === 'data'
-          ? 'Nie udało się załadować danych. Sprawdź połączenie internetowe.'
-          : 'Coś poszło nie tak. Spróbuj odświeżyć stronę.'
+          ? 'Nie udało się załadować danych. Sprawdź połączenie i spróbuj ponownie.'
+          : 'Wystąpił nieoczekiwany błąd. Spróbuj odświeżyć stronę.'
         }
         actions={variant === 'access' ? accessActions : defaultActions}
       />

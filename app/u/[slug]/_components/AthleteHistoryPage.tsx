@@ -80,7 +80,6 @@ export function AthleteHistoryPage({ athlete, sessions, feedbacks, stravaConnect
 
   const monthSessions = sessions.filter(s => s.date.slice(0, 7) === selectedMonth)
   const completedCount = monthSessions.filter(s => isSessionCompleted(s)).length
-  const skippedCount = monthSessions.filter(s => isSessionSkipped(s)).length
   const totalKm = monthSessions.reduce((sum, s) => sum + (s.actual_distance || 0), 0)
   const totalMin = monthSessions.reduce((sum, s) => sum + (s.actual_duration || 0), 0)
   const completionRate = monthSessions.length > 0 ? Math.round((completedCount / monthSessions.length) * 100) : 0
