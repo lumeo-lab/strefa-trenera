@@ -292,27 +292,97 @@ export function InsightsTab({ sessions, feedbacks, stravaActivities, today }: In
       )}
 
       {/* ── LOAD VIEW ── */}
-      {view === 'load' && (
-        <div className="space-y-4">
-          <div className="grid gap-2 md:grid-cols-4">
-            <Stat label="Obciążenie" value={insights.load.currentWeekLoad != null ? `${insights.load.currentWeekLoad}` : '—'} detail="Bieżący tydzień" tone="blue" tooltip="Czas (min) × RPE (1-10) ÷ 10" />
-            <Stat label="Średnia 4 tyg." value={insights.load.rolling4WeekAverage != null ? `${insights.load.rolling4WeekAverage}` : '—'} detail="Bazowy poziom" />
-            <Stat label="Zmiana" value={insights.load.deltaPercent != null ? `${insights.load.deltaPercent > 0 ? '+' : ''}${insights.load.deltaPercent}%` : '—'} detail="vs poprzedni tydzień" tone={loadTone} />
-            <Stat label="Trend" value={insights.load.trendLabel} detail="Kierunek zmian" />
-          </div>
-          <SimpleBarChart items={weeklyLoadItems} />
-
-          <Section title="Strefy tętna">
-            <div className="grid gap-2 md:grid-cols-4 mb-3">
-              <Stat label="Z1 + Z2 (łatwo)" value={insights.zones.lowShare != null ? `${insights.zones.lowShare}%` : '—'} detail="Cel: ~80%" tone="green" tooltip="Strefa łatwa / aerobowa. Buduje bazę tlenową." />
-              <Stat label="Z3 (średnio)" value={insights.zones.moderateShare != null ? `${insights.zones.moderateShare}%` : '—'} detail="Próg tlenowy" tone="orange" />
-              <Stat label="Z4 + Z5 (ciężko)" value={insights.zones.highShare != null ? `${insights.zones.highShare}%` : '—'} detail={`Cel: ~20%. ${insights.zones.highShare != null && insights.zones.highShare > 30 ? '⚠️ Wysoki udział!' : ''}`} tone={insights.zones.highShare != null && insights.zones.highShare > 30 ? 'red' : 'default'} tooltip="Strefa progowa i VO2max. >30% = ryzyko przeciążenia." />
-              <Stat label="Łączny czas" value={`${insights.zones.totalMinutes} min`} detail={`Z4 ${insights.zones.z4} · Z5 ${insights.zones.z5} min`} tone="blue" />
+      {view === 'load' && (() => {
+        const acwr = insights.load.acwr
+        const acwrTone = acwr == null ? 'default' : acwr >= 1.5 ? 'red' : acwr >= 1.3 ? 'orange' : acwr < 0.8 ? 'orange' : 'green'
+        const acwrLabel = acwr == null ? 'Za mało danych'
+          : acwr >= 1.5 ? 'Ryzyko — obciążenie rośnie za szybko. Zredukuj objętość.'
+          : acwr >= 1.3 ? 'Ostrożność — blisko progu bezpieczeństwa. Nie zwiększaj.'
+          : acwr < 0.8 ? 'Uwaga — obciążenie spada. Forma może uciekać.'
+          : 'W normie — możesz utrzymać lub lekko zwiększyć.'
+        const avgDist = weeklyLoadItems.length > 0 ? (insights.weeklyLoad.reduce((s, w) => s + w.actualDistance, 0) / insights.weeklyLoad.length).toFixed(1) : '0'
+        const avgPlannedDist = insights.weeklyLoad.length > 0 ? (insights.weeklyLoad.reduce((s, w) => s + w.plannedDistance, 0) / insights.weeklyLoad.length).toFixed(1) : '0'
+        const loadInterpretation = insights.load.deltaPercent != null
+          ? `Obciążenie ${insights.load.deltaPercent > 0 ? 'wzrosło' : 'spadło'} o ${Math.abs(insights.load.deltaPercent)}% vs poprzedni tydzień. ${Math.abs(insights.load.deltaPercent) > 15 ? 'Powyżej 15% = ostrożność.' : 'W bezpiecznym zakresie.'}`
+          : 'Za mało danych do porównania tygodni.'
+        const zoneInterpretation = insights.zones.lowShare != null
+          ? `Rozkład: ${insights.zones.lowShare}% łatwo / ${100 - insights.zones.lowShare}% ciężko. ${insights.zones.lowShare >= 75 ? 'Blisko modelu 80/20.' : insights.zones.lowShare >= 60 ? 'Za dużo intensywności — rozważ więcej łatwych biegów.' : 'Zdecydowanie za dużo ciężkich sesji.'}`
+          : 'Brak danych o strefach tętna.'
+        return (
+          <div className="space-y-4">
+            {/* ACWR gauge */}
+            <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: 'var(--text-muted)' }}>Bezpieczeństwo obciążenia</span>
+                    <span className="text-[10px] cursor-help" title="Stosunek obciążenia z ostatniego tygodnia do średniej z 4 tygodni. 0.8-1.3 = bezpiecznie, 1.3-1.5 = ostrożność, >1.5 = ryzyko kontuzji, <0.8 = spadek formy." style={{ color: 'var(--text-muted)' }}>ℹ️</span>
+                  </div>
+                  <div className="text-2xl font-bold mt-1" style={{ color: { default: 'var(--text-muted)', green: '#2ECC71', orange: '#FF5C1B', red: '#E74C3C' }[acwrTone] }}>
+                    {acwr ?? '—'}
+                  </div>
+                </div>
+                {/* Visual gauge bar */}
+                <div className="w-48 shrink-0">
+                  <div className="h-3 rounded-full overflow-hidden flex" style={{ background: 'var(--bg-subtle)' }}>
+                    <div style={{ width: '26.7%', background: '#F1C40F' }} />
+                    <div style={{ width: '16.7%', background: '#2ECC71' }} />
+                    <div style={{ width: '6.7%', background: '#F1C40F' }} />
+                    <div style={{ width: '50%', background: '#E74C3C' }} />
+                  </div>
+                  <div className="flex justify-between text-[9px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                    <span>0.8</span><span>1.3</span><span>1.5</span><span>2.0</span>
+                  </div>
+                  {acwr != null && (
+                    <div className="relative h-0">
+                      <div className="absolute -top-4" style={{ left: `${Math.min(Math.max((acwr / 2) * 100, 2), 98)}%`, transform: 'translateX(-50%)' }}>
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: { default: 'var(--text-muted)', green: '#2ECC71', orange: '#FF5C1B', red: '#E74C3C' }[acwrTone] }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{acwrLabel}</div>
             </div>
-            <WeeklyZonesChart weeks={weeklyZones} />
-          </Section>
-        </div>
-      )}
+
+            {/* Load stats + chart */}
+            <Section title="Obciążenie tygodniowe">
+              <div className="grid gap-2 md:grid-cols-4 mb-2">
+                <Stat label="Bieżący" value={insights.load.currentWeekLoad != null ? `${insights.load.currentWeekLoad}` : '—'} detail="Ten tydzień" tone="blue" tooltip="Czas (min) × RPE (1-10) ÷ 10" />
+                <Stat label="Średnia 4 tyg." value={insights.load.rolling4WeekAverage != null ? `${insights.load.rolling4WeekAverage}` : '—'} detail="Bazowy poziom" />
+                <Stat label="Zmiana" value={insights.load.deltaPercent != null ? `${insights.load.deltaPercent > 0 ? '+' : ''}${insights.load.deltaPercent}%` : '—'} detail="vs poprzedni tydzień" tone={loadTone} />
+                <Stat label="Trend" value={insights.load.trendLabel} detail="Kierunek zmian" />
+              </div>
+              <SimpleBarChart items={weeklyLoadItems} />
+              <div className="text-xs mt-2 italic" style={{ color: 'var(--text-muted)' }}>{loadInterpretation}</div>
+            </Section>
+
+            {/* Km/week chart */}
+            <Section title="Dystans tygodniowy">
+              <SimpleBarChart items={insights.weeklyLoad.map(w => ({
+                label: formatDate(w.start, { day: 'numeric', month: 'short' }),
+                value: w.actualDistance,
+                detail: w.plannedDistance > 0 ? `plan: ${w.plannedDistance} km` : undefined,
+              }))} color="linear-gradient(180deg, #60A5FA, #93C5FD)" />
+              <div className="text-xs mt-2 italic" style={{ color: 'var(--text-muted)' }}>
+                Średnio {avgDist} km/tydz. {Number(avgPlannedDist) > 0 ? `Plan zakładał ${avgPlannedDist} km/tydz.` : ''}
+              </div>
+            </Section>
+
+            {/* Zones */}
+            <Section title="Strefy tętna">
+              <div className="grid gap-2 md:grid-cols-4 mb-2">
+                <Stat label="Z1 + Z2 (łatwo)" value={insights.zones.lowShare != null ? `${insights.zones.lowShare}%` : '—'} detail="Cel: ~80%" tone="green" tooltip="Strefa łatwa / aerobowa. Buduje bazę tlenową." />
+                <Stat label="Z3 (średnio)" value={insights.zones.moderateShare != null ? `${insights.zones.moderateShare}%` : '—'} detail="Próg tlenowy" tone="orange" />
+                <Stat label="Z4 + Z5 (ciężko)" value={insights.zones.highShare != null ? `${insights.zones.highShare}%` : '—'} detail={`Cel: ~20%. ${insights.zones.highShare != null && insights.zones.highShare > 30 ? '⚠️ Za dużo!' : ''}`} tone={insights.zones.highShare != null && insights.zones.highShare > 30 ? 'red' : 'default'} tooltip="Strefa progowa i VO2max. >30% = ryzyko." />
+                <Stat label="Łączny czas" value={`${insights.zones.totalMinutes} min`} detail={`Z4 ${insights.zones.z4} · Z5 ${insights.zones.z5} min`} tone="blue" />
+              </div>
+              <WeeklyZonesChart weeks={weeklyZones} />
+              <div className="text-xs mt-2 italic" style={{ color: 'var(--text-muted)' }}>{zoneInterpretation}</div>
+            </Section>
+          </div>
+        )
+      })()}
 
       {/* ── RESPONSE VIEW ── */}
       {view === 'response' && (

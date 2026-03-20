@@ -168,6 +168,7 @@ export type AthleteInsights = {
     previousWeekLoad: number | null
     deltaPercent: number | null
     rolling4WeekAverage: number | null
+    acwr: number | null
     trendLabel: string
   }
   zones: {
@@ -583,6 +584,11 @@ export function buildAthleteInsights({
     ? round1(weeklyLoad.reduce((sum, week) => sum + week.actualLoad, 0) / weeklyLoad.length)
     : null
 
+  // ACWR: Acute:Chronic Workload Ratio (safety indicator)
+  const acwr = latestWeek && rolling4WeekAverage && rolling4WeekAverage > 0
+    ? round1(latestWeek.actualLoad / rolling4WeekAverage)
+    : null
+
   if (dueSessions28.length >= 4 && completionRate !== null && completionRate < 60) {
     flags.push({
       tone: 'red',
@@ -793,6 +799,7 @@ export function buildAthleteInsights({
       previousWeekLoad: previousWeek ? previousWeek.actualLoad : null,
       deltaPercent: weeklyLoadDelta,
       rolling4WeekAverage,
+      acwr,
       trendLabel:
         weeklyLoadDelta == null
           ? 'Za mało danych'
