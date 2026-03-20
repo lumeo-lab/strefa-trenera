@@ -7,7 +7,7 @@ import { FeedbackDetail } from '@/components/coach/FeedbackCard'
 import { SelectField } from '@/components/ui/SelectField'
 import { SessionTypeDef } from '@/lib/session-type-defs'
 import { ProfileEmptyState } from '../ProfileStates'
-import { getSessionCompletionSourceLabel, getSessionExecutionLabel, getSessionExecutionStatus } from '@/lib/session-status'
+import { getSessionExecutionLabel, getSessionExecutionStatus } from '@/lib/session-status'
 import type {
   CoachStravaActivityRow,
   CoachTrainingSessionRow,
@@ -36,11 +36,11 @@ function deviationPercent(planned: number | null, actual: number | null): { valu
   return { value: pct, label: `${sign}${pct}%`, color }
 }
 
-const SOURCE_ICONS: Record<string, string> = {
-  athlete: '🏃',
-  coach: '👨‍💻',
-  strava: '⌚',
-  imported: '📥',
+const SOURCE_ICONS: Record<string, { icon: string; tooltip: string }> = {
+  athlete: { icon: '🏃', tooltip: 'Potwierdzone przez zawodnika — zawodnik oznaczył trening jako wykonany lub wysłał feedback.' },
+  coach: { icon: '👨‍💻', tooltip: 'Oznaczone przez trenera — trener ręcznie potwierdził wykonanie i wpisał wyniki.' },
+  strava: { icon: '⌚', tooltip: 'Wykryte ze Strava/zegarka — system automatycznie powiązał aktywność z zaplanowaną sesją.' },
+  imported: { icon: '📥', tooltip: 'Zaimportowane — dane zostały zaimportowane z zewnętrznego źródła.' },
 }
 
 // ── Component ──────────────────────────────────────────────────────────
@@ -178,7 +178,6 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, strava
       {/* Priority bar */}
       <div className="flex flex-wrap gap-1.5">
         {([
-          { key: 'needs-attention' as const, label: 'Wymaga uwagi', count: priorityCounts.unresolved + priorityCounts.skipped, color: '#E74C3C' },
           { key: 'detected' as const, label: 'Wykryte', count: priorityCounts.detected, color: '#60A5FA' },
           { key: 'key' as const, label: 'Kluczowe', count: priorityCounts.key, color: '#FF5C1B' },
         ]).filter(p => p.count > 0).map(p => (
@@ -251,8 +250,8 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, strava
         <table className="w-full min-w-[1100px] text-sm">
           <thead>
             <tr style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
-              {['Data', 'Sesja', 'Typ', 'Plan', 'Wykonanie', 'Δ', 'Status', ''].map(h => (
-                <th key={h || 'actions'} className="text-left px-4 py-3 font-medium text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{h}</th>
+              {['Data', 'Sesja', 'Typ', 'Plan', 'Wykonanie', 'Δ', 'Status', 'Feedback'].map(h => (
+                <th key={h} className="text-left px-4 py-3 font-medium text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -267,8 +266,7 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, strava
               const isExpanded = expandedRows.has(session.id)
               const isDescExpanded = expandedDescriptions.has(session.id)
               const status = getSessionExecutionStatus(session)
-              const sourceLabel = getSessionCompletionSourceLabel(session)
-              const sourceIcon = SOURCE_ICONS[session.completion_source ?? ''] ?? ''
+              const sourceData = SOURCE_ICONS[session.completion_source ?? '']
               const statusLabel = status === 'planned' && session.date < today ? 'Niewyjaśniona' : getSessionExecutionLabel(session)
               const tone = statusTone(session)
               const linkedActivity = session.linked_strava_activity_id ? stravaById.get(session.linked_strava_activity_id) : null
@@ -344,7 +342,7 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, strava
                         <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ color: tone.color, background: tone.bg }}>
                           {statusLabel}
                         </span>
-                        {sourceIcon && <span className="text-xs" title={sourceLabel ?? undefined}>{sourceIcon}</span>}
+                        {sourceData && <span className="text-xs cursor-help" title={sourceData.tooltip}>{sourceData.icon}</span>}
                       </div>
                       {status === 'skipped' && session.skipped_reason && (
                         <div className="text-[10px] mt-0.5 italic" style={{ color: 'var(--text-muted)' }}>
