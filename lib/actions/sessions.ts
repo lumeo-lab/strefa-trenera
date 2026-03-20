@@ -26,6 +26,8 @@ export async function createSession(_: unknown, formData: FormData) {
     planned_distance: plannedDistance = null,
     planned_duration: plannedDuration = null,
     planned_pace: plannedPace,
+    session_priority: sessionPriority = 'normal',
+    session_goal: sessionGoal,
     url,
     url_label: urlLabel,
     completed = false,
@@ -49,6 +51,8 @@ export async function createSession(_: unknown, formData: FormData) {
     planned_distance: plannedDistance,
     planned_duration: plannedDuration,
     planned_pace: plannedPace,
+    session_priority: sessionPriority,
+    session_goal: sessionGoal || null,
     url,
     url_label: urlLabel,
     ...getStatusUpdateForExecution(completed ? 'completed' : 'planned', completed ? 'coach' : null),
@@ -79,6 +83,9 @@ export async function updateSession(_: unknown, formData: FormData) {
   const { id, athlete_id: athleteId, ...updates } = parsed.data
 
   const nextUpdates: Record<string, unknown> = { ...updates }
+  if ('session_goal' in updates) {
+    nextUpdates.session_goal = updates.session_goal || null
+  }
   if ('completed' in updates && typeof updates.completed === 'boolean') {
     Object.assign(
       nextUpdates,
@@ -213,7 +220,7 @@ export async function duplicateWeekSessions(athleteId: string, from: string, to:
 
   const { data: sourceSessions, error: sourceError } = await supabase
     .from('training_sessions')
-    .select('date, type, title, description, planned_distance, planned_duration, planned_pace, url, url_label')
+    .select('date, type, title, description, planned_distance, planned_duration, planned_pace, session_priority, session_goal, url, url_label')
     .eq('coach_id', user.id)
     .eq('athlete_id', athleteId)
     .gte('date', from)
@@ -233,6 +240,8 @@ export async function duplicateWeekSessions(athleteId: string, from: string, to:
     planned_distance: session.planned_distance,
     planned_duration: session.planned_duration,
     planned_pace: session.planned_pace,
+    session_priority: session.session_priority,
+    session_goal: session.session_goal,
     url: session.url,
     url_label: session.url_label,
     ...getStatusUpdateForExecution('planned', null, null),
@@ -292,7 +301,7 @@ export async function saveWeekTemplate(athleteId: string, from: string, to: stri
 
   const { data: sessions, error: sessionsError } = await supabase
     .from('training_sessions')
-    .select('date, type, title, description, planned_distance, planned_duration, planned_pace, url, url_label')
+    .select('date, type, title, description, planned_distance, planned_duration, planned_pace, session_priority, session_goal, url, url_label')
     .eq('coach_id', user.id)
     .eq('athlete_id', athleteId)
     .gte('date', from)
@@ -320,6 +329,8 @@ export async function saveWeekTemplate(athleteId: string, from: string, to: stri
     planned_distance: session.planned_distance,
     planned_duration: session.planned_duration,
     planned_pace: session.planned_pace,
+    session_priority: session.session_priority,
+    session_goal: session.session_goal,
     url: session.url,
     url_label: session.url_label,
   }))
@@ -349,7 +360,7 @@ export async function applyWeekTemplate(athleteId: string, templateId: string, w
 
   const { data: items, error: itemsError } = await supabase
     .from('coach_week_template_items')
-    .select('day_offset, position, type, title, description, planned_distance, planned_duration, planned_pace, url, url_label')
+    .select('day_offset, position, type, title, description, planned_distance, planned_duration, planned_pace, session_priority, session_goal, url, url_label')
     .eq('template_id', templateId)
     .order('day_offset', { ascending: true })
     .order('position', { ascending: true })
@@ -367,6 +378,8 @@ export async function applyWeekTemplate(athleteId: string, templateId: string, w
     planned_distance: item.planned_distance,
     planned_duration: item.planned_duration,
     planned_pace: item.planned_pace,
+    session_priority: item.session_priority,
+    session_goal: item.session_goal,
     url: item.url,
     url_label: item.url_label,
     ...getStatusUpdateForExecution('planned', null, null),

@@ -136,7 +136,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
   const tabs = [
     { id: 'plan', label: 'Plan' },
-    { id: 'insights', label: 'Wykonanie' },
+    { id: 'insights', label: 'Analiza' },
     { id: 'history', label: 'Historia' },
     { id: 'feedback', label: unreadFeedbackCount > 0 ? `Feedback (${unreadFeedbackCount})` : 'Feedback' },
     { id: 'races', label: 'Zawody' },
@@ -452,6 +452,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               sessions={initialSessions}
               feedbackBySession={feedbackBySession}
               feedbackByDate={feedbackByDate}
+              stravaActivities={stravaActivities}
               today={today}
               currentMonth={currentMonth}
               allSessionTypes={allSessionTypes}
@@ -460,7 +461,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         )}
 
         {activeTab === 'insights' && (
-          <TabErrorBoundary tabName="Wykonanie">
+          <TabErrorBoundary tabName="Analiza">
             <InsightsTab
               sessions={initialSessions}
               feedbacks={athleteFeedbacks}

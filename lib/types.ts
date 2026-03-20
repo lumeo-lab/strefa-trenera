@@ -7,6 +7,10 @@ export type SessionExecutionStatus = 'planned' | 'completed' | 'skipped' | 'dete
 export type SessionCompletionSource = 'athlete' | 'coach' | 'strava' | 'imported'
 export type SessionActualDataSource = 'athlete' | 'coach' | 'strava' | 'imported'
 export type SessionComplianceState = 'completed' | 'skipped' | 'detected' | 'past_unresolved' | 'upcoming'
+export type SessionPriority = 'key' | 'normal' | 'optional'
+export type SessionGoal = 'recovery' | 'z2_volume' | 'threshold' | 'vo2' | 'speed' | 'long_run' | 'strength' | 'race_specific'
+export type TrainingLoadSource = 'strava_hr' | 'estimated_rpe' | 'coach_manual' | 'imported'
+export type HrZoneMethod = 'custom' | 'threshold_hr'
 
 export interface Athlete {
   id: string
@@ -52,6 +56,15 @@ export interface Session {
   completedAt?: string | null
   linkedStravaActivityId?: number | null
   skippedReason?: string | null
+  sessionPriority?: SessionPriority
+  sessionGoal?: SessionGoal | null
+  trainingLoad?: number | null
+  trainingLoadSource?: TrainingLoadSource | null
+  timeInHrZ1?: number | null
+  timeInHrZ2?: number | null
+  timeInHrZ3?: number | null
+  timeInHrZ4?: number | null
+  timeInHrZ5?: number | null
   feedbackId?: string
 }
 

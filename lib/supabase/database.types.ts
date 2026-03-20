@@ -91,6 +91,8 @@ export type Database = {
           planned_distance: number | null
           planned_duration: number | null
           planned_pace: string | null
+          session_priority: string
+          session_goal: string | null
           url: string | null
           url_label: string | null
           created_at: string
@@ -106,6 +108,8 @@ export type Database = {
           planned_distance?: number | null
           planned_duration?: number | null
           planned_pace?: string | null
+          session_priority?: string
+          session_goal?: string | null
           url?: string | null
           url_label?: string | null
           created_at?: string
@@ -135,6 +139,12 @@ export type Database = {
           height: number | null
           weight: number | null
           join_date: string
+          hr_zone_method: string
+          threshold_hr: number | null
+          hr_zone_z1_max: number | null
+          hr_zone_z2_max: number | null
+          hr_zone_z3_max: number | null
+          hr_zone_z4_max: number | null
           personal_bests: Record<string, string>
           injuries: string[]
           injury_history: {
@@ -168,6 +178,12 @@ export type Database = {
           height?: number | null
           weight?: number | null
           join_date?: string
+          hr_zone_method?: string
+          threshold_hr?: number | null
+          hr_zone_z1_max?: number | null
+          hr_zone_z2_max?: number | null
+          hr_zone_z3_max?: number | null
+          hr_zone_z4_max?: number | null
           personal_bests?: Record<string, string>
           injuries?: string[]
           injury_history?: {
@@ -204,6 +220,15 @@ export type Database = {
           completed_at: string | null
           linked_strava_activity_id: number | null
           skipped_reason: string | null
+          session_priority: string
+          session_goal: string | null
+          training_load: number | null
+          training_load_source: string | null
+          time_in_hr_z1: number | null
+          time_in_hr_z2: number | null
+          time_in_hr_z3: number | null
+          time_in_hr_z4: number | null
+          time_in_hr_z5: number | null
           created_at: string
         }
         Insert: {
@@ -229,6 +254,15 @@ export type Database = {
           completed_at?: string | null
           linked_strava_activity_id?: number | null
           skipped_reason?: string | null
+          session_priority?: string
+          session_goal?: string | null
+          training_load?: number | null
+          training_load_source?: string | null
+          time_in_hr_z1?: number | null
+          time_in_hr_z2?: number | null
+          time_in_hr_z3?: number | null
+          time_in_hr_z4?: number | null
+          time_in_hr_z5?: number | null
         }
         Update: Partial<Database['public']['Tables']['training_sessions']['Insert']>
       }

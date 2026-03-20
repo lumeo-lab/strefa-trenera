@@ -1,14 +1,28 @@
 import type { Database } from '@/lib/supabase/database.types'
-import type { SessionActualDataSource, SessionCompletionSource, SessionExecutionStatus, SessionType } from '@/lib/types'
+import type {
+  HrZoneMethod,
+  SessionActualDataSource,
+  SessionCompletionSource,
+  SessionExecutionStatus,
+  SessionGoal,
+  SessionPriority,
+  SessionType,
+  TrainingLoadSource,
+} from '@/lib/types'
 
 type PublicTableRow<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
 
-export type CoachAthleteRow = PublicTableRow<'athletes'>
-export type CoachTrainingSessionRow = Omit<PublicTableRow<'training_sessions'>, 'type' | 'status' | 'completion_source' | 'actual_data_source'> & {
+export type CoachAthleteRow = Omit<PublicTableRow<'athletes'>, 'hr_zone_method'> & {
+  hr_zone_method: HrZoneMethod
+}
+export type CoachTrainingSessionRow = Omit<PublicTableRow<'training_sessions'>, 'type' | 'status' | 'completion_source' | 'actual_data_source' | 'session_priority' | 'session_goal' | 'training_load_source'> & {
   type: SessionType
   status: SessionExecutionStatus
   completion_source: SessionCompletionSource | null
   actual_data_source: SessionActualDataSource | null
+  session_priority: SessionPriority
+  session_goal: SessionGoal | null
+  training_load_source: TrainingLoadSource | null
   url: string | null
   url_label: string | null
 }

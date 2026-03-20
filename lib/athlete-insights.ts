@@ -6,10 +6,13 @@ import {
   shouldCountSessionInCompliance,
 } from '@/lib/session-status'
 import type {
+  SessionGoal,
   SessionActualDataSource,
   SessionCompletionSource,
   SessionExecutionStatus,
+  SessionPriority,
   SessionType,
+  TrainingLoadSource,
 } from '@/lib/types'
 import { parseFeedbackTranscript, sessionTypeLabel } from '@/lib/utils'
 
@@ -27,6 +30,15 @@ type InsightSession = {
   completion_source?: SessionCompletionSource | null
   actual_data_source?: SessionActualDataSource | null
   linked_strava_activity_id?: number | null
+  session_priority?: SessionPriority | null
+  session_goal?: SessionGoal | null
+  training_load?: number | null
+  training_load_source?: TrainingLoadSource | null
+  time_in_hr_z1?: number | null
+  time_in_hr_z2?: number | null
+  time_in_hr_z3?: number | null
+  time_in_hr_z4?: number | null
+  time_in_hr_z5?: number | null
 }
 
 type InsightFeedback = {
@@ -148,7 +160,51 @@ export type AthleteInsights = {
     actualDistance: number
     plannedDuration: number
     actualDuration: number
+    actualLoad: number
+    highIntensityMinutes: number
   }>
+  load: {
+    currentWeekLoad: number | null
+    previousWeekLoad: number | null
+    deltaPercent: number | null
+    rolling4WeekAverage: number | null
+    trendLabel: string
+  }
+  zones: {
+    totalMinutes: number
+    z1: number
+    z2: number
+    z3: number
+    z4: number
+    z5: number
+    lowShare: number | null
+    moderateShare: number | null
+    highShare: number | null
+    weekly: Array<{
+      start: string
+      end: string
+      z1: number
+      z2: number
+      z3: number
+      z4: number
+      z5: number
+    }>
+  }
+  keySessions: {
+    due: number
+    completed: number
+    skipped: number
+    unresolved: number
+    completionRate: number | null
+    avgRpe: number | null
+    painCount: number
+  }
+  recommendation: {
+    tone: 'green' | 'orange' | 'red' | 'blue'
+    title: string
+    confidence: 'high' | 'medium' | 'low'
+    reasons: string[]
+  }
   advanced: {
     weeklyDistanceDelta: number | null
     weeklyDurationDelta: number | null
@@ -194,6 +250,10 @@ const ACTUAL_SOURCE_LABELS: Record<SessionActualDataSource, string> = {
   coach: 'Korekta trenera',
   strava: 'Strava / urządzenie',
   imported: 'Import historyczny',
+}
+
+function round1(value: number) {
+  return Number(value.toFixed(1))
 }
 
 function average(values: number[]) {
@@ -292,6 +352,39 @@ function distanceKmFromMeters(distance: number | null) {
   return Number((distance / 1000).toFixed(2))
 }
 
+function getSessionDurationMinutes(session: InsightSession) {
+  return session.actual_duration ?? session.planned_duration ?? 0
+}
+
+function getSessionTrainingLoad(session: InsightSession, feedback: NormalizedFeedback | null) {
+  if (session.training_load != null) {
+    return {
+      value: round1(session.training_load),
+      source: session.training_load_source ?? null,
+    }
+  }
+
+  const duration = getSessionDurationMinutes(session)
+  if (duration > 0 && feedback?.rpe != null) {
+    return {
+      value: round1((duration * feedback.rpe) / 10),
+      source: 'estimated_rpe' as const,
+    }
+  }
+
+  return { value: null, source: null }
+}
+
+function sumZoneMinutes(session: InsightSession) {
+  return {
+    z1: session.time_in_hr_z1 ?? 0,
+    z2: session.time_in_hr_z2 ?? 0,
+    z3: session.time_in_hr_z3 ?? 0,
+    z4: session.time_in_hr_z4 ?? 0,
+    z5: session.time_in_hr_z5 ?? 0,
+  }
+}
+
 export function buildAthleteInsights({
   sessions,
   feedbacks,
@@ -374,6 +467,19 @@ export function buildAthleteInsights({
     const end = getWeekEnd(start)
     const weekSessions = nonRestSessions.filter((session) => isWithinRange(session.date, start, end))
     const dueWeekSessions = weekSessions.filter((session) => shouldCountSessionInCompliance(session, today))
+    const weekLoad = weekSessions.reduce((sum, session) => {
+      const feedback = getFeedbackForSession(normalizedFeedbacks, session)
+      return sum + (getSessionTrainingLoad(session, feedback).value ?? 0)
+    }, 0)
+    const weekZones = weekSessions.reduce((acc, session) => {
+      const zones = sumZoneMinutes(session)
+      acc.z1 += zones.z1
+      acc.z2 += zones.z2
+      acc.z3 += zones.z3
+      acc.z4 += zones.z4
+      acc.z5 += zones.z5
+      return acc
+    }, { z1: 0, z2: 0, z3: 0, z4: 0, z5: 0 })
 
     return {
       start,
@@ -386,8 +492,26 @@ export function buildAthleteInsights({
       actualDistance: Number(weekSessions.reduce((sum, session) => sum + (session.actual_distance ?? 0), 0).toFixed(1)),
       plannedDuration: Math.round(weekSessions.reduce((sum, session) => sum + (session.planned_duration ?? 0), 0)),
       actualDuration: Math.round(weekSessions.reduce((sum, session) => sum + (session.actual_duration ?? 0), 0)),
+      actualLoad: round1(weekLoad),
+      highIntensityMinutes: weekZones.z4 + weekZones.z5,
     }
   }).reverse()
+
+  const zones28 = dueSessions28.reduce((acc, session) => {
+    const zones = sumZoneMinutes(session)
+    acc.z1 += zones.z1
+    acc.z2 += zones.z2
+    acc.z3 += zones.z3
+    acc.z4 += zones.z4
+    acc.z5 += zones.z5
+    return acc
+  }, { z1: 0, z2: 0, z3: 0, z4: 0, z5: 0 })
+  const totalZoneMinutes = zones28.z1 + zones28.z2 + zones28.z3 + zones28.z4 + zones28.z5
+
+  const keySessions28 = dueSessions28.filter((session) => session.session_priority === 'key')
+  const keySessionFeedbacks = keySessions28
+    .map((session) => getFeedbackForSession(normalizedFeedbacks, session))
+    .filter((feedback): feedback is NormalizedFeedback => feedback != null)
 
   const typeStats = nonRestSessions
     .filter((session) => isWithinRange(session.date, last56Start, today) && shouldCountSessionInCompliance(session, today))
@@ -455,6 +579,12 @@ export function buildAthleteInsights({
   const weeklyDurationDelta = latestWeek && previousWeek && previousWeek.actualDuration > 0
     ? percentageDelta(latestWeek.actualDuration, previousWeek.actualDuration)
     : null
+  const weeklyLoadDelta = latestWeek && previousWeek && previousWeek.actualLoad > 0
+    ? percentageDelta(latestWeek.actualLoad, previousWeek.actualLoad)
+    : null
+  const rolling4WeekAverage = weeklyLoad.length > 0
+    ? round1(weeklyLoad.reduce((sum, week) => sum + week.actualLoad, 0) / weeklyLoad.length)
+    : null
 
   if (dueSessions28.length >= 4 && completionRate !== null && completionRate < 60) {
     flags.push({
@@ -518,6 +648,48 @@ export function buildAthleteInsights({
       title: 'Brak pilnych sygnałów',
       detail: 'W ostatnich tygodniach nie widać powtarzalnych ostrzeżeń w realizacji ani w reakcji zawodnika.',
     })
+  }
+
+  const keyCompletionRate = percentage(
+    keySessions28.filter((session) => getSessionExecutionStatus(session) === 'completed').length,
+    keySessions28.length,
+  )
+
+  const recommendationReasons: string[] = []
+  let recommendationTone: AthleteInsights['recommendation']['tone'] = 'green'
+  let recommendationTitle = 'Można ostrożnie progresować'
+  let recommendationConfidence: AthleteInsights['recommendation']['confidence'] = 'medium'
+
+  if (dueSessions28.length < 4 || feedback28.length < 2) {
+    recommendationTone = 'blue'
+    recommendationTitle = 'Za mało danych do mocnej decyzji'
+    recommendationConfidence = 'low'
+    recommendationReasons.push('Potrzeba większej liczby potwierdzonych sesji i feedbacków, żeby recommendation była wiarygodna.')
+  } else {
+    if (painCount14 >= 2) recommendationReasons.push(`${painCount14} sygnały bólu w ostatnich 14 dniach.`)
+    if (recentAvgRpe != null && recentAvgRpe >= 7) recommendationReasons.push(`Średnie RPE w ostatnich 14 dniach wynosi ${recentAvgRpe}.`)
+    if (weeklyLoadDelta != null) recommendationReasons.push(`Load tydzień do tygodnia zmienił się o ${weeklyLoadDelta > 0 ? '+' : ''}${weeklyLoadDelta}%.`)
+    if (keySessions28.length > 0 && keyCompletionRate != null) recommendationReasons.push(`Kluczowe sesje: ${keyCompletionRate}% wykonania.`)
+
+    const highIntensityShare = totalZoneMinutes > 0 ? percentage(zones28.z4 + zones28.z5, totalZoneMinutes) : null
+
+    if (painCount14 >= 2 || (recentAvgRpe != null && recentAvgRpe >= 7.5 && (weeklyLoadDelta ?? 0) > 10)) {
+      recommendationTone = 'red'
+      recommendationTitle = 'Rozważ lżejszy tydzień lub zdjęcie intensywności'
+      recommendationConfidence = 'high'
+    } else if ((weeklyLoadDelta != null && weeklyLoadDelta > 18) || (highIntensityShare != null && highIntensityShare > 30) || (keyCompletionRate != null && keyCompletionRate < 70)) {
+      recommendationTone = 'orange'
+      recommendationTitle = 'Utrzymaj lub monitoruj bez dalszej progresji'
+      recommendationConfidence = 'medium'
+    } else {
+      recommendationTone = 'green'
+      recommendationTitle = 'Można utrzymać kierunek i lekko progresować'
+      recommendationConfidence = sessionsWithActuals28.length >= 3 ? 'high' : 'medium'
+    }
+  }
+
+  if (recommendationReasons.length === 0) {
+    recommendationReasons.push('Brak wyraźnych sygnałów przeciążenia przy obecnej realizacji planu.')
   }
 
   const recentSessions = nonRestSessions
@@ -619,6 +791,59 @@ export function buildAthleteInsights({
       }))
       .sort((a, b) => b.count - a.count),
     weeklyLoad,
+    load: {
+      currentWeekLoad: latestWeek ? latestWeek.actualLoad : null,
+      previousWeekLoad: previousWeek ? previousWeek.actualLoad : null,
+      deltaPercent: weeklyLoadDelta,
+      rolling4WeekAverage,
+      trendLabel:
+        weeklyLoadDelta == null
+          ? 'Za mało danych'
+          : weeklyLoadDelta >= 12
+            ? 'Mocny wzrost'
+            : weeklyLoadDelta <= -12
+              ? 'Wyraźny spadek'
+              : 'Stabilnie',
+    },
+    zones: {
+      totalMinutes: totalZoneMinutes,
+      z1: zones28.z1,
+      z2: zones28.z2,
+      z3: zones28.z3,
+      z4: zones28.z4,
+      z5: zones28.z5,
+      lowShare: totalZoneMinutes > 0 ? percentage(zones28.z1 + zones28.z2, totalZoneMinutes) : null,
+      moderateShare: totalZoneMinutes > 0 ? percentage(zones28.z3, totalZoneMinutes) : null,
+      highShare: totalZoneMinutes > 0 ? percentage(zones28.z4 + zones28.z5, totalZoneMinutes) : null,
+      weekly: weeklyLoad.map((week) => {
+        const weekSessions = dueSessions28.filter((session) => isWithinRange(session.date, week.start, week.end))
+        const zones = weekSessions.reduce((acc, session) => {
+          const next = sumZoneMinutes(session)
+          acc.z1 += next.z1
+          acc.z2 += next.z2
+          acc.z3 += next.z3
+          acc.z4 += next.z4
+          acc.z5 += next.z5
+          return acc
+        }, { z1: 0, z2: 0, z3: 0, z4: 0, z5: 0 })
+        return { start: week.start, end: week.end, ...zones }
+      }),
+    },
+    keySessions: {
+      due: keySessions28.length,
+      completed: keySessions28.filter((session) => getSessionExecutionStatus(session) === 'completed').length,
+      skipped: keySessions28.filter((session) => getSessionExecutionStatus(session) === 'skipped').length,
+      unresolved: keySessions28.filter((session) => isSessionPastUnresolved(session, today)).length,
+      completionRate: keyCompletionRate,
+      avgRpe: average(keySessionFeedbacks.map((feedback) => feedback.rpe).filter((value): value is number => value != null)),
+      painCount: keySessionFeedbacks.filter((feedback) => feedback.painFlag).length,
+    },
+    recommendation: {
+      tone: recommendationTone,
+      title: recommendationTitle,
+      confidence: recommendationConfidence,
+      reasons: recommendationReasons.slice(0, 4),
+    },
     advanced: {
       weeklyDistanceDelta,
       weeklyDurationDelta,

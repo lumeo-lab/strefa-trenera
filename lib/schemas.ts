@@ -1,5 +1,9 @@
 import { z } from 'zod'
 
+const SESSION_PRIORITY_VALUES = ['key', 'normal', 'optional'] as const
+const SESSION_GOAL_VALUES = ['recovery', 'z2_volume', 'threshold', 'vo2', 'speed', 'long_run', 'strength', 'race_specific'] as const
+const HR_ZONE_METHOD_VALUES = ['custom', 'threshold_hr'] as const
+
 const optionalTrimmedString = (max: number) =>
   z.preprocess(
     (value) => typeof value === 'string' ? value.trim().slice(0, max) : value,
@@ -57,6 +61,15 @@ export const updateAthleteSchema = z.object({
   age: nullableInt(10, 99).optional(),
   height: nullableInt(100, 250).optional(),
   weight: nullableNumber(30, 300).optional(),
+  hr_zone_method: z.preprocess(
+    (value) => typeof value === 'string' ? value.trim() : value,
+    z.enum(HR_ZONE_METHOD_VALUES).optional()
+  ),
+  threshold_hr: nullableInt(80, 240).optional(),
+  hr_zone_z1_max: nullableInt(80, 240).optional(),
+  hr_zone_z2_max: nullableInt(80, 240).optional(),
+  hr_zone_z3_max: nullableInt(80, 240).optional(),
+  hr_zone_z4_max: nullableInt(80, 240).optional(),
   package_price: z.preprocess((value) => value === '' ? undefined : value, z.coerce.number().min(0, 'Cena nie może być ujemna').optional()),
   status: z.preprocess(
     (value) => typeof value === 'string' ? value.trim().slice(0, 120) : value,
@@ -75,6 +88,14 @@ export const createSessionSchema = z.object({
   planned_distance: nullableNumber(0).optional(),
   planned_duration: nullableInt(0).optional(),
   planned_pace: optionalTrimmedString(50),
+  session_priority: z.preprocess(
+    (value) => typeof value === 'string' ? value.trim() : value,
+    z.enum(SESSION_PRIORITY_VALUES).optional()
+  ),
+  session_goal: z.preprocess(
+    (value) => typeof value === 'string' ? value.trim().slice(0, 60) : value,
+    z.enum(SESSION_GOAL_VALUES).optional().or(z.literal(''))
+  ),
   url: optionalTrimmedString(1000),
   url_label: optionalTrimmedString(120),
   completed: z.preprocess((value) => value === 'true' || value === true, z.boolean()).optional(),

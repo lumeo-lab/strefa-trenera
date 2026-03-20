@@ -10,6 +10,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { PersonalBestsEditor } from './data/PersonalBestsEditor'
 import { InjuryEditor } from './data/InjuryEditor'
 import type { CoachAthleteRow, CoachPackageRow } from '../types'
+import type { HrZoneMethod } from '@/lib/types'
 
 const inputStyle = INPUT_STYLE
 
@@ -45,6 +46,12 @@ export function DataTab({
     height: athlete.height?.toString() ?? '',
     weight: athlete.weight?.toString() ?? '',
     join_date: athlete.join_date ?? '',
+    hr_zone_method: athlete.hr_zone_method ?? 'custom',
+    threshold_hr: athlete.threshold_hr?.toString() ?? '',
+    hr_zone_z1_max: athlete.hr_zone_z1_max?.toString() ?? '',
+    hr_zone_z2_max: athlete.hr_zone_z2_max?.toString() ?? '',
+    hr_zone_z3_max: athlete.hr_zone_z3_max?.toString() ?? '',
+    hr_zone_z4_max: athlete.hr_zone_z4_max?.toString() ?? '',
   })
   const [dataSaving, setDataSaving] = useState(false)
   const [dataSaved, setDataSaved] = useState(false)
@@ -83,6 +90,15 @@ export function DataTab({
     ['Cena miesięczna', dataEdit.package_price ? `${formatCurrency(Number(dataEdit.package_price))}/mies.` : ''],
     ['Status zawodnika', athlete.status || '—'],
     ['Data dołączenia', dataEdit.join_date ? formatDate(dataEdit.join_date, { day: 'numeric', month: 'long', year: 'numeric' }) : '—'],
+  ]
+
+  const hrZoneRows: [string, string][] = [
+    ['Metoda stref', dataEdit.hr_zone_method === 'threshold_hr' ? 'Threshold HR' : 'Ręczna'],
+    ['Threshold HR', dataEdit.threshold_hr ? `${dataEdit.threshold_hr} bpm` : '—'],
+    ['Z1 max', dataEdit.hr_zone_z1_max ? `${dataEdit.hr_zone_z1_max} bpm` : '—'],
+    ['Z2 max', dataEdit.hr_zone_z2_max ? `${dataEdit.hr_zone_z2_max} bpm` : '—'],
+    ['Z3 max', dataEdit.hr_zone_z3_max ? `${dataEdit.hr_zone_z3_max} bpm` : '—'],
+    ['Z4 max', dataEdit.hr_zone_z4_max ? `${dataEdit.hr_zone_z4_max} bpm` : '—'],
   ]
 
   async function saveData() {
@@ -143,6 +159,12 @@ export function DataTab({
                         height: athlete.height?.toString() ?? '',
                         weight: athlete.weight?.toString() ?? '',
                         join_date: athlete.join_date ?? '',
+                        hr_zone_method: athlete.hr_zone_method ?? 'custom',
+                        threshold_hr: athlete.threshold_hr?.toString() ?? '',
+                        hr_zone_z1_max: athlete.hr_zone_z1_max?.toString() ?? '',
+                        hr_zone_z2_max: athlete.hr_zone_z2_max?.toString() ?? '',
+                        hr_zone_z3_max: athlete.hr_zone_z3_max?.toString() ?? '',
+                        hr_zone_z4_max: athlete.hr_zone_z4_max?.toString() ?? '',
                       })
                     }}
                     className="px-3 py-2 rounded-xl text-sm cursor-pointer"
@@ -267,6 +289,68 @@ export function DataTab({
             </div>
 
             <div className="space-y-6">
+              <div className="rounded-2xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+                <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                  <div>
+                    <h4 className="text-sm font-semibold">Strefy tętna pod analizę</h4>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      To jest fundament pod kolejne etapy analizy: czas w Z1-Z5, obciążenie i recommendation layer.
+                    </p>
+                  </div>
+                </div>
+
+                {!dataEditing ? (
+                  <div className="space-y-3 text-sm">
+                    {hrZoneRows.map(([label, value]) => (
+                      <div key={label} className="flex justify-between gap-4">
+                        <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+                        <span className="font-medium text-right">{value || '—'}</span>
+                      </div>
+                    ))}
+                    <div className="text-xs pt-2" style={{ color: 'var(--text-muted)' }}>
+                      Z5 jest liczone jako wszystko powyżej Z4 max. Jeśli dane są niepełne, późniejsze insighty muszą to uczciwie oznaczać.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Metoda stref HR</label>
+                      <select
+                        value={dataEdit.hr_zone_method}
+                        onChange={(e) => setDataEdit((d) => ({ ...d, hr_zone_method: e.target.value as HrZoneMethod }))}
+                        className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+                        style={inputStyle}
+                      >
+                        <option value="custom">Ręczna</option>
+                        <option value="threshold_hr">Threshold HR</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Threshold HR</label>
+                      <input type="number" min="80" max="240" value={dataEdit.threshold_hr} onChange={(e) => setDataEdit((d) => ({ ...d, threshold_hr: e.target.value }))} className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div>
+                        <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Z1 max</label>
+                        <input type="number" min="80" max="240" value={dataEdit.hr_zone_z1_max} onChange={(e) => setDataEdit((d) => ({ ...d, hr_zone_z1_max: e.target.value }))} className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                      </div>
+                      <div>
+                        <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Z2 max</label>
+                        <input type="number" min="80" max="240" value={dataEdit.hr_zone_z2_max} onChange={(e) => setDataEdit((d) => ({ ...d, hr_zone_z2_max: e.target.value }))} className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                      </div>
+                      <div>
+                        <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Z3 max</label>
+                        <input type="number" min="80" max="240" value={dataEdit.hr_zone_z3_max} onChange={(e) => setDataEdit((d) => ({ ...d, hr_zone_z3_max: e.target.value }))} className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                      </div>
+                      <div>
+                        <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>Z4 max</label>
+                        <input type="number" min="80" max="240" value={dataEdit.hr_zone_z4_max} onChange={(e) => setDataEdit((d) => ({ ...d, hr_zone_z4_max: e.target.value }))} className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Cel treningowy */}
               <div>
                 <div className="flex items-center justify-between mb-1">

@@ -16,14 +16,26 @@ const inputStyle = INPUT_STYLE
 
 interface SessionDraft {
   title: string; type: string; description: string
-  plannedDistance: string; plannedDuration: string; plannedPace: string; url: string; urlLabel: string
+  plannedDistance: string; plannedDuration: string; plannedPace: string; sessionPriority: 'key' | 'normal' | 'optional'; sessionGoal: string; url: string; urlLabel: string
   completed: boolean; actualDistance: string; actualDuration: string; actualPace: string; avgHr: string; maxHr: string
 }
 
 const emptyDraft = (): SessionDraft => ({
-  title: '', type: 'easy', description: '', plannedDistance: '', plannedDuration: '', plannedPace: '', url: '', urlLabel: '',
+  title: '', type: 'easy', description: '', plannedDistance: '', plannedDuration: '', plannedPace: '', sessionPriority: 'normal', sessionGoal: '', url: '', urlLabel: '',
   completed: false, actualDistance: '', actualDuration: '', actualPace: '', avgHr: '', maxHr: '',
 })
+
+const SESSION_GOAL_OPTIONS = [
+  { value: '', label: 'Brak celu' },
+  { value: 'recovery', label: 'Regeneracja' },
+  { value: 'z2_volume', label: 'Objętość tlenowa Z2' },
+  { value: 'threshold', label: 'Próg' },
+  { value: 'vo2', label: 'VO2' },
+  { value: 'speed', label: 'Szybkość' },
+  { value: 'long_run', label: 'Długi bieg' },
+  { value: 'strength', label: 'Siła' },
+  { value: 'race_specific', label: 'Specyfika startowa' },
+] as const
 
 interface SessionModalProps {
   open: boolean
@@ -56,6 +68,8 @@ export function SessionModal({ open, onClose, athleteId, editSession, initialDat
         plannedDistance: editSession.planned_distance?.toString() ?? '',
         plannedDuration: editSession.planned_duration?.toString() ?? '',
         plannedPace: editSession.planned_pace ?? '',
+        sessionPriority: editSession.session_priority ?? 'normal',
+        sessionGoal: editSession.session_goal ?? '',
         url: editSession.url ?? '',
         urlLabel: editSession.url_label ?? '',
         completed: editSession.completed ?? false,
@@ -104,6 +118,8 @@ export function SessionModal({ open, onClose, athleteId, editSession, initialDat
       fd.set('planned_distance', draft.plannedDistance)
       fd.set('planned_duration', draft.plannedDuration)
       fd.set('planned_pace', draft.plannedPace)
+      fd.set('session_priority', draft.sessionPriority)
+      fd.set('session_goal', draft.sessionGoal)
       fd.set('url', draft.url)
       fd.set('url_label', draft.urlLabel)
       const initialCompleted = initialExecutionStatus === 'completed'
@@ -119,6 +135,8 @@ export function SessionModal({ open, onClose, athleteId, editSession, initialDat
       if (draft.plannedDistance) fd.set('planned_distance', draft.plannedDistance)
       if (draft.plannedDuration) fd.set('planned_duration', draft.plannedDuration)
       if (draft.plannedPace) fd.set('planned_pace', draft.plannedPace)
+      fd.set('session_priority', draft.sessionPriority)
+      fd.set('session_goal', draft.sessionGoal)
       if (draft.url) fd.set('url', draft.url)
       if (draft.urlLabel) fd.set('url_label', draft.urlLabel)
     }
@@ -271,6 +289,34 @@ export function SessionModal({ open, onClose, athleteId, editSession, initialDat
               <input value={draft.plannedPace} onChange={e => setDraft(d => ({ ...d, plannedPace: e.target.value }))}
                 placeholder="np. 5:30"
                 className="w-full px-3 py-2 rounded-xl text-sm" style={inputStyle} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Priorytet sesji</label>
+              <select
+                value={draft.sessionPriority}
+                onChange={e => setDraft(d => ({ ...d, sessionPriority: e.target.value as SessionDraft['sessionPriority'] }))}
+                className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+                style={inputStyle}
+              >
+                <option value="key">Kluczowa</option>
+                <option value="normal">Normalna</option>
+                <option value="optional">Opcjonalna</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs mb-1.5 block font-medium" style={{ color: 'var(--text-muted)' }}>Cel sesji</label>
+              <select
+                value={draft.sessionGoal}
+                onChange={e => setDraft(d => ({ ...d, sessionGoal: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl text-sm cursor-pointer"
+                style={inputStyle}
+              >
+                {SESSION_GOAL_OPTIONS.map((option) => (
+                  <option key={option.value || 'none'} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div>
