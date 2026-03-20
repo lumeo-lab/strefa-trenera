@@ -29,6 +29,19 @@ function ViewButton({ active, label, detail, onClick }: { active: boolean; label
   )
 }
 
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="relative inline-flex items-center group">
+      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold cursor-help"
+        style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>?</span>
+      <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 z-30 hidden w-64 whitespace-normal rounded-xl px-3 py-2 text-[11px] leading-5 shadow-lg group-hover:block"
+        style={{ background: 'rgba(15,23,42,0.96)', color: 'white', border: '1px solid rgba(255,255,255,0.08)' }}>
+        {text}
+      </span>
+    </span>
+  )
+}
+
 function Stat({ label, value, detail, tone = 'default', tooltip }: {
   label: string; value: string; detail: string; tone?: 'default' | 'green' | 'orange' | 'red' | 'blue'; tooltip?: string
 }) {
@@ -43,7 +56,7 @@ function Stat({ label, value, detail, tone = 'default', tooltip }: {
     <div className="rounded-xl p-3" style={{ background: styles.bg, border: '1px solid var(--border)' }}>
       <div className="flex items-center gap-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: 'var(--text-muted)' }}>{label}</span>
-        {tooltip && <span className="text-[10px] cursor-help" title={tooltip} style={{ color: 'var(--text-muted)' }}>ℹ️</span>}
+        {tooltip && <InfoTooltip text={tooltip} />}
       </div>
       <div className="text-xl font-semibold mt-1" style={{ color: styles.color }}>{value}</div>
       <div className="text-xs mt-0.5 leading-5" style={{ color: 'var(--text-muted)' }}>{detail}</div>
@@ -123,7 +136,7 @@ function WeeklyZonesChart({ weeks }: { weeks: Array<{ label: string; total: numb
 // ── Main component ──────────────────────────────────────────────────────
 
 export function InsightsTab({ sessions, feedbacks, stravaActivities, today, nextRace }: InsightsTabProps) {
-  const [view, setView] = useState<InsightView>('decision')
+  const [view, setView] = useState<InsightView>('load')
   const insights = buildAthleteInsights({ sessions, feedbacks, stravaActivities, today, nextRace })
 
   if (insights.overview.dueSessions === 0 && feedbacks.length === 0) {
@@ -152,9 +165,9 @@ export function InsightsTab({ sessions, feedbacks, stravaActivities, today, next
     <div className="space-y-4">
       {/* View switcher */}
       <div className="grid gap-2 md:grid-cols-3">
-        <ViewButton active={view === 'decision'} label="Decyzja" detail="Co robić dalej z planem." onClick={() => setView('decision')} />
-        <ViewButton active={view === 'load'} label="Obciążenie" detail="Ile pracy i w jakiej intensywności." onClick={() => setView('load')} />
-        <ViewButton active={view === 'response'} label="Reakcja" detail="Jak znosi treningi i co sygnalizuje." onClick={() => setView('response')} />
+        <ViewButton active={view === 'load'} label="1. Obciążenie" detail="Ile treningu było i czy tempo wzrostu jest bezpieczne." onClick={() => setView('load')} />
+        <ViewButton active={view === 'response'} label="2. Reakcja" detail="Jak organizm odpowiada — samopoczucie, ból, tolerancja." onClick={() => setView('response')} />
+        <ViewButton active={view === 'decision'} label="3. Decyzja" detail="Wniosek: kontynuować, zredukować czy wstrzymać plan." onClick={() => setView('decision')} />
       </div>
 
       {/* ── DECISION VIEW ── */}
@@ -339,7 +352,7 @@ export function InsightsTab({ sessions, feedbacks, stravaActivities, today, next
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: 'var(--text-muted)' }}>Bezpieczeństwo obciążenia</span>
-                    <span className="text-[10px] cursor-help" title="Stosunek obciążenia z ostatniego tygodnia do średniej z 4 tygodni. 0.8-1.3 = bezpiecznie, 1.3-1.5 = ostrożność, >1.5 = ryzyko kontuzji, <0.8 = spadek formy." style={{ color: 'var(--text-muted)' }}>ℹ️</span>
+                    <InfoTooltip text="Stosunek obciążenia z ostatniego tygodnia do średniej z 4 tygodni. 0.8-1.3 = bezpiecznie, 1.3-1.5 = ostrożność, >1.5 = ryzyko kontuzji, <0.8 = spadek formy." />
                   </div>
                   <div className="text-2xl font-bold mt-1" style={{ color: { default: 'var(--text-muted)', green: '#2ECC71', orange: '#FF5C1B', red: '#E74C3C' }[acwrTone] }}>
                     {acwr ?? '—'}
@@ -368,27 +381,34 @@ export function InsightsTab({ sessions, feedbacks, stravaActivities, today, next
               <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{acwrLabel}</div>
             </div>
 
+            {/* What is load - inline explanation */}
+            <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
+              Obciążenie treningowe łączy czas treningu i jego trudność w jedną liczbę. Im dłużej i ciężej zawodnik trenował, tym wyższe obciążenie. Pozwala porównywać tygodnie, nawet gdy składały się z różnych typów sesji.
+            </div>
+
             {/* Load stats + chart */}
-            <Section title="Obciążenie tygodniowe">
+            <Section title="Obciążenie — tydzień po tygodniu">
               <div className="grid gap-2 md:grid-cols-4 mb-2">
-                <Stat label="Bieżący" value={insights.load.currentWeekLoad != null ? `${insights.load.currentWeekLoad}` : '—'} detail="Ten tydzień" tone="blue" tooltip="Czas (min) × RPE (1-10) ÷ 10" />
-                <Stat label="Średnia 4 tyg." value={insights.load.rolling4WeekAverage != null ? `${insights.load.rolling4WeekAverage}` : '—'} detail="Bazowy poziom" />
-                <Stat label="Zmiana" value={insights.load.deltaPercent != null ? `${insights.load.deltaPercent > 0 ? '+' : ''}${insights.load.deltaPercent}%` : '—'} detail="vs poprzedni tydzień" tone={loadTone} />
-                <Stat label="Trend" value={insights.load.trendLabel} detail="Kierunek zmian" />
+                <Stat label="Ten tydzień" value={insights.load.currentWeekLoad != null ? `${insights.load.currentWeekLoad}` : '—'} detail="Suma obciążenia bieżącego tygodnia" tone="blue" tooltip="Obliczane jako: czas treningu (min) × trudność (RPE 1-10) ÷ 10. Np. 60 min przy RPE 7 = obciążenie 42." />
+                <Stat label="Średnia 4 tyg." value={insights.load.rolling4WeekAverage != null ? `${insights.load.rolling4WeekAverage}` : '—'} detail="Bazowy poziom — do tego porównujemy" />
+                <Stat label="Zmiana" value={insights.load.deltaPercent != null ? `${insights.load.deltaPercent > 0 ? '+' : ''}${insights.load.deltaPercent}%` : '—'} detail={`vs poprzedni tydzień. ${Math.abs(insights.load.deltaPercent ?? 0) > 15 ? 'Wzrost >15% = ostrożność.' : ''}`} tone={loadTone} />
+                <Stat label="Trend" value={insights.load.trendLabel} detail="Ogólny kierunek zmian" />
               </div>
               <SimpleBarChart items={weeklyLoadItems} />
-              <div className="text-xs mt-2 italic" style={{ color: 'var(--text-muted)' }}>{loadInterpretation}</div>
+              <div className="text-xs mt-2 italic" style={{ color: 'var(--text-muted)' }}>
+                Każdy słupek to suma obciążenia z jednego tygodnia. {loadInterpretation}
+              </div>
             </Section>
 
             {/* Km/week chart */}
-            <Section title="Dystans tygodniowy">
+            <Section title="Dystans — ile kilometrów tygodniowo">
               <SimpleBarChart items={insights.weeklyLoad.map(w => ({
                 label: formatDate(w.start, { day: 'numeric', month: 'short' }),
                 value: w.actualDistance,
                 detail: w.plannedDistance > 0 ? `plan: ${w.plannedDistance} km` : undefined,
               }))} color="linear-gradient(180deg, #60A5FA, #93C5FD)" />
               <div className="text-xs mt-2 italic" style={{ color: 'var(--text-muted)' }}>
-                Średnio {avgDist} km/tydz. {Number(avgPlannedDist) > 0 ? `Plan zakładał ${avgPlannedDist} km/tydz.` : ''}
+                Każdy słupek to faktyczny dystans w danym tygodniu. Średnio {avgDist} km/tydz.{Number(avgPlannedDist) > 0 ? ` Plan zakładał ${avgPlannedDist} km/tydz.` : ''} Pod słupkiem widać planowany dystans do porównania.
               </div>
             </Section>
 
@@ -426,10 +446,10 @@ export function InsightsTab({ sessions, feedbacks, stravaActivities, today, next
         return (
           <div className="space-y-4">
             <div className="grid gap-2 md:grid-cols-4">
-              <Stat label="Średnie RPE" value={insights.reaction.avgRpe != null ? `${insights.reaction.avgRpe}` : '—'} detail={insights.reaction.rpeDelta != null ? `${insights.reaction.rpeDelta > 0 ? '+' : ''}${insights.reaction.rpeDelta} vs poprzednie 14 dni` : '—'} tone={reactionTone} />
-              <Stat label="Zgłoszenia bólu" value={`${insights.reaction.painCount}`} detail="Ostatnie 14 dni" tone={insights.reaction.painCount > 0 ? 'orange' : 'green'} />
-              <Stat label="Pokrycie feedbackiem" value={insights.overview.feedbackCoverage != null ? `${insights.overview.feedbackCoverage}%` : '—'} detail={`${insights.reaction.feedbackCount} feedbacków`} />
-              <Stat label="Samopoczucie" value={insights.reaction.dominantFeeling ? `${insights.reaction.dominantFeeling} ${FEELING_LABELS[insights.reaction.dominantFeeling] ?? ''}` : '—'} detail={insights.reaction.dominantFeelingLabel ?? 'Brak wzorca'} />
+              <Stat label="Średnie RPE" value={insights.reaction.avgRpe != null ? `${insights.reaction.avgRpe}` : '—'} detail={insights.reaction.rpeDelta != null ? `${insights.reaction.rpeDelta > 0 ? '+' : ''}${insights.reaction.rpeDelta} vs poprzednie 14 dni` : '—'} tone={reactionTone} tooltip="RPE (Rating of Perceived Exertion) to subiektywna ocena trudności treningu w skali 1-10, którą zawodnik podaje po sesji. Średnie RPE pokazuje jak ciężko zawodnik odczuwa treningi. Powyżej 7 = ciężko, powyżej 8 = bardzo ciężko." />
+              <Stat label="Zgłoszenia bólu" value={`${insights.reaction.painCount}`} detail="Ostatnie 14 dni" tone={insights.reaction.painCount > 0 ? 'orange' : 'green'} tooltip="Ile razy zawodnik zgłosił ból lub problem w feedbacku po treningu." />
+              <Stat label="Pokrycie feedbackiem" value={insights.overview.feedbackCoverage != null ? `${insights.overview.feedbackCoverage}%` : '—'} detail={`${insights.reaction.feedbackCount} feedbacków`} tooltip="Ile procent sesji ma feedback od zawodnika. Im wyższe pokrycie, tym bardziej wiarygodna analiza." />
+              <Stat label="Samopoczucie" value={insights.reaction.dominantFeeling ? `${insights.reaction.dominantFeeling} ${FEELING_LABELS[insights.reaction.dominantFeeling] ?? ''}` : '—'} detail={insights.reaction.dominantFeelingLabel ?? 'Brak wzorca'} tooltip="Najczęściej wybierane emoji samopoczucia w feedbackach z ostatnich 28 dni." />
             </div>
 
             {/* Easy run RPE trend — fatigue signal */}
@@ -442,7 +462,7 @@ export function InsightsTab({ sessions, feedbacks, stravaActivities, today, next
                   <span className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: easyRising ? '#FF5C1B' : 'var(--text-muted)' }}>
                     RPE na łatwych biegach
                   </span>
-                  <span className="text-[10px] cursor-help" title="Jeśli RPE na łatwych biegach rośnie przy stałej objętości — to sygnał narastającego zmęczenia bazowego." style={{ color: 'var(--text-muted)' }}>ℹ️</span>
+                  <InfoTooltip text="Jeśli RPE na łatwych biegach rośnie przy stałej objętości — to sygnał narastającego zmęczenia bazowego." />
                 </div>
                 <div className="flex items-end gap-1 h-10">
                   {easyTrend.map((rpe, i) => (
@@ -479,7 +499,10 @@ export function InsightsTab({ sessions, feedbacks, stravaActivities, today, next
 
             {/* Session types with mini-trend */}
             {topTypes.length > 0 && (
-              <Section title="Typy sesji">
+              <Section title="Typy sesji — jak zawodnik radzi sobie z poszczególnymi bodźcami">
+                <div className="text-xs mb-3 px-1" style={{ color: 'var(--text-muted)' }}>
+                  Każda karta to jeden typ treningu z ostatnich 56 dni. Procent oznacza ile sesji tego typu zostało wykonanych. RPE to średnia trudność odczuwana przez zawodnika. Mini-wykres pokazuje jak RPE zmieniało się w ostatnich sesjach tego typu.
+                </div>
                 <div className="grid gap-2 xl:grid-cols-2">
                   {topTypes.map(stat => (
                     <div key={stat.type} className="rounded-xl p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>

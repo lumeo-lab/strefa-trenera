@@ -36,6 +36,13 @@ function deviationPercent(planned: number | null, actual: number | null): { valu
   return { value: pct, label: `${sign}${pct}%`, color }
 }
 
+const STATUS_TOOLTIPS: Record<string, string> = {
+  completed: 'Sesja potwierdzona jako wykonana. Liczy się do realizacji planu.',
+  detected: 'System wykrył aktywność z urządzenia lub Stravy powiązaną z tą sesją. Warto sprawdzić, czy to właściwe wykonanie.',
+  skipped: 'Sesja oznaczona jako niewykonana. Nie liczy się do realizacji planu.',
+  unresolved: 'Przeszła sesja bez potwierdzenia — nie wiadomo czy zawodnik ją wykonał. Warto wyjaśnić.',
+}
+
 const SOURCE_ICONS: Record<string, { icon: string; tooltip: string }> = {
   athlete: { icon: '🏃', tooltip: 'Potwierdzone przez zawodnika — zawodnik oznaczył trening jako wykonany lub wysłał feedback.' },
   coach: { icon: '👨‍💻', tooltip: 'Oznaczone przez trenera — trener ręcznie potwierdził wykonanie i wpisał wyniki.' },
@@ -159,7 +166,7 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, strava
           </div>
           <span style={{ color: 'var(--text-muted)' }}>✓ {summary.completed + summary.detected} wykonane</span>
           {summary.skipped > 0 && <span style={{ color: '#E74C3C' }}>✗ {summary.skipped} pominięte</span>}
-          {summary.unresolved > 0 && <span style={{ color: '#E74C3C' }}>? {summary.unresolved} niewyjaśnione</span>}
+          {summary.unresolved > 0 && <span style={{ color: '#E74C3C' }}>⚠ {summary.unresolved} niewyjaśnionych</span>}
           {summary.totalDist > 0 && <span style={{ color: 'var(--text-muted)' }}>📏 {summary.totalDist.toFixed(1)} km</span>}
           {summary.totalDur > 0 && <span style={{ color: 'var(--text-muted)' }}>⏱ {summary.totalDur} min</span>}
           {summary.keyTotal > 0 && (
@@ -339,7 +346,9 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, strava
                     {/* Status + source */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ color: tone.color, background: tone.bg }}>
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-help"
+                          style={{ color: tone.color, background: tone.bg }}
+                          title={STATUS_TOOLTIPS[status === 'planned' && session.date < today ? 'unresolved' : status] ?? ''}>
                           {statusLabel}
                         </span>
                         {sourceData && <span className="text-xs cursor-help" title={sourceData.tooltip}>{sourceData.icon}</span>}

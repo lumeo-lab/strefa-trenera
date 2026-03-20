@@ -136,8 +136,8 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
 
   const tabs = [
     { id: 'plan', label: 'Plan' },
+    { id: 'history', label: 'Realizacja' },
     { id: 'insights', label: 'Analiza' },
-    { id: 'history', label: 'Historia' },
     { id: 'feedback', label: unreadFeedbackCount > 0 ? `Feedback (${unreadFeedbackCount})` : 'Feedback' },
     { id: 'races', label: 'Zawody' },
     { id: 'notes', label: 'Notatki' },
