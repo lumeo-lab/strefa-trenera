@@ -73,6 +73,26 @@ describe('buildMetricMapsFromFallback', () => {
     expect(result.complianceMap['a2']).toEqual({ completed: 0, total: 1 })
   })
 
+  it('uses new execution statuses for next session and compliance', () => {
+    const result = buildMetricMapsFromFallback({
+      ...emptyInput,
+      today: '2026-03-20',
+      upcomingSessions: [
+        { athlete_id: 'a1', date: '2026-03-20', type: 'easy', title: 'Detected run', status: 'detected', completed: false },
+        { athlete_id: 'a1', date: '2026-03-21', type: 'tempo', title: 'Skipped should not win', status: 'skipped', completed: false },
+      ],
+      monthSessions: [
+        { athlete_id: 'a1', date: '2026-03-10', status: 'detected', completed: false },
+        { athlete_id: 'a1', date: '2026-03-11', status: 'skipped', completed: false },
+        { athlete_id: 'a1', date: '2026-03-12', status: 'planned', completed: false },
+        { athlete_id: 'a1', date: '2026-03-25', status: 'planned', completed: false },
+      ],
+    })
+
+    expect(result.nextSessionMap['a1']).toEqual({ date: '2026-03-20', type: 'easy', title: 'Detected run' })
+    expect(result.complianceMap['a1']).toEqual({ completed: 0, total: 3 })
+  })
+
   it('tracks unpaid invoices', () => {
     const result = buildMetricMapsFromFallback({
       ...emptyInput,

@@ -6,7 +6,7 @@ import { formatDate, intensityColor, plural, sessionTypeLabel } from '@/lib/util
 import type { SessionType } from '@/lib/types'
 import Link from 'next/link'
 import type { DashboardSessionRow } from '../types'
-import { getSessionCompletionSourceLabel, getSessionExecutionStatus, isSessionCompleted } from '@/lib/session-status'
+import { getSessionCompletionSourceLabel, getSessionExecutionStatus, isSessionCompleted, isSessionOpenForExecution } from '@/lib/session-status'
 
 function sessionMetaLabel(session: DashboardSessionRow) {
   const parts: string[] = []
@@ -41,8 +41,9 @@ export function TodayPlanSection({ sessions, todayCompleted }: {
     return a.title.localeCompare(b.title, 'pl')
   })
 
-  const openSessions = sortedSessions.filter((session) => !isSessionCompleted(session))
+  const openSessions = sortedSessions.filter((session) => isSessionOpenForExecution(session))
   const doneSessions = sortedSessions.filter((session) => isSessionCompleted(session))
+  const skippedSessions = sortedSessions.filter((session) => getSessionExecutionStatus(session) === 'skipped')
 
   return (
     <Card className="p-5">
@@ -131,7 +132,7 @@ export function TodayPlanSection({ sessions, todayCompleted }: {
             </div>
           )}
 
-          {doneSessions.length > 0 && (
+	          {doneSessions.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: '#2ECC71' }}>
@@ -163,6 +164,52 @@ export function TodayPlanSection({ sessions, todayCompleted }: {
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ color: '#2ECC71', background: 'rgba(46,204,113,0.12)' }}>
                           Wykonane
+                        </span>
+                        {badge && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ color: badge.color, background: badge.bg }}>
+                            {badge.label}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {skippedSessions.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: '#E74C3C' }}>
+                  Pominięte dziś
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Sesje oznaczone jako pominięte
+                </div>
+              </div>
+              <div className="space-y-2">
+                {skippedSessions.map((session) => {
+                  const athlete = session.athletes
+                  const badge = feedbackBadge(session)
+                  return (
+                    <Link
+                      key={session.id}
+                      href={`/coach/planner?athlete=${session.athlete_id}`}
+                      className="flex items-center gap-3 p-3 rounded-xl transition-opacity hover:opacity-80"
+                      style={{ background: 'rgba(231,76,60,0.06)', border: '1px solid rgba(231,76,60,0.12)' }}
+                    >
+                      <Avatar initials={athlete?.avatar ?? '?'} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{athlete?.name ?? '—'}</div>
+                        <div className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{session.title}</div>
+                        <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                          {sessionMetaLabel(session)}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ color: '#E74C3C', background: 'rgba(231,76,60,0.12)' }}>
+                          Pominięte
                         </span>
                         {badge && (
                           <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ color: badge.color, background: badge.bg }}>

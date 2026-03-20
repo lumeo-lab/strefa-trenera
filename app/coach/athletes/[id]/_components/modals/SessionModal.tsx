@@ -10,6 +10,7 @@ import { useCustomSessionTypes } from '@/lib/useCustomSessionTypes'
 import { INPUT_STYLE } from '@/lib/styles'
 import { SessionTypeEditor } from './SessionTypeEditor'
 import type { CoachTrainingSessionRow } from '../types'
+import { getSessionExecutionStatus } from '@/lib/session-status'
 
 const inputStyle = INPUT_STYLE
 
@@ -42,6 +43,7 @@ export function SessionModal({ open, onClose, athleteId, editSession, initialDat
 
   const [sessionTypeModalOpen, setSessionTypeModalOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const initialExecutionStatus = editSession ? getSessionExecutionStatus(editSession) : 'planned'
 
   const [editingSessionId] = useState<string | null>(editSession?.id ?? null)
   const [draftDate] = useState(editSession?.date ?? initialDate ?? '')
@@ -104,7 +106,10 @@ export function SessionModal({ open, onClose, athleteId, editSession, initialDat
       fd.set('planned_pace', draft.plannedPace)
       fd.set('url', draft.url)
       fd.set('url_label', draft.urlLabel)
-      fd.set('completed', draft.completed ? 'true' : 'false')
+      const initialCompleted = initialExecutionStatus === 'completed'
+      if (draft.completed !== initialCompleted) {
+        fd.set('completed', draft.completed ? 'true' : 'false')
+      }
       if (draft.actualDistance) fd.set('actual_distance', draft.actualDistance)
       if (draft.actualDuration) fd.set('actual_duration', draft.actualDuration)
       if (draft.actualPace) fd.set('actual_pace', draft.actualPace)
@@ -296,6 +301,11 @@ export function SessionModal({ open, onClose, athleteId, editSession, initialDat
                   />
                   <span className="text-sm font-medium">Trening wykonany</span>
                 </label>
+                {initialExecutionStatus !== 'planned' && initialExecutionStatus !== 'completed' && (
+                  <div className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                    Aktualny status sesji: {initialExecutionStatus === 'skipped' ? 'pominięty' : 'wykryty na Stravie'}. Sam zapis edycji nie nadpisze go, dopóki nie oznaczysz sesji jako wykonanej.
+                  </div>
+                )}
               </div>
               {draft.completed && (
                 <div className="space-y-3 rounded-xl p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
