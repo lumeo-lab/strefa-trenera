@@ -4,6 +4,8 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { getBusinessToday } from '@/lib/date'
 import { formatDate, intensityColor, sessionTypeLabel } from '@/lib/utils'
+import { isSessionCompleted, isSessionSkipped } from '@/lib/session-status'
+import { AthleteHeaderAvatar } from './AthleteHeaderAvatar'
 import { monthLabel, shiftMonth } from '@/lib/calendar'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
@@ -65,8 +67,11 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
   const monthSessions = sessions.filter(s => s.date.slice(0, 7) === selectedMonth)
   const monthStrava = stravaActivities.filter((a) => a.start_date?.slice(0, 7) === selectedMonth)
 
-  const totalKm = sessions.reduce((s, sess) => s + (sess.actual_distance || 0), 0)
-  const totalMin = sessions.reduce((s, sess) => s + (sess.actual_duration || 0), 0)
+  // Stats filtered by selected month (BUG FIX: was aggregating all sessions)
+  const completedMonthSessions = monthSessions.filter(s => isSessionCompleted(s))
+  const totalKm = monthSessions.reduce((s, sess) => s + (sess.actual_distance || 0), 0)
+  const totalMin = monthSessions.reduce((s, sess) => s + (sess.actual_duration || 0), 0)
+  const completionRate = monthSessions.length > 0 ? Math.round((completedMonthSessions.length / monthSessions.length) * 100) : 0
 
   const stravaAuthUrl = `/api/strava/auth?slug=${athlete.slug}`
 
@@ -74,8 +79,13 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
     <div style={{ color: 'var(--text-primary)', paddingBottom: '90px' }}>
       {/* Header */}
       <div className="px-5 pt-12 pb-4 border-b" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}>
-        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{athlete.name}</div>
-        <h1 className="text-xl font-bold">Historia treningów</h1>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{athlete.name}</div>
+            <h1 className="text-xl font-bold">Wykonanie</h1>
+          </div>
+          <AthleteHeaderAvatar slug={athlete.slug} name={athlete.name} avatar={athlete.avatar} />
+        </div>
       </div>
 
       <div className="p-5 space-y-4">
@@ -138,15 +148,16 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
           </div>
         )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* Stats — filtered by selected month */}
+        <div className="grid grid-cols-4 gap-2">
           {[
-            { label: 'Sesji', value: sessions.length },
-            { label: 'Łącznie km', value: `${totalKm.toFixed(0)}` },
-            { label: 'Łącznie godz.', value: `${Math.floor(totalMin / 60)}h ${totalMin % 60}min` },
+            { label: 'Sesji', value: `${completedMonthSessions.length}/${monthSessions.length}` },
+            { label: 'Realizacja', value: `${completionRate}%` },
+            { label: 'Dystans', value: `${totalKm.toFixed(0)} km` },
+            { label: 'Czas', value: totalMin >= 60 ? `${Math.floor(totalMin / 60)}h ${totalMin % 60}m` : `${totalMin}m` },
           ].map(stat => (
-            <div key={stat.label} className="p-3 rounded-2xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <div className="text-xl font-bold mb-0.5">{stat.value}</div>
+            <div key={stat.label} className="p-2.5 rounded-2xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="text-lg font-bold mb-0.5">{stat.value}</div>
               <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{stat.label}</div>
             </div>
           ))}
@@ -189,23 +200,45 @@ export function AthleteHistoryPage({ athlete, sessions, stravaConnected, stravaA
             </div>
           ) : (
             <div className="space-y-2">
-              {monthSessions.map(s => (
-                <div key={s.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(s.date, { weekday: 'short', day: 'numeric', month: 'short' })}</div>
-                      <div className="font-semibold text-sm mt-0.5">{s.title}</div>
+              {monthSessions.map(s => {
+                const isCompleted = isSessionCompleted(s)
+                const isSkipped = isSessionSkipped(s)
+                const hasActuals = !!(s.actual_distance || s.actual_duration)
+                return (
+                  <div key={s.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDate(s.date, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                          {isCompleted && <span className="text-xs" style={{ color: '#2ECC71' }}>✓</span>}
+                          {isSkipped && <span className="text-xs" style={{ color: '#f59e0b' }}>pominięty</span>}
+                        </div>
+                        <div className="font-semibold text-sm mt-0.5">{s.title}</div>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${intensityColor(s.type)}`}>{sessionTypeLabel(s.type)}</span>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${intensityColor(s.type)}`}>{sessionTypeLabel(s.type)}</span>
+
+                    {/* Plan */}
+                    <div className="flex flex-wrap gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                      <span className="font-medium opacity-60">Plan:</span>
+                      {s.planned_distance && <span>📏 {s.planned_distance} km</span>}
+                      {s.planned_duration && <span>⏱️ {s.planned_duration} min</span>}
+                      {s.planned_pace && <span>⚡ {s.planned_pace}/km</span>}
+                    </div>
+
+                    {/* Execution */}
+                    {hasActuals && (
+                      <div className="flex flex-wrap gap-3 text-xs mt-1.5" style={{ color: isCompleted ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        <span className="font-medium opacity-60" style={{ color: '#2ECC71' }}>Wynik:</span>
+                        {s.actual_distance && <span>📏 {s.actual_distance} km</span>}
+                        {s.actual_duration && <span>⏱️ {s.actual_duration} min</span>}
+                        {s.actual_pace && <span>⚡ {s.actual_pace}/km</span>}
+                        {s.avg_hr && <span>❤️ {Math.round(s.avg_hr)} bpm</span>}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                    {s.actual_distance && <span>📏 {s.actual_distance} km</span>}
-                    {s.actual_duration && <span>⏱️ {s.actual_duration} min</span>}
-                    {s.actual_pace && <span>⚡ {s.actual_pace}/km</span>}
-                    {s.avg_hr && <span>❤️ {s.avg_hr} bpm</span>}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )
         )}

@@ -11,6 +11,7 @@ import { AthleteSession } from '@/lib/athlete-auth'
 import { markAthleteThreadRead, sendAthleteMessage } from '@/lib/actions/messages'
 import { usePushSubscription } from '@/lib/usePushSubscription'
 import type { AthleteMessageRow } from '@/lib/athlete-data'
+import { AthleteHeaderAvatar } from './AthleteHeaderAvatar'
 
 interface Props {
   athlete: AthleteSession
@@ -41,11 +42,22 @@ type MessageWithSeparator =
   | { type: 'separator'; label: string; key: string }
   | { type: 'message'; msg: AthleteMessageRow }
 
+interface OptimisticMessage {
+  id: string
+  content: string
+  sender_type: 'athlete'
+  created_at: string
+  read: boolean
+  pending?: boolean
+  failed?: boolean
+}
+
 export function AthleteChatPage({ athlete, messages, coachName }: Props) {
   const router = useRouter()
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState(false)
+  const [optimisticMessages, setOptimisticMessages] = useState<OptimisticMessage[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -84,7 +96,7 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length])
+  }, [messages.length, optimisticMessages.length])
 
   useEffect(() => {
     if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
@@ -101,21 +113,48 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
 
   const coachInitials = coachName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
+  // Clean up optimistic messages that appear in real messages
+  useEffect(() => {
+    if (optimisticMessages.length > 0) {
+      setOptimisticMessages(prev => prev.filter(om =>
+        !messages.some(m => m.content === om.content && m.sender_type === 'athlete')
+      ))
+    }
+  }, [messages]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleSend() {
     if (!input.trim() || sending) return
     const content = input.trim()
+    const tempId = `opt_${Date.now()}`
     setSending(true)
     setSendError(false)
     setInput('')
+
+    // Optimistic: show message immediately
+    setOptimisticMessages(prev => [...prev, {
+      id: tempId,
+      content,
+      sender_type: 'athlete',
+      created_at: new Date().toISOString(),
+      read: true,
+      pending: true,
+    }])
+
     try {
       await sendAthleteMessage(athlete.slug, content)
+      setOptimisticMessages(prev => prev.map(m => m.id === tempId ? { ...m, pending: false } : m))
       startTransition(() => router.refresh())
     } catch {
-      setInput(content)
+      setOptimisticMessages(prev => prev.map(m => m.id === tempId ? { ...m, pending: false, failed: true } : m))
       setSendError(true)
     } finally {
       setSending(false)
     }
+  }
+
+  function handleRetry(msg: OptimisticMessage) {
+    setOptimisticMessages(prev => prev.filter(m => m.id !== msg.id))
+    setInput(msg.content)
   }
 
   // Auto-resize textarea
@@ -144,28 +183,34 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
     }
   }, [input])
 
+  // Combine real + optimistic messages
+  const allMessages: (AthleteMessageRow | OptimisticMessage)[] = [...messages, ...optimisticMessages]
+
   // Build date separators
   const messagesWithSeparators: MessageWithSeparator[] = []
   let lastDate = ''
-  for (const msg of messages) {
+  for (const msg of allMessages) {
     const msgDate = dateKey(msg.created_at)
     if (msgDate !== lastDate) {
       messagesWithSeparators.push({ type: 'separator', label: dateSeparatorLabel(msg.created_at), key: `sep_${msgDate}` })
       lastDate = msgDate
     }
-    messagesWithSeparators.push({ type: 'message', msg })
+    messagesWithSeparators.push({ type: 'message', msg: msg as AthleteMessageRow })
   }
 
   return (
     <div style={{ color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', height: '100vh' }}>
       {/* Header */}
       <div className="px-5 pt-12 pb-4 border-b shrink-0" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-3">
-          <Avatar initials={coachInitials} size="sm" />
-          <div>
-            <div className="font-semibold text-sm">{coachName}</div>
-            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Twój trener</div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Avatar initials={coachInitials} size="sm" />
+            <div>
+              <div className="font-semibold text-sm">{coachName}</div>
+              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Twój trener</div>
+            </div>
           </div>
+          <AthleteHeaderAvatar slug={athlete.slug} name={athlete.name} avatar={athlete.avatar} />
         </div>
       </div>
 
@@ -197,6 +242,8 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
           }
           const msg = item.msg
           const isAthlete = msg.sender_type === 'athlete'
+          const isPending = 'pending' in msg && (msg as OptimisticMessage).pending === true
+          const isFailed = 'failed' in msg && (msg as OptimisticMessage).failed === true
           return (
             <div key={msg.id} className={`flex gap-3 ${isAthlete ? 'flex-row-reverse' : ''}`}>
               <Avatar initials={isAthlete ? athlete.avatar : coachInitials} size="sm" />
@@ -206,10 +253,24 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
                     background: isAthlete ? '#FF5C1B' : 'var(--bg-elevated)',
                     color: isAthlete ? 'white' : 'var(--text-primary)',
                     borderRadius: isAthlete ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                    opacity: isPending ? 0.6 : 1,
                   }}>
                   {msg.content}
                 </div>
-                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDateTime(msg.created_at)}</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {isPending ? 'Wysyłanie...' : formatDateTime(msg.created_at)}
+                  </span>
+                  {isFailed && (
+                    <button
+                      onClick={() => handleRetry(msg as unknown as OptimisticMessage)}
+                      className="text-xs cursor-pointer"
+                      style={{ color: '#f87171', background: 'none', border: 'none' }}
+                    >
+                      Nie wysłano · Spróbuj ponownie
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )

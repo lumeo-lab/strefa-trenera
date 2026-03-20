@@ -57,6 +57,9 @@ export function DataTab({
   const [dataSaved, setDataSaved] = useState(false)
   const [dataError, setDataError] = useState<string | null>(null)
 
+  const [hrEditing, setHrEditing] = useState(false)
+  const [hrSaving, setHrSaving] = useState(false)
+
   const [archiveConfirm, setArchiveConfirm] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [archiveError, setArchiveError] = useState<string | null>(null)
@@ -292,14 +295,38 @@ export function DataTab({
               <div className="rounded-2xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
                 <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
                   <div>
-                    <h4 className="text-sm font-semibold">Strefy tętna pod analizę</h4>
+                    <h4 className="text-sm font-semibold">Strefy tętna</h4>
                     <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                      To jest fundament pod kolejne etapy analizy: czas w Z1-Z5, obciążenie i recommendation layer.
+                      Używane w analizie do rozkładu intensywności (Z1-Z5).
                     </p>
                   </div>
+                  {!hrEditing ? (
+                    <button onClick={() => setHrEditing(true)} className="text-xs cursor-pointer hover:opacity-80" style={{ color: '#FF5C1B' }}>Edytuj</button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button onClick={() => setHrEditing(false)} className="text-xs cursor-pointer" style={{ color: 'var(--text-muted)' }}>Anuluj</button>
+                      <button disabled={hrSaving} onClick={async () => {
+                        setHrSaving(true)
+                        const fd = new FormData()
+                        fd.set('id', athlete.id)
+                        fd.set('hr_zone_method', dataEdit.hr_zone_method)
+                        fd.set('threshold_hr', dataEdit.threshold_hr)
+                        fd.set('hr_zone_z1_max', dataEdit.hr_zone_z1_max)
+                        fd.set('hr_zone_z2_max', dataEdit.hr_zone_z2_max)
+                        fd.set('hr_zone_z3_max', dataEdit.hr_zone_z3_max)
+                        fd.set('hr_zone_z4_max', dataEdit.hr_zone_z4_max)
+                        await updateAthlete(null, fd)
+                        setHrSaving(false)
+                        setHrEditing(false)
+                        startTransition(() => router.refresh())
+                      }} className="text-xs font-semibold cursor-pointer" style={{ color: '#FF5C1B' }}>
+                        {hrSaving ? '...' : 'Zapisz'}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {!dataEditing ? (
+                {!hrEditing ? (
                   <div className="space-y-3 text-sm">
                     {hrZoneRows.map(([label, value]) => (
                       <div key={label} className="flex justify-between gap-4">

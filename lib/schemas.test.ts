@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { raceSchema, contactFormSchema, coachNotesSchema } from './schemas'
+import { coachNotesSchema, contactFormSchema, raceSchema } from './schemas'
 
 describe('raceSchema', () => {
   it('accepts valid race data', () => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { CoachTopbar } from '@/components/coach/CoachTopbar'
 import { Tabs } from '@/components/ui/Tabs'
 import { Card } from '@/components/ui/Card'
@@ -92,6 +92,18 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
   const [activeTab, setActiveTab] = useState(getSafeProfileTab(initialTab))
   const [linkPanelOpen, setLinkPanelOpen] = useState(false)
   const [attentionModalOpen, setAttentionModalOpen] = useState(false)
+
+  // Profile header collapse
+  const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false)
+  const [headerCollapsedOverride, setHeaderCollapsedOverride] = useState<boolean | null>(null)
+  const headerCollapsed = headerCollapsedOverride ?? (hydrated ? (() => {
+    try { return localStorage.getItem('athlete-header-collapsed') === 'true' } catch { return false }
+  })() : false)
+  function toggleHeader() {
+    const next = !headerCollapsed
+    setHeaderCollapsedOverride(next)
+    try { localStorage.setItem('athlete-header-collapsed', String(next)) } catch { /* ignore */ }
+  }
 
   // Feedback lookup (memoized)
   const feedbackBySession: FeedbackBySessionMap = useMemo(
@@ -240,7 +252,12 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
         <Card className="p-6 mb-6">
           <div className="space-y-5">
             <div className="flex items-start gap-5 flex-wrap xl:flex-nowrap">
-              <Avatar initials={athlete.avatar} size="xl" />
+              <div className="shrink-0 flex flex-col items-center gap-1">
+                <Avatar initials={athlete.avatar} size="xl" />
+                <button onClick={toggleHeader} className="text-xs cursor-pointer hover:opacity-70 mt-1" style={{ color: 'var(--text-muted)' }} aria-expanded={!headerCollapsed}>
+                  {headerCollapsed ? '▼ Rozwiń' : '▲ Zwiń'}
+                </button>
+              </div>
               <div className="flex-1 min-w-[260px]">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="min-w-[220px]">
@@ -324,7 +341,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {!headerCollapsed && <><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: 'var(--text-muted)' }}>Ostatni trening</div>
                 {lastCompletedSession ? (
@@ -427,7 +444,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
                   </code>
                 </div>
               )}
-            </div>
+            </div></>}
           </div>
         </Card>
 

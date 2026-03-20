@@ -105,3 +105,28 @@ export async function getAthletePlanData(athleteId: string, from: string, to: st
     feedbacks: feedbacks ?? [],
   }
 }
+
+export interface AthleteProfileData {
+  name: string
+  avatar: string
+  email: string | null
+  phone: string | null
+  city: string | null
+  age: number | null
+  height: number | null
+  weight: number | null
+  goal: string
+  join_date: string
+  injury_history: { id: string; name: string; started_at: string | null; ended_at: string | null }[]
+}
+
+export async function getAthleteProfileData(athleteId: string): Promise<AthleteProfileData | null> {
+  const { data } = await adminClient
+    .from('athletes')
+    .select('name, avatar, email, phone, city, age, height, weight, goal, join_date, injury_history')
+    .eq('id', athleteId)
+    .single()
+
+  if (!data) return null
+  return data as AthleteProfileData
+}

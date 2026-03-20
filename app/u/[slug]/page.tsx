@@ -28,17 +28,17 @@ export default async function SlugPage({ params, searchParams }: Props) {
         <div style={{ maxWidth: '400px', textAlign: 'center' }}>
           <div style={{ fontSize: '64px', marginBottom: '24px' }}>🔐</div>
           <h1 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '12px' }}>
-            {invalid ? 'Sesja wygasła' : 'Potrzebujesz linku zaproszenia'}
+            {invalid ? 'Sesja wygasła' : 'Zaloguj się przez link od trenera'}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6' }}>
             {invalid
-              ? 'Twój link wygasł. Poproś trenera o nowy link zaproszenia.'
+              ? 'Twoja sesja wygasła. Kliknij ponownie link od trenera, żeby się zalogować.'
               : info
-              ? 'Aby uzyskać dostęp do swojego panelu, skorzystaj z linku zaproszenia przesłanego przez trenera.'
-              : 'Ten panel jest dostępny tylko przez link zaproszenia od trenera.'}
+              ? 'Aby uzyskać dostęp do panelu, skorzystaj z linku przesłanego przez trenera.'
+              : 'Ten panel jest dostępny tylko przez link od trenera.'}
           </p>
           <div style={{ marginTop: '24px', padding: '16px', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--border)', fontSize: '13px', color: 'var(--text-muted)' }}>
-            Napisz do swojego trenera z prośbą o przesłanie nowego linku.
+            Jeśli nie masz linku, poproś trenera o jego przesłanie.
           </div>
         </div>
       </div>

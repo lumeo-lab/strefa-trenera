@@ -11,6 +11,7 @@ import { dbRowToFeedback, FeedbackData, FeedbackModal } from './FeedbackModal'
 import { FEELING_LABELS } from '@/lib/constants'
 import { getSessionExecutionLabel, getSessionExecutionStatus, getSessionExecutionTone, isSessionCompleted, isSessionSkipped } from '@/lib/session-status'
 import { markSessionCompletedByAthlete, markSessionSkippedByAthlete } from '@/lib/actions/sessions'
+import { AthleteHeaderAvatar } from './AthleteHeaderAvatar'
 
 interface Props {
   athlete: AthleteSession
@@ -98,11 +99,16 @@ function VoiceFeedbackCard({ feedback, onEdit }: { feedback: FeedbackData; onEdi
   )
 }
 
+// Navigation bounds: sessions are loaded for ±7 days from today
+const NAV_RANGE_DAYS = 7
+
 export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialDate }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [selectedDate, setSelectedDate] = useState(initialDate)
+  const minDate = shiftDate(today, -NAV_RANGE_DAYS)
+  const maxDate = shiftDate(today, NAV_RANGE_DAYS)
   const [optimisticTextFeedback, setOptimisticTextFeedback] = useState<FeedbackData | null>(null)
   const [optimisticVoiceFeedback, setOptimisticVoiceFeedback] = useState<FeedbackData | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -112,8 +118,14 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
   const [statusSubmitting, setStatusSubmitting] = useState<'completed' | 'skipped' | null>(null)
   const [optimisticSessionStatus, setOptimisticSessionStatus] = useState<'planned' | 'completed' | 'skipped' | 'detected' | null>(null)
   const [statusError, setStatusError] = useState<string | null>(null)
+  const [skipFlowOpen, setSkipFlowOpen] = useState(false)
+  const [skipReason, setSkipReason] = useState('')
+  const [skipNote, setSkipNote] = useState('')
+  const [completedToast, setCompletedToast] = useState(false)
 
   const daySession = sessions.find(s => s.date === selectedDate)
+  const tomorrowDate = shiftDate(selectedDate, 1)
+  const tomorrowSession = sessions.find(s => s.date === tomorrowDate)
   const dayFeedbacks = feedbacks[selectedDate] ?? { text: null, voice: null }
   const textFeedback = dayFeedbacks.text
   const voiceFeedback = dayFeedbacks.voice
@@ -146,10 +158,16 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
     setOptimisticVoiceFeedback(null)
     setOptimisticSessionStatus(null)
     setStatusError(null)
+    setSkipFlowOpen(false)
+    setCompletedToast(false)
   }
+
+  const canGoBack = selectedDate > minDate
+  const canGoForward = selectedDate < maxDate
 
   function navigate(delta: number) {
     const nextDate = shiftDate(selectedDate, delta)
+    if (nextDate < minDate || nextDate > maxDate) return
     setSelectedDate(nextDate)
     updateDateInUrl(nextDate)
     resetDayState()
@@ -196,21 +214,31 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
       return
     }
     setOptimisticSessionStatus('completed')
+    setCompletedToast(true)
+    setTimeout(() => setCompletedToast(false), 3000)
     openModal('text', !!textFeedback)
     startTransition(() => router.refresh())
   }
 
-  async function handleMarkSkipped() {
+  function openSkipFlow() {
+    setSkipFlowOpen(true)
+    setSkipReason('')
+    setSkipNote('')
+  }
+
+  async function handleConfirmSkip() {
     if (!daySession || statusSubmitting) return
     setStatusSubmitting('skipped')
     setStatusError(null)
-    const result = await markSessionSkippedByAthlete(athlete.slug, daySession.id)
+    const reason = [skipReason, skipNote.trim()].filter(Boolean).join(': ')
+    const result = await markSessionSkippedByAthlete(athlete.slug, daySession.id, reason || undefined)
     setStatusSubmitting(null)
     if (result && 'error' in result) {
       setStatusError(result.error ?? 'Nie udało się oznaczyć treningu jako pominiętego.')
       return
     }
     setOptimisticSessionStatus('skipped')
+    setSkipFlowOpen(false)
     startTransition(() => router.refresh())
   }
 
@@ -218,17 +246,20 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
     <div style={{ color: 'var(--text-primary)', paddingBottom: '90px' }}>
       {/* Header */}
       <div className="px-5 pt-12 pb-5 lg:px-8 lg:pt-8" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
-        <div className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Cześć, {athlete.name.split(' ')[0]}! 👋</div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>Cześć, {athlete.name.split(' ')[0]}! 👋</div>
+          <AthleteHeaderAvatar slug={athlete.slug} name={athlete.name} avatar={athlete.avatar} />
+        </div>
         <div className="flex items-center justify-between gap-3">
-          <button onClick={() => navigate(-1)}
-            className="w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer shrink-0"
+          <button onClick={() => navigate(-1)} disabled={!canGoBack}
+            className="w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-30 disabled:cursor-default"
             style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>←</button>
           <div className="text-center flex-1">
             <div className="text-xl font-bold">{dayLabel(selectedDate, today)}</div>
             {selectedDate !== today && <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{fullDate(selectedDate)}</div>}
           </div>
-          <button onClick={() => navigate(1)}
-            className="w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer shrink-0"
+          <button onClick={() => navigate(1)} disabled={!canGoForward}
+            className="w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-30 disabled:cursor-default"
             style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>→</button>
         </div>
         {selectedDate !== today && (
@@ -243,75 +274,84 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
       {/* Content */}
       <div className="p-5 lg:px-8 lg:py-6 lg:grid lg:grid-cols-[1fr_300px] lg:gap-6 lg:items-start">
         <div className="space-y-3">
+          {/* Day state banner */}
           {daySession ? (
-            <div className={`p-5 rounded-2xl border ${intensityColor(daySession.type)}`}>
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider mb-1 opacity-60">
-                    {sessionTypeLabel(daySession.type)}
-                  </div>
-                  <h2 className="text-xl font-bold">{daySession.title}</h2>
+            <>
+              <div className="px-1 mb-1">
+                <div className="text-sm font-semibold" style={{
+                  color: sessionStatus === 'completed' ? '#2ECC71'
+                    : sessionStatus === 'skipped' ? '#f59e0b'
+                    : sessionStatus === 'detected' ? '#60a5fa'
+                    : '#FF5C1B',
+                }}>
+                  {sessionStatus === 'completed'
+                    ? (activeTextFeedback ? '✓ Trening ukończony' : '✓ Trening ukończony — dodaj feedback')
+                    : sessionStatus === 'skipped' ? '— Trening pominięty'
+                    : sessionStatus === 'detected' ? '📡 Wykryto aktywność'
+                    : isPastOrToday ? 'Masz trening — oznacz wykonanie' : 'Zaplanowany trening'}
                 </div>
-                <div className="text-3xl shrink-0 ml-3">🏃</div>
               </div>
-              <p className="text-sm opacity-80 mb-4">{daySession.description}</p>
-              <div className="flex flex-wrap gap-4 text-sm font-semibold">
-                {daySession.planned_distance && <span>📏 {daySession.planned_distance} km</span>}
-                {daySession.planned_duration && <span>⏱️ {daySession.planned_duration} min</span>}
-                {daySession.planned_pace && <span>⚡ {daySession.planned_pace}/km</span>}
-              </div>
-              {daySession && (
-                <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }}>
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="text-xs font-semibold opacity-70">
-                      {sessionStatus ? `${getSessionExecutionLabel({ ...daySession, status: sessionStatus })}` : 'Zaplanowany'}
+
+              <div className={`p-5 rounded-2xl border ${intensityColor(daySession.type)}`}>
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider mb-1 opacity-60">
+                      {sessionTypeLabel(daySession.type)}
                     </div>
-                    <div
-                      className="text-xs px-2 py-1 rounded-full"
-                      style={{
-                        background:
-                          sessionTone === 'success'
-                            ? 'rgba(46,204,113,0.15)'
-                            : sessionTone === 'warning'
-                              ? 'rgba(245,158,11,0.15)'
-                              : sessionTone === 'info'
-                                ? 'rgba(59,130,246,0.15)'
-                                : 'rgba(255,255,255,0.08)',
-                        color:
-                          sessionTone === 'success'
-                            ? '#2ECC71'
-                            : sessionTone === 'warning'
-                              ? '#f59e0b'
-                              : sessionTone === 'info'
-                                ? '#60a5fa'
-                                : 'rgba(255,255,255,0.75)',
-                      }}
-                    >
-                      {sessionStatus ?? 'planned'}
-                    </div>
+                    <h2 className="text-xl font-bold">{daySession.title}</h2>
                   </div>
-                  {sessionStatus === 'completed' && (
-                    <div className="mt-3 flex flex-wrap gap-4 text-sm font-medium">
-                      {daySession.actual_distance && <span>📏 {daySession.actual_distance} km</span>}
-                      {daySession.actual_duration && <span>⏱️ {daySession.actual_duration} min</span>}
-                      {daySession.actual_pace && <span>⚡ {daySession.actual_pace}/km</span>}
-                      {daySession.avg_hr && <span>❤️ {daySession.avg_hr} bpm</span>}
-                    </div>
+                  {sessionStatus === 'completed' && <span className="text-2xl shrink-0 ml-3">✓</span>}
+                  {sessionStatus === 'skipped' && <span className="text-2xl shrink-0 ml-3 opacity-50">—</span>}
+                  {(!sessionStatus || sessionStatus === 'planned') && <span className="text-3xl shrink-0 ml-3">🏃</span>}
+                </div>
+                {daySession.description && <p className="text-sm opacity-80 mb-4">{daySession.description}</p>}
+
+                {/* Plan */}
+                <div className="flex flex-wrap gap-4 text-sm font-semibold">
+                  {daySession.planned_distance && <span>📏 {daySession.planned_distance} km</span>}
+                  {daySession.planned_duration && <span>⏱️ {daySession.planned_duration} min</span>}
+                  {daySession.planned_pace && <span>⚡ {daySession.planned_pace}/km</span>}
+                </div>
+
+                {/* Actuals if completed */}
+                {sessionStatus === 'completed' && (daySession.actual_distance || daySession.actual_duration || daySession.actual_pace || daySession.avg_hr) && (
+                  <div className="mt-3 pt-3 flex flex-wrap gap-4 text-sm font-medium" style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+                    <span className="text-xs opacity-60 w-full">Wykonanie:</span>
+                    {daySession.actual_distance && <span>📏 {daySession.actual_distance} km</span>}
+                    {daySession.actual_duration && <span>⏱️ {daySession.actual_duration} min</span>}
+                    {daySession.actual_pace && <span>⚡ {daySession.actual_pace}/km</span>}
+                    {daySession.avg_hr && <span>❤️ {daySession.avg_hr} bpm</span>}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="p-8 rounded-2xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="text-4xl mb-3">😌</div>
+              <div className="font-semibold text-lg mb-1">Dzień regeneracji</div>
+              <div className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Brak zaplanowanego treningu — odpoczywaj!</div>
+              {tomorrowSession && (
+                <div className="text-sm px-4 py-3 rounded-xl" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Jutro: </span>
+                  <span className="font-medium">{tomorrowSession.title}</span>
+                  {tomorrowSession.planned_distance && (
+                    <span style={{ color: 'var(--text-muted)' }}> · {tomorrowSession.planned_distance} km</span>
                   )}
                 </div>
               )}
-            </div>
-          ) : (
-            <div className="p-10 rounded-2xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <div className="text-5xl mb-4">🎉</div>
-              <div className="font-semibold text-lg mb-1">Wolny dzień</div>
-              <div className="text-sm" style={{ color: 'var(--text-muted)' }}>Brak zaplanowanego treningu</div>
             </div>
           )}
 
           {isPastOrToday && (
             <div className="space-y-2">
-              {daySession && sessionStatus === 'planned' && (
+              {/* Completed toast */}
+              {completedToast && (
+                <div className="px-4 py-2.5 rounded-2xl text-sm font-medium" style={{ background: 'rgba(46,204,113,0.12)', border: '1px solid rgba(46,204,113,0.3)', color: '#2ECC71' }}>
+                  ✓ Trening oznaczony jako wykonany
+                </div>
+              )}
+
+              {daySession && sessionStatus === 'planned' && !skipFlowOpen && (
                 <div className="space-y-2">
                   <button
                     onClick={handleMarkCompleted}
@@ -322,13 +362,58 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
                     {statusSubmitting === 'completed' ? 'Zapisywanie...' : '✓ Wykonałem trening'}
                   </button>
                   <button
-                    onClick={handleMarkSkipped}
-                    disabled={statusSubmitting !== null}
-                    className="w-full py-3.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95 disabled:opacity-60"
+                    onClick={openSkipFlow}
+                    className="w-full py-3.5 rounded-2xl text-sm font-semibold cursor-pointer transition-all active:scale-95"
                     style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
                   >
-                    {statusSubmitting === 'skipped' ? 'Zapisywanie...' : '— Nie zrobiłem'}
+                    — Nie zrobiłem
                   </button>
+                  {statusError && (
+                    <div className="text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
+                      {statusError}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Skip flow — reason selection */}
+              {daySession && sessionStatus === 'planned' && skipFlowOpen && (
+                <div className="p-4 rounded-2xl space-y-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  <div className="text-sm font-semibold">Dlaczego nie zrobiłeś treningu?</div>
+                  <div className="flex flex-wrap gap-2">
+                    {['Brak czasu', 'Zmęczenie', 'Choroba', 'Kontuzja', 'Inne'].map(r => (
+                      <button key={r} onClick={() => setSkipReason(skipReason === r ? '' : r)}
+                        className="px-3 py-2 rounded-xl text-sm cursor-pointer transition-all"
+                        style={{
+                          background: skipReason === r ? 'rgba(255,92,27,0.12)' : 'var(--bg-subtle)',
+                          border: skipReason === r ? '1px solid rgba(255,92,27,0.4)' : '1px solid transparent',
+                          color: skipReason === r ? '#FF5C1B' : 'var(--text-muted)',
+                        }}>
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={skipNote}
+                    onChange={e => setSkipNote(e.target.value)}
+                    placeholder="Dodatkowa notatka (opcjonalnie)"
+                    rows={2}
+                    className="w-full px-3 py-2.5 rounded-xl text-sm resize-none"
+                    style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => setSkipFlowOpen(false)}
+                      className="flex-1 py-3 rounded-xl text-sm font-medium cursor-pointer"
+                      style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: 'none' }}>
+                      Anuluj
+                    </button>
+                    <button onClick={handleConfirmSkip}
+                      disabled={statusSubmitting !== null}
+                      className="flex-1 py-3 rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-60"
+                      style={{ background: '#f59e0b', color: '#fff', border: 'none' }}>
+                      {statusSubmitting === 'skipped' ? 'Zapisywanie...' : 'Potwierdź pominięcie'}
+                    </button>
+                  </div>
                   {statusError && (
                     <div className="text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
                       {statusError}
@@ -437,8 +522,10 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
                       )}
                     </div>
                     <div className="shrink-0 ml-1">
-                      {ws?.completed
+                      {ws && isSessionCompleted(ws)
                         ? <span className="text-green-400 text-xs">✓</span>
+                        : ws && isSessionSkipped(ws)
+                        ? <span className="text-xs" style={{ color: '#f59e0b' }}>—</span>
                         : ws ? <div className="w-1.5 h-1.5 rounded-full" style={{ background: isTod ? '#FF5C1B' : 'var(--text-muted)' }} />
                         : null}
                     </div>

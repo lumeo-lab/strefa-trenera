@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import { feedbackLabel } from '@/components/coach/FeedbackCard'
 import { dayName, formatDate, getWeekDays, intensityColor, parseFeedbackTranscript, sessionTypeLabel, toISODate } from '@/lib/utils'
+import { isSessionCompleted, isSessionSkipped } from '@/lib/session-status'
 import { getMonthCalendar, shiftMonth } from '@/lib/calendar'
 import { AthleteBottomNav } from './AthleteBottomNav'
 import { AthleteSession } from '@/lib/athlete-auth'
 import type { AthletePlanFeedbackMap, AthleteTrainingSessionRow } from '@/lib/athlete-data'
 import { SESSION_TYPES } from '@/lib/constants'
+import { AthleteHeaderAvatar } from './AthleteHeaderAvatar'
 
 interface Props {
   athlete: AthleteSession
@@ -32,8 +34,13 @@ export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) 
     <div style={{ color: 'var(--text-primary)', paddingBottom: '90px' }}>
       {/* Header */}
       <div className="px-5 pt-12 pb-4 border-b" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}>
-        <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{athlete.name}</div>
-        <h1 className="text-xl font-bold">Plan treningowy</h1>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{athlete.name}</div>
+            <h1 className="text-xl font-bold">Plan treningowy</h1>
+          </div>
+          <AthleteHeaderAvatar slug={athlete.slug} name={athlete.name} avatar={athlete.avatar} />
+        </div>
       </div>
 
       <div className="p-5">
@@ -78,10 +85,21 @@ export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) 
         </div>
 
         {/* Week view */}
-        {view === 'week' && (
+        {view === 'week' && (() => {
+          const weekSessions = sessions.filter(s => s.date >= weekStart && s.date <= weekEnd)
+          const weekDone = weekSessions.filter(s => isSessionCompleted(s)).length
+          const weekTotal = weekSessions.length
+          return (
           <div className="space-y-2">
-            <div className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
-              {formatDate(weekStart, { day: 'numeric', month: 'short' })} — {formatDate(weekEnd, { day: 'numeric', month: 'short' })}
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {formatDate(weekStart, { day: 'numeric', month: 'short' })} — {formatDate(weekEnd, { day: 'numeric', month: 'short' })}
+              </div>
+              {weekTotal > 0 && (
+                <div className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: weekDone === weekTotal ? 'rgba(46,204,113,0.12)' : 'var(--bg-subtle)', color: weekDone === weekTotal ? '#2ECC71' : 'var(--text-muted)' }}>
+                  {weekDone}/{weekTotal} ukończonych
+                </div>
+              )}
             </div>
             {weekDays.map(day => {
               const dateStr = toISODate(day)
@@ -110,8 +128,9 @@ export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) 
                               <div className="text-xs font-semibold uppercase tracking-wider opacity-70 mb-0.5">{sessionTypeLabel(s.type)}</div>
                               <div className="font-semibold text-sm">{s.title}</div>
                             </div>
-                            {s.completed
+                            {isSessionCompleted(s)
                               ? <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full ml-2 shrink-0">✓</span>
+                              : isSessionSkipped(s) ? <span className="text-xs px-2 py-0.5 rounded-full ml-2 shrink-0" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>—</span>
                               : isPast ? <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full ml-2 shrink-0">✗</span>
                               : null}
                           </div>
@@ -146,7 +165,8 @@ export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) 
               )
             })}
           </div>
-        )}
+          )
+        })()}
 
         {/* Month view */}
         {view === 'month' && (

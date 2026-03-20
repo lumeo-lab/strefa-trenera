@@ -20,7 +20,7 @@ const navSections = [
   {
     label: 'Finanse',
     items: [
-      { href: '/coach/invoices', icon: '💳', label: 'Faktury', badgeKey: null },
+      { href: '/coach/invoices', icon: '💳', label: 'Rozliczenia', badgeKey: null },
       { href: '/coach/analytics', icon: '📊', label: 'Analityka', badgeKey: null },
     ],
   },

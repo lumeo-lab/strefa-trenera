@@ -50,6 +50,18 @@ const SOURCE_ICONS: Record<string, { icon: string; tooltip: string }> = {
   imported: { icon: '📥', tooltip: 'Zaimportowane — dane zostały zaimportowane z zewnętrznego źródła.' },
 }
 
+function HoverTooltip({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <span className="relative inline-flex items-center group">
+      {children}
+      <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 z-30 hidden w-64 whitespace-normal rounded-xl px-3 py-2 text-[11px] leading-5 shadow-lg group-hover:block"
+        style={{ background: 'rgba(15,23,42,0.96)', color: 'white', border: '1px solid rgba(255,255,255,0.08)' }}>
+        {text}
+      </span>
+    </span>
+  )
+}
+
 // ── Component ──────────────────────────────────────────────────────────
 
 interface HistoryTabProps {
@@ -326,8 +338,8 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, strava
                       <div className="flex flex-wrap gap-1">
                         {session.actual_distance != null && <span className="text-[11px] rounded-full px-1.5 py-0.5" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>📏 {session.actual_distance} km</span>}
                         {session.actual_duration != null && <span className="text-[11px] rounded-full px-1.5 py-0.5" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>⏱ {session.actual_duration} min</span>}
+                        {session.actual_pace && <span className="text-[11px] rounded-full px-1.5 py-0.5" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>⚡ {session.actual_pace}</span>}
                         {session.avg_hr != null && <span className="text-[11px] rounded-full px-1.5 py-0.5" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>❤️ {session.avg_hr}</span>}
-                        {session.max_hr != null && <span className="text-[11px] rounded-full px-1.5 py-0.5" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>❤️‍🔥 {session.max_hr}</span>}
                         {elevGain != null && <span className="text-[11px] rounded-full px-1.5 py-0.5" style={{ background: 'var(--bg-subtle)', color: 'var(--text-primary)' }}>⛰ {elevGain}m</span>}
                         {!session.actual_distance && !session.actual_duration && !session.avg_hr && <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>—</span>}
                       </div>
@@ -346,12 +358,13 @@ export function HistoryTab({ sessions, feedbackBySession, feedbackByDate, strava
                     {/* Status + source */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
-                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-help"
-                          style={{ color: tone.color, background: tone.bg }}
-                          title={STATUS_TOOLTIPS[status === 'planned' && session.date < today ? 'unresolved' : status] ?? ''}>
-                          {statusLabel}
-                        </span>
-                        {sourceData && <span className="text-xs cursor-help" title={sourceData.tooltip}>{sourceData.icon}</span>}
+                        <HoverTooltip text={STATUS_TOOLTIPS[status === 'planned' && session.date < today ? 'unresolved' : status] ?? ''}>
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium cursor-help"
+                            style={{ color: tone.color, background: tone.bg }}>
+                            {statusLabel}
+                          </span>
+                        </HoverTooltip>
+                        {sourceData && <HoverTooltip text={sourceData.tooltip}><span className="text-xs cursor-help">{sourceData.icon}</span></HoverTooltip>}
                       </div>
                       {status === 'skipped' && session.skipped_reason && (
                         <div className="text-[10px] mt-0.5 italic" style={{ color: 'var(--text-muted)' }}>

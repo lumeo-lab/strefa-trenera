@@ -1,5 +1,5 @@
 import { adminClient } from '@/lib/supabase/admin'
-import { getStatusUpdateForExecution, getSessionExecutionStatus } from '@/lib/session-status'
+import { getSessionExecutionStatus, getStatusUpdateForExecution } from '@/lib/session-status'
 import type { Database } from '@/lib/supabase/database.types'
 import type { SessionExecutionStatus, SessionType } from '@/lib/types'
 
