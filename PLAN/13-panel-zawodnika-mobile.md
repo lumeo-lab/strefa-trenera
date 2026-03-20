@@ -482,11 +482,11 @@ Tabela `athlete_races` już istnieje z pełną strukturą (id, athlete_id, coach
 
 ---
 
-### Etap 9: `Kontuzje` — read-only + zgłoszenie
+### Etap 9: `Kontuzje` — read-only + zgłoszenie ✅
 
 Priorytet: **Wysoki**
 Ryzyko: **Niskie**
-**Status: DO ZROBIENIA**
+**Status: WDROŻONY**
 
 #### Cel
 
@@ -530,11 +530,11 @@ Jeśli potrzeba pełnego athlete-side CRUD, wymagana migracja:
 
 ---
 
-### Etap 10: `Rozliczenia` — read-only
+### Etap 10: `Rozliczenia` — read-only ✅
 
 Priorytet: **Wysoki**
 Ryzyko: **Niskie**
-**Status: DO ZROBIENIA**
+**Status: WDROŻONY**
 
 #### Cel
 

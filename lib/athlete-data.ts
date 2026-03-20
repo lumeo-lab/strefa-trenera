@@ -124,6 +124,34 @@ export async function getAthleteRaces(athleteId: string): Promise<AthleteRaceRow
   return data ?? []
 }
 
+export interface AthleteInjuryItem {
+  id: string
+  name: string
+  started_at: string | null
+  ended_at: string | null
+}
+
+export async function getAthleteInjuries(athleteId: string): Promise<AthleteInjuryItem[]> {
+  const { data } = await adminClient
+    .from('athletes')
+    .select('injury_history')
+    .eq('id', athleteId)
+    .single()
+  if (!data?.injury_history) return []
+  return data.injury_history as AthleteInjuryItem[]
+}
+
+export type AthleteInvoiceRow = Database['public']['Tables']['invoices']['Row']
+
+export async function getAthleteInvoices(athleteId: string): Promise<AthleteInvoiceRow[]> {
+  const { data } = await adminClient
+    .from('invoices')
+    .select('*')
+    .eq('athlete_id', athleteId)
+    .order('date', { ascending: false })
+  return data ?? []
+}
+
 export interface AthleteProfileData {
   name: string
   avatar: string
