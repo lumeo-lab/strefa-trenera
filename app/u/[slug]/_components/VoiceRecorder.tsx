@@ -48,19 +48,21 @@ interface VoiceRecorderProps {
 
 export function VoiceRecorder({ transcript, onTranscriptChange }: VoiceRecorderProps) {
   const [recording, setRecording] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
 
   async function handleRecord() {
+    setError(null)
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true })
     } catch {
-      alert('Brak dostępu do mikrofonu. Zezwól na dostęp w ustawieniach przeglądarki.')
+      setError('Brak dostępu do mikrofonu. Zezwól na dostęp w ustawieniach przeglądarki.')
       return
     }
     const speechWindow = window as SpeechRecognitionWindow
     const SR = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
     if (!SR) {
-      alert('Twoja przeglądarka nie obsługuje nagrywania głosu. Użyj Chrome na Androidzie lub Safari na iOS.')
+      setError('Twoja przeglądarka nie obsługuje nagrywania głosu. Użyj Chrome lub Safari.')
       return
     }
     const recognition = new SR()
@@ -77,9 +79,14 @@ export function VoiceRecorder({ transcript, onTranscriptChange }: VoiceRecorderP
     recognition.onend = () => { setRecording(false) }
     recognition.onerror = (e: SpeechRecognitionErrorEventLike) => {
       setRecording(false)
-      if (e.error !== 'aborted') alert('Błąd nagrywania. Sprawdź uprawnienia mikrofonu.')
+      if (e.error !== 'aborted') setError('Błąd nagrywania. Sprawdź uprawnienia mikrofonu.')
     }
-    try { recognition.start() } catch { setRecording(false); alert('Nie można uruchomić nagrywania.') }
+    try {
+      recognition.start()
+    } catch {
+      setRecording(false)
+      setError('Nie można uruchomić nagrywania.')
+    }
   }
 
   function stopRecord() { recognitionRef.current?.stop() }
@@ -92,6 +99,12 @@ export function VoiceRecorder({ transcript, onTranscriptChange }: VoiceRecorderP
       <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
         Nagraj krótki komentarz głosowy do swojego treningu. Zostanie on przekazany trenerowi.
       </p>
+
+      {error && (
+        <div className="text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
+          {error}
+        </div>
+      )}
 
       {/* Voice: idle */}
       {idle && (
@@ -125,7 +138,7 @@ export function VoiceRecorder({ transcript, onTranscriptChange }: VoiceRecorderP
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-green-400">✓ Nagranie gotowe — możesz poprawić tekst</span>
-            <button onClick={() => onTranscriptChange('')}
+            <button onClick={() => { onTranscriptChange(''); setError(null) }}
               className="text-xs cursor-pointer" style={{ color: 'var(--text-muted)', background: 'none', border: 'none' }}>
               🔄 Nagraj ponownie
             </button>
