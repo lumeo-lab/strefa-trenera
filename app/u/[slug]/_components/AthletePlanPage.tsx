@@ -31,6 +31,10 @@ export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) 
 
   const calendarWeeks = getMonthCalendar(selectedMonth)
 
+  const weekSessions = sessions.filter(s => s.date >= weekStart && s.date <= weekEnd)
+  const weekDone = weekSessions.filter(s => isSessionCompleted(s)).length
+  const weekTotal = weekSessions.length
+
   function goToDay(dateStr: string) {
     const params = dateStr === today ? '' : `?d=${dateStr}`
     router.push(`/u/${athlete.slug}${params}`)
@@ -76,11 +80,7 @@ export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) 
         </div>
 
         {/* Week view */}
-        {view === 'week' && (() => {
-          const weekSessions = sessions.filter(s => s.date >= weekStart && s.date <= weekEnd)
-          const weekDone = weekSessions.filter(s => isSessionCompleted(s)).length
-          const weekTotal = weekSessions.length
-          return (
+        {view === 'week' && (
           <div className="space-y-2">
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -166,8 +166,7 @@ export function AthletePlanPage({ athlete, sessions, feedbacks, today }: Props) 
               )
             })}
           </div>
-          )
-        })()}
+        )}
 
         {/* Month view */}
         {view === 'month' && (

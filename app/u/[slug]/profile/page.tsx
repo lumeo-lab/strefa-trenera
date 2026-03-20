@@ -18,7 +18,7 @@ export default async function ProfilePage({ params }: Props) {
   const profile = await getAthleteProfileData(athlete.id)
 
   if (!profile) {
-    redirect(`/u/${slug}`)
+    redirect(`/u/${slug}?info=1`)
   }
 
   return (

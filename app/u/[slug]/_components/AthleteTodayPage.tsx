@@ -11,7 +11,7 @@ import { dbRowToFeedback, FeedbackData, FeedbackModal } from './FeedbackModal'
 import { FEELING_LABELS } from '@/lib/constants'
 import { getSessionExecutionStatus, isSessionCompleted, isSessionSkipped } from '@/lib/session-status'
 import { markSessionCompletedByAthlete, markSessionSkippedByAthlete } from '@/lib/actions/sessions'
-
+import { addDaysToBusinessDate } from '@/lib/date'
 
 interface Props {
   athlete: AthleteSession
@@ -21,16 +21,10 @@ interface Props {
   initialDate: string
 }
 
-function shiftDate(dateStr: string, days: number): string {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  const dt = new Date(y, m - 1, d + days)
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
-}
-
 function dayLabel(dateStr: string, today: string): string {
   if (dateStr === today) return 'Dziś'
-  if (dateStr === shiftDate(today, -1)) return 'Wczoraj'
-  if (dateStr === shiftDate(today, 1)) return 'Jutro'
+  if (dateStr === addDaysToBusinessDate(today, -1)) return 'Wczoraj'
+  if (dateStr === addDaysToBusinessDate(today, 1)) return 'Jutro'
   const [y, m, d] = dateStr.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })
 }
@@ -107,8 +101,8 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [selectedDate, setSelectedDate] = useState(initialDate)
-  const minDate = shiftDate(today, -NAV_RANGE_DAYS)
-  const maxDate = shiftDate(today, NAV_RANGE_DAYS)
+  const minDate = addDaysToBusinessDate(today, -NAV_RANGE_DAYS)
+  const maxDate = addDaysToBusinessDate(today, NAV_RANGE_DAYS)
   const [optimisticTextFeedback, setOptimisticTextFeedback] = useState<FeedbackData | null>(null)
   const [optimisticVoiceFeedback, setOptimisticVoiceFeedback] = useState<FeedbackData | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -124,7 +118,7 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
   const [completedToast, setCompletedToast] = useState(false)
 
   const daySession = sessions.find(s => s.date === selectedDate)
-  const tomorrowDate = shiftDate(selectedDate, 1)
+  const tomorrowDate = addDaysToBusinessDate(selectedDate, 1)
   const tomorrowSession = sessions.find(s => s.date === tomorrowDate)
   const dayFeedbacks = feedbacks[selectedDate] ?? { text: null, voice: null }
   const textFeedback = dayFeedbacks.text
@@ -167,7 +161,7 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
   const canGoForward = selectedDate < maxDate
 
   function navigate(delta: number) {
-    const nextDate = shiftDate(selectedDate, delta)
+    const nextDate = addDaysToBusinessDate(selectedDate, delta)
     if (nextDate < minDate || nextDate > maxDate) return
     setSelectedDate(nextDate)
     updateDateInUrl(nextDate)

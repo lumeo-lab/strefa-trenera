@@ -116,9 +116,16 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
   // Clean up optimistic messages that appear in real messages
   useEffect(() => {
     if (optimisticMessages.length > 0) {
-      setOptimisticMessages(prev => prev.filter(om =>
-        !messages.some(m => m.content === om.content && m.sender_type === 'athlete')
-      ))
+      setOptimisticMessages(prev => prev.filter(om => {
+        if (om.failed) return true // keep failed messages for retry
+        // Match by content + close timestamp (within 60s)
+        const omTime = new Date(om.created_at).getTime()
+        return !messages.some(m =>
+          m.content === om.content &&
+          m.sender_type === 'athlete' &&
+          Math.abs(new Date(m.created_at).getTime() - omTime) < 60000
+        )
+      }))
     }
   }, [messages]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -258,9 +265,9 @@ export function AthleteChatPage({ athlete, messages, coachName }: Props) {
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     {isPending ? 'Wysyłanie...' : formatDateTime(msg.created_at)}
                   </span>
-                  {isFailed && (
+                  {isFailed && 'id' in msg && (
                     <button
-                      onClick={() => handleRetry(msg as unknown as OptimisticMessage)}
+                      onClick={() => handleRetry(msg as OptimisticMessage)}
                       className="text-xs cursor-pointer"
                       style={{ color: '#f87171', background: 'none', border: 'none' }}
                     >

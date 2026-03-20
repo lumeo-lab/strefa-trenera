@@ -21,6 +21,7 @@ export function AthleteInjuriesPage({ athlete, injuries }: Props) {
   const [reportText, setReportText] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+  const [sendError, setSendError] = useState(false)
 
   const active = injuries.filter(i => !i.ended_at)
   const history = injuries.filter(i => i.ended_at)
@@ -28,6 +29,7 @@ export function AthleteInjuriesPage({ athlete, injuries }: Props) {
   async function handleReport() {
     if (!reportText.trim() || sending) return
     setSending(true)
+    setSendError(false)
     const message = `🩹 Zgłoszenie problemu zdrowotnego:\n${reportText.trim()}`
     try {
       await sendAthleteMessage(athlete.slug, message)
@@ -36,7 +38,7 @@ export function AthleteInjuriesPage({ athlete, injuries }: Props) {
       setTimeout(() => { setSent(false); setReportOpen(false) }, 2000)
       router.refresh()
     } catch {
-      // ignore
+      setSendError(true)
     } finally {
       setSending(false)
     }
@@ -86,6 +88,11 @@ export function AthleteInjuriesPage({ athlete, injuries }: Props) {
             {sent && (
               <div className="text-xs mb-3 px-3 py-2 rounded-lg font-medium" style={{ color: '#2ECC71', background: 'rgba(46,204,113,0.08)' }}>
                 ✓ Wysłano do trenera
+              </div>
+            )}
+            {sendError && (
+              <div className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ color: '#f87171', background: 'rgba(248,113,113,0.08)' }}>
+                Nie udało się wysłać. Spróbuj ponownie.
               </div>
             )}
             <div className="flex gap-2">
