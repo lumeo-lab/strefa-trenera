@@ -70,6 +70,8 @@ Client Components call actions via `useActionState` or `startTransition(() => ro
 - `lib/styles.ts` — INPUT_STYLE, LABEL_STYLE (shared across form components)
 - `lib/utils.ts` — formatting, relative date labels, color maps, presentation helpers
 - `lib/athlete-data.ts` — typed athlete-facing reads grouped in one module
+- `lib/session-status.ts` — canonical session execution model (`planned/completed/skipped/detected`), labels, compliance helpers, source-of-truth logic
+- `lib/athlete-insights.ts` — coach-side analysis aggregation (load, zones, reaction, recommendation, type stats)
 - `lib/athlete-status-defs.ts` — canonical athlete status definitions (built-ins + defaults)
 
 ### Feature-backed Supabase migrations
@@ -82,6 +84,10 @@ The codebase now relies on a few feature-definition tables that must exist in Su
 - `supabase/migrations/013_athlete_list_order_and_metrics.sql` — persistent athlete list order plus `coach_athlete_list_metrics()` RPC used by the athletes list
 - `supabase/migrations/014_athlete_archive.sql` — athlete archiving via `archived_at`
 - `supabase/migrations/015_athlete_injury_history.sql` — structured `injury_history` JSONB for active/closed injuries with dates
+- `supabase/migrations/016_training_session_execution_status.sql` — session execution model (`status`, `completion_source`, `completed_at`, Strava linkage, skip reason)
+- `supabase/migrations/017_feedback_structured_fields.sql` — structured athlete feedback (`feeling`, `rpe`, `pain_flag`, manual actuals, voice/text fields)
+- `supabase/migrations/018_strava_actuals_and_pairing.sql` — Strava actual data extension, pairing fields, additional activity metrics
+- `supabase/migrations/019_coach_analysis_foundation.sql` — coach analysis foundation: `session_priority`, `session_goal`, `training_load`, HR-zone fields on sessions and athletes
 
 If these migrations are missing in an environment, the related UI may still render but save flows will fail or silently fall back.
 
@@ -115,6 +121,52 @@ Important:
 - `Sport i zdrowie` uses `injury_history` as the source of truth; active injuries are those without `ended_at`
 - `RacesTab` and `FinanceTab` lazy-load their heavy data through `/api/coach/athletes/[id]/sections`
 - `FeedbackTab`, `HistoryTab`, `RacesTab`, `FinanceTab`, and `NotesTab` share common empty/error UI via `ProfileStates.tsx`
+- training execution is no longer modeled as a loose `completed` boolean alone; the canonical model is the execution `status` on `training_sessions`
+- `HistoryTab` is the coach’s operational log of planned sessions and their realization
+- `InsightsTab` is the coach’s analysis surface and should stay focused on planning support, not become a second raw history table
+
+### Execution + feedback + Strava model
+
+The current product model is intentionally split into four layers:
+
+- `training_sessions` — planned unit and final execution status
+- `feedbacks` — athlete’s subjective response and notes
+- `strava_activities` — imported external activity data
+- pairing (`linked_strava_activity_id`) — relation between planned session and imported activity
+
+Important implementation rules:
+- history, coach workflow, and compliance must rely on session execution status, not on feedback existence
+- athlete feedback does not define completion by itself; athlete-side `Wykonałem / Nie zrobiłem` flow is the primary status input
+- Strava is preferred as the source for objective actual metrics when paired, but it should not silently override explicit human status decisions
+- keep manual athlete actuals as fallback when there is no paired device data
+
+### Coach History vs Analysis
+
+The coach profile intentionally separates two surfaces:
+
+- `HistoryTab` — operational review:
+  - planned sessions as the base rows
+  - execution metrics (`distance`, `time`, `pace`, `HR`, `elevation`) in the row
+  - plan details in the expandable session row
+  - athlete feedback in a separate expandable row
+  - unplanned Strava activities at the bottom as a verification queue
+- `InsightsTab` / `Analiza` — planning support:
+  - use tabs/sub-views instead of one long overloaded screen
+  - prioritize weekly load, time in HR zones, athlete reaction, and session-type quality
+  - keep recommendation/decision support concise and based on explainable signals
+  - avoid turning `Analiza` back into a general-purpose stats dump
+
+### Planning docs
+
+The repo includes implementation/reference plans for this area:
+
+- `master-plan-treningi-analityka.md` — main operating plan
+- `plan-treningi.md` — execution model foundation
+- `plan-analityka-zawodnika.md` — athlete insights layer
+- `plan-analiza-trenera.md` — coach analysis + history redesign
+- `rollout-analiza-historia.md` — technical rollout for `Analiza` + `Historia`
+
+When changing this area, follow the master plan first; the other documents are reference/detail docs.
 
 ### Athlete list / archive behavior
 
@@ -147,3 +199,5 @@ Important:
 - When changing links or derived URLs shown in Client Components, prefer passing a stable server-derived app URL into the component instead of building it from `window.location`
 - For athlete injury editing, keep active injuries and historical injuries in one structured model; ending an injury must remove it from “active” logic without losing history
 - When adding coach-only summary UI (signals, hints, filters), prefer compact presentation and modals/drawers over large persistent boxes if the information is secondary
+- In coach `HistoryTab`, keep the main row compact and single-line where possible; push plan details and long descriptions into expandable rows
+- In coach `InsightsTab`, prefer segmented decision-support views and charts over one long dashboard stuffed with summary cards
