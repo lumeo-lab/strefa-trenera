@@ -43,23 +43,30 @@ export async function getAthleteFeedbackWindow(athleteId: string, from: string, 
 
 export async function getAthleteHistoryData(athleteId: string): Promise<{
   sessions: AthleteTrainingSessionRow[]
+  feedbacks: Pick<AthleteFeedbackRow, 'id' | 'date' | 'signal' | 'coach_reply' | 'feeling' | 'rpe' | 'notes_structured' | 'source'>[]
   stravaConnected: boolean
   stravaActivities: AthleteStravaActivityRow[]
 }> {
-  const [{ data: sessions }, { data: stravaConn }, { data: stravaActivities }] = await Promise.all([
+  const [{ data: sessions }, { data: feedbacks }, { data: stravaConn }, { data: stravaActivities }] = await Promise.all([
     adminClient
       .from('training_sessions')
       .select('*')
       .eq('athlete_id', athleteId)
-      .in('status', ['completed', 'skipped', 'detected'])
       .order('date', { ascending: false })
-      .limit(50),
+      .limit(100),
+    adminClient
+      .from('feedbacks')
+      .select('id, date, signal, coach_reply, feeling, rpe, notes_structured, source')
+      .eq('athlete_id', athleteId)
+      .order('date', { ascending: false })
+      .limit(100),
     adminClient.from('strava_connections').select('connected_at').eq('athlete_id', athleteId).single(),
     adminClient.from('strava_activities').select('*').eq('athlete_id', athleteId).order('start_date', { ascending: false }).limit(50),
   ])
 
   return {
     sessions: sessions ?? [],
+    feedbacks: feedbacks ?? [],
     stravaConnected: !!stravaConn,
     stravaActivities: stravaActivities ?? [],
   }

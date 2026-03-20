@@ -13,12 +13,13 @@ export default async function HistoryPage({ params, searchParams }: {
 
   if (!athlete) redirect(`/u/${slug}`)
 
-  const { sessions, stravaConnected, stravaActivities } = await getAthleteHistoryData(athlete.id)
+  const { sessions, feedbacks, stravaConnected, stravaActivities } = await getAthleteHistoryData(athlete.id)
 
   return (
     <AthleteHistoryPage
       athlete={athlete}
       sessions={sessions}
+      feedbacks={feedbacks}
       stravaConnected={stravaConnected}
       stravaActivities={stravaActivities}
       stravaStatus={strava}

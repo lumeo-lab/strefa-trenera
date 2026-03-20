@@ -354,11 +354,11 @@ Ryzyko: **Niskie**
 
 ---
 
-### Etap 6: `Wykonanie` zamiast `Historia`
+### Etap 6: `Wykonanie` zamiast `Historia` ✅
 
 Priorytet: **Bardzo wysoki**
 Ryzyko: **Średnie**
-**Status: CZĘŚCIOWO WDROŻONY**
+**Status: WDROŻONY**
 
 #### Co już zrobiono
 
