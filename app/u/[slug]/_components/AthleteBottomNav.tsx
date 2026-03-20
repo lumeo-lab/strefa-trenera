@@ -13,7 +13,7 @@ interface Props {
 
 export function AthleteBottomNav({ slug, athleteName, athleteAvatar }: Props) {
   const pathname = usePathname()
-  const isProfileActive = pathname.startsWith(`/u/${slug}/profile`)
+  const isProfileActive = pathname.startsWith(`/u/${slug}/profile`) || pathname.startsWith(`/u/${slug}/races`) || pathname.startsWith(`/u/${slug}/injuries`) || pathname.startsWith(`/u/${slug}/billing`)
 
   const items = [
     { href: `/u/${slug}`, icon: '🏠', label: 'Dziś' },
@@ -38,11 +38,10 @@ export function AthleteBottomNav({ slug, athleteName, athleteAvatar }: Props) {
           )
         })}
 
-        {/* Avatar — profile link */}
+        {/* Avatar only — no label, bigger */}
         <Link href={`/u/${slug}/profile`}
-          className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all">
+          className="flex items-center justify-center px-3 py-1 rounded-xl transition-all">
           <NavAvatar avatar={athleteAvatar} name={athleteName} active={isProfileActive} />
-          <span style={{ fontSize: '11px', fontWeight: isProfileActive ? '600' : '400', color: isProfileActive ? '#FF5C1B' : 'var(--text-muted)' }}>Profil</span>
         </Link>
       </div>
     </nav>
@@ -50,7 +49,7 @@ export function AthleteBottomNav({ slug, athleteName, athleteAvatar }: Props) {
 }
 
 function NavAvatar({ avatar, name, active }: { avatar: string; name: string; active: boolean }) {
-  const size = 'w-5 h-5'
+  const size = 'w-7 h-7'
   const ring = active ? '2px solid #FF5C1B' : '1.5px solid var(--border)'
 
   if (avatar.startsWith('http')) {
@@ -61,7 +60,7 @@ function NavAvatar({ avatar, name, active }: { avatar: string; name: string; act
   if (avatar.startsWith('emoji:')) {
     return (
       <div className={`${size} rounded-full flex items-center justify-center`}
-        style={{ background: 'var(--bg-hover)', border: ring, fontSize: '10px' }}>
+        style={{ background: 'var(--bg-hover)', border: ring, fontSize: '14px' }}>
         {avatar.slice(6)}
       </div>
     )
@@ -72,7 +71,7 @@ function NavAvatar({ avatar, name, active }: { avatar: string; name: string; act
 
   return (
     <div className={`${size} rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold`}
-      style={{ fontSize: '8px', border: ring }}>
+      style={{ fontSize: '10px', border: ring }}>
       {getInitials(name)}
     </div>
   )

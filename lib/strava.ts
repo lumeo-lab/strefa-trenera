@@ -249,7 +249,7 @@ function getStravaSessionUpdate(session: TrainingSessionRow, activity: Matchable
 
   if (shouldHydrateSessionFromStrava(session)) {
     baseUpdate.actual_distance = activity.distance ? Number((activity.distance / 1000).toFixed(2)) : null
-    baseUpdate.actual_duration = activity.moving_time ?? null
+    baseUpdate.actual_duration = activity.moving_time ? Math.round(activity.moving_time / 60) : null
     baseUpdate.actual_pace = formatPaceFromAverageSpeed(activity.average_speed ?? null)
     baseUpdate.avg_hr = activity.average_heartrate ? Math.round(activity.average_heartrate) : null
     baseUpdate.max_hr = activity.max_heartrate ? Math.round(activity.max_heartrate) : null

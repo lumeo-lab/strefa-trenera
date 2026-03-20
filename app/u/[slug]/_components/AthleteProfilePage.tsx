@@ -68,6 +68,7 @@ export function AthleteProfilePage({ athlete, profile }: Props) {
   const [height, setHeight] = useState(profile.height?.toString() ?? '')
   const [weight, setWeight] = useState(profile.weight?.toString() ?? '')
   const [goal, setGoal] = useState(profile.goal ?? '')
+  const [avatarPicker, setAvatarPicker] = useState(false)
 
   function cancelEdit() {
     setName(profile.name)
@@ -80,6 +81,19 @@ export function AthleteProfilePage({ athlete, profile }: Props) {
     setGoal(profile.goal ?? '')
     setEditing(false)
     setSaveMsg(null)
+  }
+
+  async function handleAvatarChange(newAvatar: string) {
+    setSaving(true)
+    const result = await updateAthleteProfile(athlete.slug, {
+      name: profile.name,
+      avatar: newAvatar,
+    })
+    setSaving(false)
+    if ('success' in result) {
+      setAvatarPicker(false)
+      router.refresh()
+    }
   }
 
   async function handleSave() {
@@ -112,7 +126,11 @@ export function AthleteProfilePage({ athlete, profile }: Props) {
       {/* Header */}
       <div className="px-5 pt-12 pb-6 border-b" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}>
         <div className="flex items-center gap-4">
-          <ProfileAvatar avatar={profile.avatar} name={profile.name} />
+          <button onClick={() => setAvatarPicker(v => !v)} className="relative cursor-pointer shrink-0" style={{ background: 'none', border: 'none' }}>
+            <ProfileAvatar avatar={profile.avatar} name={profile.name} />
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>✏️</div>
+          </button>
           <div className="flex-1 min-w-0">
             <div className="text-xl font-bold truncate">{profile.name}</div>
             {profile.goal && (
@@ -120,6 +138,23 @@ export function AthleteProfilePage({ athlete, profile }: Props) {
             )}
           </div>
         </div>
+
+        {/* Avatar picker */}
+        {avatarPicker && (
+          <div className="mt-4 p-3 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Wybierz kolor avatara</div>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(GRADIENT_MAP).map(([colorName, gradient]) => (
+                <button key={colorName} onClick={() => handleAvatarChange(`color:${colorName}`)}
+                  disabled={saving}
+                  className={`w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-xs font-bold text-white cursor-pointer transition-all disabled:opacity-50`}
+                  style={{ border: profile.avatar === `color:${colorName}` ? '3px solid #FF5C1B' : '2px solid transparent' }}>
+                  {getInitials(profile.name)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="p-5 space-y-4">

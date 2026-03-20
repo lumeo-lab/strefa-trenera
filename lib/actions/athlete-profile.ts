@@ -14,6 +14,7 @@ const profileSchema = z.object({
   height: z.number().int().min(100).max(250).nullable().optional(),
   weight: z.number().min(20).max(300).nullable().optional(),
   goal: z.string().max(500).optional(),
+  avatar: z.string().max(200).optional(),
 })
 
 export async function updateAthleteProfile(
@@ -26,18 +27,24 @@ export async function updateAthleteProfile(
   const parsed = profileSchema.safeParse(data)
   if (!parsed.success) return { error: 'Nieprawidłowe dane.' }
 
+  const updateData: Record<string, unknown> = {
+    name: parsed.data.name,
+    email: parsed.data.email ?? null,
+    phone: parsed.data.phone ?? null,
+    city: parsed.data.city ?? null,
+    age: parsed.data.age ?? null,
+    height: parsed.data.height ?? null,
+    weight: parsed.data.weight ?? null,
+    goal: parsed.data.goal ?? '',
+  }
+
+  if (parsed.data.avatar !== undefined) {
+    updateData.avatar = parsed.data.avatar
+  }
+
   const { error } = await adminClient
     .from('athletes')
-    .update({
-      name: parsed.data.name,
-      email: parsed.data.email ?? null,
-      phone: parsed.data.phone ?? null,
-      city: parsed.data.city ?? null,
-      age: parsed.data.age ?? null,
-      height: parsed.data.height ?? null,
-      weight: parsed.data.weight ?? null,
-      goal: parsed.data.goal ?? '',
-    })
+    .update(updateData)
     .eq('id', athlete.id)
 
   if (error) return { error: 'Nie udało się zapisać zmian.' }

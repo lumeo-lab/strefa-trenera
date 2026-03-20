@@ -205,22 +205,22 @@ export function AthleteHistoryPage({ athlete, sessions, feedbacks, stravaConnect
 
                   {/* Plan */}
                   {(s.planned_distance || s.planned_duration || s.planned_pace) && (
-                    <div className="flex flex-wrap gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                      <span className="font-medium opacity-50">Plan:</span>
-                      {s.planned_distance && <span>{s.planned_distance} km</span>}
-                      {s.planned_duration && <span>{s.planned_duration} min</span>}
-                      {s.planned_pace && <span>{s.planned_pace}/km</span>}
+                    <div className="flex flex-wrap gap-3 text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      <span className="font-medium opacity-50 w-full" style={{ fontSize: '10px' }}>PLAN</span>
+                      {s.planned_distance && <span>📏 {s.planned_distance} km</span>}
+                      {s.planned_duration && <span>⏱️ {s.planned_duration} min</span>}
+                      {s.planned_pace && <span>⚡ {s.planned_pace}/km</span>}
                     </div>
                   )}
 
                   {/* Execution */}
                   {hasActuals && (
-                    <div className="flex flex-wrap gap-3 text-xs mt-1" style={{ color: completed ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                      <span className="font-medium opacity-50" style={{ color: '#2ECC71' }}>Wynik:</span>
-                      {s.actual_distance && <span>{s.actual_distance} km</span>}
-                      {s.actual_duration && <span>{s.actual_duration} min</span>}
-                      {s.actual_pace && <span>{s.actual_pace}/km</span>}
-                      {s.avg_hr && <span>❤️ {Math.round(s.avg_hr)}</span>}
+                    <div className="flex flex-wrap gap-3 text-xs mt-1.5" style={{ color: completed ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                      <span className="font-medium opacity-50 w-full" style={{ fontSize: '10px', color: '#2ECC71' }}>WYNIK</span>
+                      {s.actual_distance && <span>📏 {s.actual_distance} km</span>}
+                      {s.actual_duration != null && <span>⏱️ {s.actual_duration} min</span>}
+                      {s.actual_pace && <span>⚡ {s.actual_pace}/km</span>}
+                      {s.avg_hr && <span>❤️ {Math.round(s.avg_hr)} bpm</span>}
                     </div>
                   )}
 
@@ -267,10 +267,11 @@ export function AthleteHistoryPage({ athlete, sessions, feedbacks, stravaConnect
                   <span className="text-xs px-2 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(252,76,2,0.12)', color: '#FC4C02' }}>Strava</span>
                 </div>
                 <div className="flex flex-wrap gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {a.distance && <span>{(a.distance / 1000).toFixed(1)} km</span>}
-                  {a.moving_time && <span>{formatDuration(a.moving_time)}</span>}
-                  {a.average_speed && <span>{formatPace(a.average_speed)}</span>}
-                  {a.average_heartrate && <span>❤️ {Math.round(a.average_heartrate)}</span>}
+                  {a.distance && <span>📏 {(a.distance / 1000).toFixed(1)} km</span>}
+                  {a.moving_time && <span>⏱️ {formatDuration(a.moving_time)}</span>}
+                  {a.average_speed && <span>⚡ {formatPace(a.average_speed)}</span>}
+                  {a.average_heartrate && <span>❤️ {Math.round(a.average_heartrate)} bpm</span>}
+                  {a.total_elevation_gain != null && a.total_elevation_gain > 0 && <span>⛰️ {Math.round(a.total_elevation_gain)} m</span>}
                 </div>
               </div>
             ))}
