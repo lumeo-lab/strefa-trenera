@@ -42,6 +42,7 @@ export default async function AthleteProfilePage({
     { data: invoices },
     { data: packages },
     { data: races },
+    { data: stravaActivities },
     { count: unreadMessagesCount },
     { count: overdueInvoicesCount },
     { count: pendingInvoicesCount },
@@ -75,6 +76,12 @@ export default async function AthleteProfilePage({
       .select('*')
       .eq('athlete_id', id)
       .order('date', { ascending: true }),
+    supabase
+      .from('strava_activities')
+      .select('*')
+      .eq('athlete_id', id)
+      .order('start_date', { ascending: false })
+      .limit(100),
     supabase
       .from('messages')
       .select('id', { count: 'exact', head: true })
@@ -120,6 +127,7 @@ export default async function AthleteProfilePage({
       invoices={invoices ?? []}
       packages={packages ?? []}
       races={races ?? []}
+      stravaActivities={stravaActivities ?? []}
       unreadMessagesCount={unreadMessagesCount ?? 0}
       appUrl={appUrl}
       initialTab={requestedTab ?? 'plan'}

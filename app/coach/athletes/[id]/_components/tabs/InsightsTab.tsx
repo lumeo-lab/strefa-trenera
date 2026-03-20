@@ -5,11 +5,12 @@ import { FEELING_LABELS } from '@/lib/constants'
 import { buildAthleteInsights } from '@/lib/athlete-insights'
 import { formatDate, sessionTypeLabel } from '@/lib/utils'
 import { getSessionCompletionSourceLabel, getSessionExecutionLabel } from '@/lib/session-status'
-import type { CoachFeedbackRow, CoachTrainingSessionRow } from '../types'
+import type { CoachFeedbackRow, CoachStravaActivityRow, CoachTrainingSessionRow } from '../types'
 
 interface InsightsTabProps {
   sessions: CoachTrainingSessionRow[]
   feedbacks: CoachFeedbackRow[]
+  stravaActivities: CoachStravaActivityRow[]
   today: string
 }
 
@@ -65,8 +66,8 @@ function FlagCard({
   )
 }
 
-export function InsightsTab({ sessions, feedbacks, today }: InsightsTabProps) {
-  const insights = buildAthleteInsights({ sessions, feedbacks, today })
+export function InsightsTab({ sessions, feedbacks, stravaActivities, today }: InsightsTabProps) {
+  const insights = buildAthleteInsights({ sessions, feedbacks, stravaActivities, today })
 
   if (insights.overview.dueSessions === 0 && feedbacks.length === 0) {
     return (
@@ -259,6 +260,117 @@ export function InsightsTab({ sessions, feedbacks, today }: InsightsTabProps) {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h3 className="text-sm font-semibold">Obciążenie i progresja tygodniowa</h3>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                Ostatnie 4 tygodnie. To jest pierwszy widok v2 pod decyzje o progresji albo odpuszczeniu.
+              </p>
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {insights.advanced.weeklyDistanceDelta != null && `Dystans tydzień do tygodnia: ${insights.advanced.weeklyDistanceDelta > 0 ? '+' : ''}${insights.advanced.weeklyDistanceDelta}%`}
+              {insights.advanced.weeklyDistanceDelta != null && insights.advanced.weeklyDurationDelta != null && ' · '}
+              {insights.advanced.weeklyDurationDelta != null && `Czas: ${insights.advanced.weeklyDurationDelta > 0 ? '+' : ''}${insights.advanced.weeklyDurationDelta}%`}
+            </div>
+          </div>
+          <div className="space-y-3 mt-4">
+            {insights.weeklyLoad.map((week) => (
+              <div
+                key={week.start}
+                className="rounded-xl px-3 py-3"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+              >
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="text-sm font-semibold">
+                      {formatDate(week.start, { day: 'numeric', month: 'short' })} - {formatDate(week.end, { day: 'numeric', month: 'short' })}
+                    </div>
+                    <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      {week.completedSessions} wykonane · {week.skippedSessions} pominięte · {week.unresolvedSessions} bez potwierdzenia
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 flex-wrap text-xs" style={{ color: 'var(--text-muted)' }}>
+                    <span>Plan: {week.plannedDistance || 0} km / {week.plannedDuration || 0} min</span>
+                    <span>Realnie: {week.actualDistance || 0} km / {week.actualDuration || 0} min</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <h3 className="text-sm font-semibold">Zaawansowane porównania</h3>
+          <div className="space-y-3 mt-4">
+            <div className="rounded-xl p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+              <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Najtrudniejszy bodziec</div>
+              <div className="mt-2 text-sm font-semibold">
+                {insights.advanced.highestRpeType ?? 'Za mało danych'}
+              </div>
+              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                Wyliczane z typów sesji z co najmniej 2 próbkami RPE w ostatnich 56 dniach.
+              </div>
+            </div>
+
+            <div className="rounded-xl p-3" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+              <div className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Najczęściej pomijany typ</div>
+              <div className="mt-2 text-sm font-semibold">
+                {insights.advanced.mostSkippedType ?? 'Brak wyraźnego wzorca'}
+              </div>
+              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                Pomaga znaleźć bodźce, które wymagają korekty obciążenia albo formy podania.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="text-sm font-semibold">Aktywności poza planem</h3>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              Strava wykryła je w ostatnich 28 dniach, ale nie są jeszcze sparowane z żadną sesją planu.
+            </p>
+          </div>
+          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            {insights.unplannedActivities.length > 0 ? `${insights.unplannedActivities.length} do sprawdzenia` : 'Brak niesparowanych aktywności'}
+          </div>
+        </div>
+        {insights.unplannedActivities.length > 0 ? (
+          <div className="space-y-3 mt-4">
+            {insights.unplannedActivities.map((activity) => (
+              <div
+                key={activity.stravaId}
+                className="rounded-xl px-3 py-3"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+              >
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="text-sm font-semibold">{activity.name || 'Aktywność Strava'}</div>
+                    <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      {formatDate(activity.startDate, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 flex-wrap text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {activity.distanceKm != null && <span>{activity.distanceKm} km</span>}
+                    {activity.movingTime != null && <span>{Math.round(activity.movingTime / 60)} min</span>}
+                    {activity.elevationGain != null && <span>{activity.elevationGain} m+</span>}
+                    {activity.averageHeartrate != null && <span>{activity.averageHeartrate} bpm</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
+            W analizowanym oknie nie ma dodatkowych aktywności poza planem.
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>

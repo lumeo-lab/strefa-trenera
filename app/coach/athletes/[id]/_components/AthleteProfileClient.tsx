@@ -29,6 +29,7 @@ import type {
   CoachInvoiceRow,
   CoachPackageRow,
   CoachRaceRow,
+  CoachStravaActivityRow,
   CoachTrainingSessionRow,
   FeedbackByDateMap,
   FeedbackBySessionMap,
@@ -41,6 +42,7 @@ interface Props {
   invoices: CoachInvoiceRow[]
   packages: CoachPackageRow[]
   races: CoachRaceRow[]
+  stravaActivities: CoachStravaActivityRow[]
   unreadMessagesCount: number
   appUrl: string
   accessInfo: {
@@ -83,7 +85,7 @@ type AttentionItem = {
   href?: string // external link
 }
 
-export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces, unreadMessagesCount, appUrl, accessInfo, summaryInfo, initialTab }: Props) {
+export function AthleteProfileClient({ athlete, sessions: initialSessions, feedbacks: athleteFeedbacks, invoices: athleteInvoices, packages, races: initialRaces, stravaActivities, unreadMessagesCount, appUrl, accessInfo, summaryInfo, initialTab }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -462,6 +464,7 @@ export function AthleteProfileClient({ athlete, sessions: initialSessions, feedb
             <InsightsTab
               sessions={initialSessions}
               feedbacks={athleteFeedbacks}
+              stravaActivities={stravaActivities}
               today={today}
             />
           </TabErrorBoundary>

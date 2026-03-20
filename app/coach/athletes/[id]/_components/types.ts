@@ -14,6 +14,7 @@ export type CoachTrainingSessionRow = Omit<PublicTableRow<'training_sessions'>, 
 }
 export type CoachFeedbackRow = PublicTableRow<'feedbacks'>
 export type CoachInvoiceRow = PublicTableRow<'invoices'>
+export type CoachStravaActivityRow = PublicTableRow<'strava_activities'>
 export type CoachRaceRow = Omit<PublicTableRow<'athlete_races'>, 'status'> & {
   status: 'planned' | 'completed' | 'dns' | 'dnf' | null
 }

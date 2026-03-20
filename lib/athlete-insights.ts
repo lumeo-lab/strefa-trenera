@@ -26,6 +26,7 @@ type InsightSession = {
   completed?: boolean | null
   completion_source?: SessionCompletionSource | null
   actual_data_source?: SessionActualDataSource | null
+  linked_strava_activity_id?: number | null
 }
 
 type InsightFeedback = {
@@ -41,6 +42,21 @@ type InsightFeedback = {
   pain_note: string | null
   notes_structured: string | null
   voice_transcript: string | null
+}
+
+type InsightStravaActivity = {
+  strava_id: number
+  start_date: string | null
+  name: string | null
+  distance: number | null
+  moving_time: number | null
+  elapsed_time: number | null
+  total_elevation_gain: number | null
+  average_heartrate: number | null
+  max_heartrate: number | null
+  average_cadence: number | null
+  sport_type: string | null
+  device_name: string | null
 }
 
 export type AthleteInsightFlag = {
@@ -120,6 +136,33 @@ export type AthleteInsights = {
     source: SessionActualDataSource
     label: string
     count: number
+  }>
+  weeklyLoad: Array<{
+    start: string
+    end: string
+    dueSessions: number
+    completedSessions: number
+    skippedSessions: number
+    unresolvedSessions: number
+    plannedDistance: number
+    actualDistance: number
+    plannedDuration: number
+    actualDuration: number
+  }>
+  advanced: {
+    weeklyDistanceDelta: number | null
+    weeklyDurationDelta: number | null
+    highestRpeType: string | null
+    mostSkippedType: string | null
+  }
+  unplannedActivities: Array<{
+    stravaId: number
+    startDate: string
+    name: string | null
+    distanceKm: number | null
+    movingTime: number | null
+    elevationGain: number | null
+    averageHeartrate: number | null
   }>
   typeStats: AthleteInsightTypeStat[]
   flags: AthleteInsightFlag[]
@@ -233,13 +276,31 @@ function hasActualData(session: InsightSession) {
   return session.actual_distance != null || session.actual_duration != null
 }
 
+function getWeekStart(dateStr: string) {
+  const date = new Date(`${dateStr}T12:00:00Z`)
+  const weekday = date.getUTCDay()
+  const offset = weekday === 0 ? -6 : 1 - weekday
+  return addDaysToBusinessDate(dateStr, offset)
+}
+
+function getWeekEnd(weekStart: string) {
+  return addDaysToBusinessDate(weekStart, 6)
+}
+
+function distanceKmFromMeters(distance: number | null) {
+  if (distance == null) return null
+  return Number((distance / 1000).toFixed(2))
+}
+
 export function buildAthleteInsights({
   sessions,
   feedbacks,
+  stravaActivities = [],
   today,
 }: {
   sessions: InsightSession[]
   feedbacks: InsightFeedback[]
+  stravaActivities?: InsightStravaActivity[]
   today: string
 }): AthleteInsights {
   const last28Start = addDaysToBusinessDate(today, -27)
@@ -307,6 +368,27 @@ export function buildAthleteInsights({
     return acc
   }, { athlete: 0, coach: 0, strava: 0, imported: 0 })
 
+  const currentWeekStart = getWeekStart(today)
+  const weeklyLoad = Array.from({ length: 4 }, (_, index) => {
+    const start = addDaysToBusinessDate(currentWeekStart, -7 * index)
+    const end = getWeekEnd(start)
+    const weekSessions = nonRestSessions.filter((session) => isWithinRange(session.date, start, end))
+    const dueWeekSessions = weekSessions.filter((session) => shouldCountSessionInCompliance(session, today))
+
+    return {
+      start,
+      end,
+      dueSessions: dueWeekSessions.length,
+      completedSessions: dueWeekSessions.filter((session) => getSessionExecutionStatus(session) === 'completed').length,
+      skippedSessions: dueWeekSessions.filter((session) => getSessionExecutionStatus(session) === 'skipped').length,
+      unresolvedSessions: dueWeekSessions.filter((session) => isSessionPastUnresolved(session, today)).length,
+      plannedDistance: Number(weekSessions.reduce((sum, session) => sum + (session.planned_distance ?? 0), 0).toFixed(1)),
+      actualDistance: Number(weekSessions.reduce((sum, session) => sum + (session.actual_distance ?? 0), 0).toFixed(1)),
+      plannedDuration: Math.round(weekSessions.reduce((sum, session) => sum + (session.planned_duration ?? 0), 0)),
+      actualDuration: Math.round(weekSessions.reduce((sum, session) => sum + (session.actual_duration ?? 0), 0)),
+    }
+  }).reverse()
+
   const typeStats = nonRestSessions
     .filter((session) => isWithinRange(session.date, last56Start, today) && shouldCountSessionInCompliance(session, today))
     .reduce<Map<SessionType, AthleteInsightTypeStat>>((acc, session) => {
@@ -365,6 +447,14 @@ export function buildAthleteInsights({
 
   const flags: AthleteInsightFlag[] = []
   const completionRate = percentage(completedSessions28.length, dueSessions28.length)
+  const latestWeek = weeklyLoad[weeklyLoad.length - 1] ?? null
+  const previousWeek = weeklyLoad[weeklyLoad.length - 2] ?? null
+  const weeklyDistanceDelta = latestWeek && previousWeek && previousWeek.actualDistance > 0
+    ? percentageDelta(latestWeek.actualDistance, previousWeek.actualDistance)
+    : null
+  const weeklyDurationDelta = latestWeek && previousWeek && previousWeek.actualDuration > 0
+    ? percentageDelta(latestWeek.actualDuration, previousWeek.actualDuration)
+    : null
 
   if (dueSessions28.length >= 4 && completionRate !== null && completionRate < 60) {
     flags.push({
@@ -408,6 +498,20 @@ export function buildAthleteInsights({
       detail: `${detectedOpen14} sesje są wykryte z urządzenia, ale nadal czekają na pełne potwierdzenie.`,
     })
   }
+  if (weeklyDistanceDelta != null && weeklyDistanceDelta >= 25 && recentAvgRpe != null && recentAvgRpe >= 7) {
+    flags.push({
+      tone: 'orange',
+      title: 'Duży skok objętości tygodniowej',
+      detail: `Rzeczywisty dystans wzrósł o ${weeklyDistanceDelta}% tydzień do tygodnia przy średnim RPE ${recentAvgRpe}.`,
+    })
+  }
+  if (weeklyDurationDelta != null && weeklyDurationDelta <= -25 && skipped14 >= 1) {
+    flags.push({
+      tone: 'yellow',
+      title: 'Wyraźny spadek czasu treningu',
+      detail: `Rzeczywisty czas spadł o ${Math.abs(weeklyDurationDelta)}% tydzień do tygodnia i pojawiły się pominięte sesje.`,
+    })
+  }
   if (flags.length === 0) {
     flags.push({
       tone: 'green',
@@ -435,6 +539,35 @@ export function buildAthleteInsights({
         painFlag: feedback?.painFlag ?? false,
       }
     })
+
+  const linkedStravaIds = new Set(
+    sessions
+      .map((session) => session.linked_strava_activity_id)
+      .filter((value): value is number => typeof value === 'number'),
+  )
+
+  const unplannedActivities = stravaActivities
+    .filter((activity) => activity.start_date && isWithinRange(activity.start_date.slice(0, 10), last28Start, today))
+    .filter((activity) => !linkedStravaIds.has(activity.strava_id))
+    .sort((a, b) => (b.start_date ?? '').localeCompare(a.start_date ?? ''))
+    .slice(0, 6)
+    .map((activity) => ({
+      stravaId: activity.strava_id,
+      startDate: activity.start_date as string,
+      name: activity.name,
+      distanceKm: distanceKmFromMeters(activity.distance),
+      movingTime: activity.moving_time,
+      elevationGain: activity.total_elevation_gain != null ? Math.round(activity.total_elevation_gain) : null,
+      averageHeartrate: activity.average_heartrate != null ? Math.round(activity.average_heartrate) : null,
+    }))
+
+  const highestRpeType = [...typeStatsList]
+    .filter((stat) => stat.avgRpe != null && stat.sessions >= 2)
+    .sort((a, b) => (b.avgRpe ?? 0) - (a.avgRpe ?? 0))[0]?.label ?? null
+
+  const mostSkippedType = [...typeStatsList]
+    .filter((stat) => stat.skipped > 0)
+    .sort((a, b) => b.skipped - a.skipped)[0]?.label ?? null
 
   return {
     window: {
@@ -485,6 +618,14 @@ export function buildAthleteInsights({
         count,
       }))
       .sort((a, b) => b.count - a.count),
+    weeklyLoad,
+    advanced: {
+      weeklyDistanceDelta,
+      weeklyDurationDelta,
+      highestRpeType,
+      mostSkippedType,
+    },
+    unplannedActivities,
     typeStats: typeStatsList,
     flags,
     recentSessions,
