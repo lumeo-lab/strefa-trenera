@@ -730,24 +730,47 @@ export function buildAthleteInsights({
     recommendationConfidence = 'low'
     recommendationReasons.push('Potrzeba większej liczby potwierdzonych sesji i feedbacków, żeby recommendation była wiarygodna.')
   } else {
+    // Collect all signals
     if (painCount14 >= 2) recommendationReasons.push(`${painCount14} sygnały bólu w ostatnich 14 dniach.`)
-    if (recentAvgRpe != null && recentAvgRpe >= 7) recommendationReasons.push(`Średnie RPE w ostatnich 14 dniach wynosi ${recentAvgRpe}.`)
-    if (weeklyLoadDelta != null) recommendationReasons.push(`Load tydzień do tygodnia zmienił się o ${weeklyLoadDelta > 0 ? '+' : ''}${weeklyLoadDelta}%.`)
-    if (keySessions28.length > 0 && keyCompletionRate != null) recommendationReasons.push(`Kluczowe sesje: ${keyCompletionRate}% wykonania.`)
+    if (recentAvgRpe != null && recentAvgRpe >= 7) recommendationReasons.push(`Średnie RPE wynosi ${recentAvgRpe} — podwyższone.`)
+    if (acwr != null && acwr >= 1.3) recommendationReasons.push(`Bezpieczeństwo obciążenia: ${acwr} — ${acwr >= 1.5 ? 'ryzyko kontuzji' : 'blisko progu'}.`)
+    if (acwr != null && acwr < 0.8) recommendationReasons.push(`Bezpieczeństwo obciążenia: ${acwr} — objętość spada, forma może uciekać.`)
+    if (weeklyLoadDelta != null && Math.abs(weeklyLoadDelta) >= 12) recommendationReasons.push(`Obciążenie zmieniło się o ${weeklyLoadDelta > 0 ? '+' : ''}${weeklyLoadDelta}% vs poprzedni tydzień.`)
+    if (keySessions28.length > 0 && keyCompletionRate != null) recommendationReasons.push(`Kluczowe sesje: ${keyCompletionRate}% wykonane.`)
+    if (monotony != null && monotony > 2.0) recommendationReasons.push(`Zmienność treningowa: ${monotony} — za monotonne treningi.`)
+    if (easyRunRpeTrend.length >= 3 && easyRunRpeTrend[easyRunRpeTrend.length - 1] - easyRunRpeTrend[0] >= 1.5) recommendationReasons.push('RPE na łatwych biegach wyraźnie rośnie — możliwe zmęczenie bazowe.')
+    if (chaosSignals.length > 0) recommendationReasons.push('Wykryto sygnały chaosu w realizacji planu.')
 
     const highIntensityShare = totalZoneMinutes > 0 ? percentage(zones28.z4 + zones28.z5, totalZoneMinutes) : null
 
-    if (painCount14 >= 2 || (recentAvgRpe != null && recentAvgRpe >= 7.5 && (weeklyLoadDelta ?? 0) > 10)) {
+    // Decision logic: red > orange > green
+    if (acwr != null && acwr >= 1.5) {
       recommendationTone = 'red'
-      recommendationTitle = 'Rozważ lżejszy tydzień lub zdjęcie intensywności'
+      recommendationTitle = 'Zredukuj objętość — obciążenie rośnie za szybko'
+      recommendationConfidence = 'high'
+    } else if (painCount14 >= 2 || (recentAvgRpe != null && recentAvgRpe >= 7.5 && (weeklyLoadDelta ?? 0) > 10)) {
+      recommendationTone = 'red'
+      recommendationTitle = 'Wstrzymaj ciężkie sesje — organizm sygnalizuje przeciążenie'
+      recommendationConfidence = 'high'
+    } else if (acwr != null && acwr >= 1.3) {
+      recommendationTone = 'orange'
+      recommendationTitle = 'Nie zwiększaj objętości — jesteś blisko progu bezpieczeństwa'
       recommendationConfidence = 'high'
     } else if ((weeklyLoadDelta != null && weeklyLoadDelta > 18) || (highIntensityShare != null && highIntensityShare > 30) || (keyCompletionRate != null && keyCompletionRate < 70)) {
       recommendationTone = 'orange'
-      recommendationTitle = 'Utrzymaj lub monitoruj bez dalszej progresji'
+      recommendationTitle = 'Utrzymaj plan bez dalszej progresji'
+      recommendationConfidence = 'medium'
+    } else if (monotony != null && monotony > 2.0) {
+      recommendationTone = 'orange'
+      recommendationTitle = 'Dodaj więcej kontrastu między lekkimi i ciężkimi dniami'
+      recommendationConfidence = 'medium'
+    } else if (acwr != null && acwr < 0.8) {
+      recommendationTone = 'orange'
+      recommendationTitle = 'Objętość spada — sprawdź czy to zamierzone'
       recommendationConfidence = 'medium'
     } else {
       recommendationTone = 'green'
-      recommendationTitle = 'Można utrzymać kierunek i lekko progresować'
+      recommendationTitle = 'Kontynuuj plan — zawodnik reaguje dobrze'
       recommendationConfidence = sessionsWithActuals28.length >= 3 ? 'high' : 'medium'
     }
   }
