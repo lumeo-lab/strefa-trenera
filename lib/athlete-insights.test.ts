@@ -268,4 +268,62 @@ describe('buildAthleteInsights', () => {
     expect(titles).toContain('Powtarzające się pominięcia')
     expect(titles).toContain('Powtarzający się ból / problem')
   })
+
+  it('detects taper phase when race is within 21 days', () => {
+    const insights = buildAthleteInsights({
+      today: '2026-03-20',
+      sessions: [],
+      feedbacks: [],
+      nextRace: { name: 'Maraton', date: '2026-04-01', distance: '42.2 km' },
+    })
+    expect(insights.phase.detected).toBe('taper')
+    expect(insights.phase.daysToRace).toBe(12)
+    expect(insights.phase.raceName).toBe('Maraton')
+  })
+
+  it('detects race-specific when race is 22-56 days away', () => {
+    const insights = buildAthleteInsights({
+      today: '2026-03-20',
+      sessions: [],
+      feedbacks: [],
+      nextRace: { name: 'Półmaraton', date: '2026-05-10', distance: '21.1 km' },
+    })
+    expect(insights.phase.detected).toBe('race-specific')
+  })
+
+  it('defaults to build when no race', () => {
+    const insights = buildAthleteInsights({
+      today: '2026-03-20',
+      sessions: [],
+      feedbacks: [],
+    })
+    expect(insights.phase.detected).toBe('build')
+    expect(insights.phase.daysToRace).toBeNull()
+  })
+
+  it('computes ACWR from weekly load data', () => {
+    const sessions = Array.from({ length: 20 }, (_, i) => ({
+      id: `s${i}`, date: `2026-03-${String(1 + i).padStart(2, '0')}`,
+      type: 'easy' as const, title: 'Run', planned_distance: 10, planned_duration: 60,
+      actual_distance: 10, actual_duration: i >= 16 ? 120 : 60,
+      status: 'completed' as const, completion_source: 'athlete' as const,
+      actual_data_source: 'athlete' as const, linked_strava_activity_id: null,
+      training_load: i >= 16 ? 80 : 40,
+    }))
+    const insights = buildAthleteInsights({ sessions, feedbacks: [], today: '2026-03-20' })
+    expect(insights.load.acwr).not.toBeNull()
+  })
+
+  it('returns blue recommendation when insufficient data', () => {
+    const insights = buildAthleteInsights({
+      today: '2026-03-20',
+      sessions: [{ id: 's1', date: '2026-03-18', type: 'easy' as const, title: 'Run',
+        planned_distance: 10, planned_duration: 60, actual_distance: 10, actual_duration: 58,
+        status: 'completed' as const, completion_source: 'athlete' as const,
+        actual_data_source: null, linked_strava_activity_id: null }],
+      feedbacks: [],
+    })
+    expect(insights.recommendation.tone).toBe('blue')
+    expect(insights.recommendation.confidence).toBe('low')
+  })
 })
