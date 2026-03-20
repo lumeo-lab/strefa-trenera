@@ -317,11 +317,11 @@ Rozszerzony (rozwijany pod "Więcej szczegółów"):
 
 ---
 
-### Etap 5: Plan jako ekran orientacji
+### Etap 5: Plan jako ekran orientacji ✅
 
 Priorytet: **Wysoki**
 Ryzyko: **Niskie**
-**Status: CZĘŚCIOWO WDROŻONY**
+**Status: WDROŻONY**
 
 #### Co już zrobiono
 
