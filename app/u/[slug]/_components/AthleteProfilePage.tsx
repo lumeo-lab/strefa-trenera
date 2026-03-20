@@ -85,12 +85,15 @@ export function AthleteProfilePage({ athlete, profile }: Props) {
 
   async function handleAvatarChange(newAvatar: string) {
     setSaving(true)
+    setSaveMsg(null)
     const result = await updateAthleteProfile(athlete.slug, {
       name: profile.name,
       avatar: newAvatar,
     })
     setSaving(false)
-    if ('success' in result) {
+    if ('error' in result) {
+      setSaveMsg({ type: 'error', text: result.error })
+    } else {
       setAvatarPicker(false)
       router.refresh()
     }
@@ -126,7 +129,7 @@ export function AthleteProfilePage({ athlete, profile }: Props) {
       {/* Header */}
       <div className="px-5 pt-12 pb-6 border-b" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}>
         <div className="flex items-center gap-4">
-          <button onClick={() => setAvatarPicker(v => !v)} className="relative cursor-pointer shrink-0" style={{ background: 'none', border: 'none' }}>
+          <button onClick={() => setAvatarPicker(v => !v)} aria-label="Zmień avatar" className="relative cursor-pointer shrink-0" style={{ background: 'none', border: 'none' }}>
             <ProfileAvatar avatar={profile.avatar} name={profile.name} />
             <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs"
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>✏️</div>

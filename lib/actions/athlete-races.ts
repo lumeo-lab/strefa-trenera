@@ -11,7 +11,7 @@ const raceSchema = z.object({
   distance: z.string().max(50).optional(),
   goal_time: z.string().max(50).optional(),
   result: z.string().max(50).optional(),
-  status: z.string().max(50).optional(),
+  status: z.enum(['planned', 'confirmed', 'completed', 'dns', 'dnf']).optional(),
   notes: z.string().max(2000).optional(),
 })
 

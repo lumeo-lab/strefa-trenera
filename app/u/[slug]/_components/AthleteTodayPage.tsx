@@ -243,14 +243,14 @@ export function AthleteTodayPage({ athlete, sessions, feedbacks, today, initialD
       <div className="px-5 pt-12 pb-5 lg:px-8 lg:pt-8" style={{ background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
         <div className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Cześć, {athlete.name.split(' ')[0]}! 👋</div>
         <div className="flex items-center justify-between gap-3">
-          <button onClick={() => navigate(-1)} disabled={!canGoBack}
+          <button onClick={() => navigate(-1)} disabled={!canGoBack} aria-label="Poprzedni dzień"
             className="w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-30 disabled:cursor-default"
             style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>←</button>
           <div className="text-center flex-1">
             <div className="text-xl font-bold">{dayLabel(selectedDate, today)}</div>
             {selectedDate !== today && <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{fullDate(selectedDate)}</div>}
           </div>
-          <button onClick={() => navigate(1)} disabled={!canGoForward}
+          <button onClick={() => navigate(1)} disabled={!canGoForward} aria-label="Następny dzień"
             className="w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-30 disabled:cursor-default"
             style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>→</button>
         </div>

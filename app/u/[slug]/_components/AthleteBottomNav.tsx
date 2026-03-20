@@ -39,7 +39,7 @@ export function AthleteBottomNav({ slug, athleteName, athleteAvatar }: Props) {
         })}
 
         {/* Avatar only — no label, bigger */}
-        <Link href={`/u/${slug}/profile`}
+        <Link href={`/u/${slug}/profile`} aria-label="Profil"
           className="flex items-center justify-center px-3 py-1 rounded-xl transition-all">
           <NavAvatar avatar={athleteAvatar} name={athleteName} active={isProfileActive} />
         </Link>

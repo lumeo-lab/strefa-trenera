@@ -17,7 +17,9 @@ interface Props {
   races: AthleteRaceRow[]
 }
 
-const STATUS_OPTIONS = [
+type RaceStatus = 'planned' | 'confirmed' | 'completed' | 'dns' | 'dnf'
+
+const STATUS_OPTIONS: { value: RaceStatus; label: string }[] = [
   { value: 'planned', label: 'Zaplanowane' },
   { value: 'confirmed', label: 'Potwierdzone' },
   { value: 'completed', label: 'Ukończone' },
@@ -193,7 +195,7 @@ function RaceFormModal({ slug, race, onClose, onSaved }: {
   const [distance, setDistance] = useState(race?.distance ?? '')
   const [goalTime, setGoalTime] = useState(race?.goal_time ?? '')
   const [result, setResult] = useState(race?.result ?? '')
-  const [status, setStatus] = useState(race?.status ?? 'planned')
+  const [status, setStatus] = useState<RaceStatus>((race?.status as RaceStatus) ?? 'planned')
   const [notes, setNotes] = useState(race?.notes ?? '')
 
   async function handleSave() {
