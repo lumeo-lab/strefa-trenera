@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
-import { Button } from '@/components/ui/Button'
 import { createFeedback, updateFeedback } from '@/lib/actions/feedback'
 import type { AthleteFeedbackRow } from '@/lib/athlete-data'
 import { VoiceRecorder } from './VoiceRecorder'
 import { parseFeedbackTranscript } from '@/lib/utils'
+import { INPUT_STYLE } from '@/lib/styles'
 
 const FEELINGS = [
   { emoji: '😫', label: 'Fatalnie' },
@@ -15,7 +15,6 @@ const FEELINGS = [
   { emoji: '😊', label: 'Dobrze' },
   { emoji: '🤩', label: 'Świetnie' },
 ]
-import { INPUT_STYLE } from '@/lib/styles'
 
 export interface FeedbackData {
   feeling?: string
@@ -63,24 +62,27 @@ export function FeedbackModal({
 }: FeedbackModalProps) {
   const [submitting, setSubmitting] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
 
   const [feeling, setFeeling] = useState(initialData?.feeling ?? '')
   const [rpe, setRpe] = useState(initialData?.rpe ?? '')
+  const [notes, setNotes] = useState(initialData?.notes ?? '')
+
+  // Extended fields — collapsed by default
+  const hasExtendedData = !!(initialData?.painFlag || initialData?.distanceKm || initialData?.durationMin || initialData?.watchLink)
+  const [showMore, setShowMore] = useState(hasExtendedData)
   const [painFlag, setPainFlag] = useState(initialData?.painFlag ?? false)
   const [painNote, setPainNote] = useState(initialData?.painNote ?? '')
   const [distanceKm, setDistanceKm] = useState(initialData?.distanceKm ?? '')
   const [durationMin, setDurationMin] = useState(initialData?.durationMin ?? '')
-  const [notes, setNotes] = useState(initialData?.notes ?? '')
   const [watchLink, setWatchLink] = useState(initialData?.watchLink ?? '')
   const [voiceTranscript, setVoiceTranscript] = useState(initialData?.voiceTranscript ?? '')
-
-  // Reset form state when initialData changes (modal opens with new data)
-  // We use key prop on the modal to force remount instead
 
   async function submitFeedback() {
     if (submitting) return
     setSubmitting(true)
     setSaveError(null)
+    setSaveSuccess(false)
     try {
       const fd = new FormData()
       fd.set('slug', slug)
@@ -118,13 +120,21 @@ export function FeedbackModal({
         result = await createFeedback(fd)
       }
 
-      if (result && 'error' in result) { setSaveError(result.error ?? 'Nie udało się zapisać feedbacku.'); return }
-
-      if (feedbackType === 'text') {
-        onSubmitted({ feeling, rpe, painFlag, painNote, distanceKm, durationMin, notes, watchLink: watchLink || undefined }, 'text')
-      } else {
-        onSubmitted({ voiceTranscript: voiceTranscript || undefined }, 'voice')
+      if (result && 'error' in result) {
+        setSaveError(result.error ?? 'Nie udało się zapisać feedbacku.')
+        return
       }
+
+      setSaveSuccess(true)
+
+      // Auto-close after short delay
+      setTimeout(() => {
+        if (feedbackType === 'text') {
+          onSubmitted({ feeling, rpe, painFlag, painNote, distanceKm, durationMin, notes, watchLink: watchLink || undefined }, 'text')
+        } else {
+          onSubmitted({ voiceTranscript: voiceTranscript || undefined }, 'voice')
+        }
+      }, 800)
     } finally {
       setSubmitting(false)
     }
@@ -132,6 +142,7 @@ export function FeedbackModal({
 
   const canSaveText = !!(feeling || rpe || painFlag || distanceKm || durationMin || notes.trim() || watchLink.trim())
   const canSaveVoice = !!(voiceTranscript.trim())
+  const isEditing = !!(feedbackType === 'text' ? existingTextFeedback : existingVoiceFeedback)
 
   const modalFooter = (
     <div>
@@ -140,23 +151,33 @@ export function FeedbackModal({
           {saveError}
         </p>
       )}
-      <Button className="w-full" onClick={submitFeedback}
-        disabled={(feedbackType === 'text' ? !canSaveText : !canSaveVoice) || submitting}>
-        {submitting ? 'Zapisywanie...' : 'Zapisz'}
-      </Button>
+      {saveSuccess && (
+        <p className="text-xs mb-3 px-3 py-2 rounded-lg font-medium" style={{ color: '#2ECC71', background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
+          ✓ Zapisano
+        </p>
+      )}
+      <button
+        className="w-full py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+        onClick={submitFeedback}
+        disabled={(feedbackType === 'text' ? !canSaveText : !canSaveVoice) || submitting || saveSuccess}
+        style={{ background: '#FF5C1B', color: '#fff', border: 'none' }}
+      >
+        {submitting ? 'Zapisywanie...' : saveSuccess ? '✓ Zapisano' : isEditing ? 'Zaktualizuj' : 'Zapisz feedback'}
+      </button>
     </div>
   )
 
   return (
     <Modal open={open} onClose={onClose}
-      title={feedbackType === 'text' ? 'Feedback po treningu' : 'Komentarz głosowy'}
+      title={feedbackType === 'text'
+        ? (isEditing ? 'Edytuj feedback' : 'Jak poszedł trening?')
+        : (isEditing ? 'Edytuj komentarz głosowy' : 'Komentarz głosowy')}
       size="sm" footer={modalFooter}>
       <div className="space-y-4">
         {feedbackType === 'text' && (
           <>
-            <p className="text-xs leading-5" style={{ color: 'var(--text-muted)' }}>
-              Ten feedback opisuje trening, który został już oznaczony jako wykonany.
-            </p>
+            {/* === QUICK SECTION (always visible) === */}
+
             {/* Feeling */}
             <div>
               <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Samopoczucie</label>
@@ -178,86 +199,97 @@ export function FeedbackModal({
 
             {/* RPE */}
             <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Odczuwana trudność (RPE)</label>
-              <div className="grid grid-cols-5 gap-2">
-                {Array.from({ length: 10 }, (_, index) => String(index + 1)).map(value => (
-                  <button
-                    key={value}
-                    onClick={() => setRpe(rpe === value ? '' : value)}
+              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Jak ciężki był trening? (RPE)</label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {Array.from({ length: 10 }, (_, i) => String(i + 1)).map(value => (
+                  <button key={value} onClick={() => setRpe(rpe === value ? '' : value)}
                     className="py-2 rounded-xl text-sm font-semibold cursor-pointer transition-all"
                     style={{
                       background: rpe === value ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
                       border: rpe === value ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
                       color: rpe === value ? '#FF5C1B' : 'var(--text-muted)',
-                    }}
-                  >
+                    }}>
                     {value}
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* Distance + duration */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Dystans (km)</label>
-                <input type="number" value={distanceKm} onChange={e => setDistanceKm(e.target.value)}
-                  placeholder="np. 10.5" min="0" step="0.1"
-                  className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
+              <div className="flex justify-between mt-1 text-xs" style={{ color: 'var(--text-muted)', opacity: 0.5 }}>
+                <span>Bardzo łatwy</span>
+                <span>Maksymalny</span>
               </div>
-              <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Czas (min)</label>
-                <input type="number" value={durationMin} onChange={e => setDurationMin(e.target.value)}
-                  placeholder="np. 55" min="0"
-                  className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
-              </div>
-            </div>
-
-            {/* Pain / issue */}
-            <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Czy pojawił się ból albo problem?</label>
-              <div className="flex gap-2">
-                {[
-                  { value: false, label: 'Nie' },
-                  { value: true, label: 'Tak' },
-                ].map(option => (
-                  <button key={option.label} onClick={() => setPainFlag(option.value)}
-                    className="flex-1 py-2 px-3 rounded-xl text-sm font-medium cursor-pointer transition-all text-center"
-                    style={{
-                      background: painFlag === option.value ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
-                      border: painFlag === option.value ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
-                      color: painFlag === option.value ? '#FF5C1B' : 'var(--text-muted)',
-                    }}>{option.label}</button>
-                ))}
-              </div>
-              {painFlag && (
-                <textarea value={painNote} onChange={e => setPainNote(e.target.value)}
-                  placeholder="Krótko opisz problem"
-                  rows={2}
-                  className="w-full mt-2 px-3 py-2.5 rounded-xl text-sm resize-none" style={INPUT_STYLE} />
-              )}
             </div>
 
             {/* Notes */}
             <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Notatki (opcjonalnie)</label>
+              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>Komentarz</label>
               <textarea value={notes} onChange={e => setNotes(e.target.value)}
-                placeholder="Jak poszedł trening?" rows={2}
+                placeholder="Krótko — jak poszło?"
+                rows={2}
                 className="w-full px-3 py-2.5 rounded-xl text-sm resize-none" style={INPUT_STYLE} />
             </div>
 
-            {/* Watch link */}
-            <div>
-              <label className="block text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>⌚ Link z zegarka (opcjonalnie)</label>
-              <input
-                type="url"
-                value={watchLink}
-                onChange={e => setWatchLink(e.target.value)}
-                placeholder="np. https://connect.garmin.com/..."
-                className="w-full px-3 py-2.5 rounded-xl text-sm"
-                style={INPUT_STYLE}
-              />
-            </div>
+            {/* === EXTENDED SECTION (collapsed by default) === */}
+
+            {!showMore ? (
+              <button onClick={() => setShowMore(true)}
+                className="w-full py-2 text-xs font-medium cursor-pointer rounded-xl transition-all"
+                style={{ background: 'var(--bg-subtle)', color: 'var(--text-muted)', border: 'none' }}>
+                Więcej szczegółów ↓
+              </button>
+            ) : (
+              <div className="space-y-4 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                <div className="text-xs font-semibold" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>Szczegóły (opcjonalnie)</div>
+
+                {/* Distance + Duration */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Dystans (km)</label>
+                    <input type="number" value={distanceKm} onChange={e => setDistanceKm(e.target.value)}
+                      placeholder="np. 10.5" min="0" step="0.1"
+                      className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Czas (min)</label>
+                    <input type="number" value={durationMin} onChange={e => setDurationMin(e.target.value)}
+                      placeholder="np. 55" min="0"
+                      className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
+                  </div>
+                </div>
+
+                {/* Pain */}
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Ból lub problem?</label>
+                  <div className="flex gap-2">
+                    {[
+                      { value: false, label: 'Nie' },
+                      { value: true, label: 'Tak' },
+                    ].map(option => (
+                      <button key={option.label} onClick={() => setPainFlag(option.value)}
+                        className="flex-1 py-2 px-3 rounded-xl text-sm font-medium cursor-pointer transition-all text-center"
+                        style={{
+                          background: painFlag === option.value ? 'rgba(255,92,27,0.15)' : 'var(--bg-subtle)',
+                          border: painFlag === option.value ? '1px solid rgba(255,92,27,0.5)' : '1px solid transparent',
+                          color: painFlag === option.value ? '#FF5C1B' : 'var(--text-muted)',
+                        }}>{option.label}</button>
+                    ))}
+                  </div>
+                  {painFlag && (
+                    <textarea value={painNote} onChange={e => setPainNote(e.target.value)}
+                      placeholder="Krótko opisz problem"
+                      rows={2}
+                      className="w-full mt-2 px-3 py-2.5 rounded-xl text-sm resize-none" style={INPUT_STYLE} />
+                  )}
+                </div>
+
+                {/* Watch link */}
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Link z zegarka</label>
+                  <input type="url" value={watchLink} onChange={e => setWatchLink(e.target.value)}
+                    placeholder="np. https://connect.garmin.com/..."
+                    className="w-full px-3 py-2.5 rounded-xl text-sm" style={INPUT_STYLE} />
+                </div>
+              </div>
+            )}
           </>
         )}
 

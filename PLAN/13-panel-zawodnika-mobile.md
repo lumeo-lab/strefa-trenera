@@ -266,11 +266,11 @@ Ryzyko: **Niskie**
 
 ---
 
-### Etap 4: Feedback — uproszczenie flow i modal
+### Etap 4: Feedback — uproszczenie flow i modal ✅
 
 Priorytet: **Bardzo wysoki**
 Ryzyko: **Średnie**
-**Status: DO ZROBIENIA**
+**Status: WDROŻONY**
 
 #### Cel
 
