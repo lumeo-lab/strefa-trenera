@@ -67,7 +67,7 @@ export function FeedbackSidebarItem({
               className="text-[10px] shrink-0 px-1.5 py-0.5 rounded-full"
               style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
             >
-              Brak odp.
+              Brak odpowiedzi
             </span>
           )}
         </div>

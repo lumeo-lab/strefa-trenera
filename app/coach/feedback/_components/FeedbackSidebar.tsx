@@ -47,20 +47,31 @@ export function FeedbackSidebar({
 }) {
   return (
     <div
-      className="w-[600px] border-r flex flex-col shrink-0"
+      className="w-[460px] border-r flex flex-col shrink-0"
       style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}
     >
-      {/* Header: search + all filters in one row */}
+      {/* Header: row 1 = search + count, row 2 = filters */}
       <div className="px-3 py-3 border-b space-y-2" style={{ borderColor: 'var(--border)' }}>
+        {/* Row 1: search + results count */}
         <div className="flex items-center gap-2">
           <input
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Szukaj..."
+            placeholder="Szukaj w feedbackach..."
             aria-label="Szukaj w feedbackach"
-            className="w-44 shrink-0 px-3 py-2 rounded-xl text-sm"
+            className="flex-1 px-3 py-2 rounded-xl text-sm"
             style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
           />
+          <span
+            className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
+            style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
+          >
+            {feedbacks.length} {plural(feedbacks.length, 'wynik', 'wyniki', 'wyników')}
+          </span>
+        </div>
+
+        {/* Row 2: all filters */}
+        <div className="flex items-center gap-2">
           <SelectField
             value={filter}
             onChange={(value) => onFilterChange(value as Filter)}
@@ -87,29 +98,26 @@ export function FeedbackSidebar({
           <SelectField
             value={viewMode}
             onChange={(value) => onViewModeChange(value as ViewMode)}
-            className="min-w-0"
+            className="shrink-0"
           >
             <option value="chronological">Chronologicznie</option>
             <option value="urgency">Wg pilności</option>
           </SelectField>
         </div>
 
+        {/* Bulk mark read */}
         {filteredUnreadIds.length > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              {feedbacks.length} {plural(feedbacks.length, 'wynik', 'wyniki', 'wyników')}
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onBulkMarkRead(filteredUnreadIds)}
-              disabled={bulkMarking}
-            >
-              {bulkMarking
-                ? 'Oznaczanie...'
-                : `Oznacz ${filteredUnreadIds.length} jako przeczytane`}
-            </Button>
-          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onBulkMarkRead(filteredUnreadIds)}
+            disabled={bulkMarking}
+            className="w-full"
+          >
+            {bulkMarking
+              ? 'Oznaczanie...'
+              : `Oznacz ${filteredUnreadIds.length} jako przeczytane`}
+          </Button>
         )}
       </div>
 

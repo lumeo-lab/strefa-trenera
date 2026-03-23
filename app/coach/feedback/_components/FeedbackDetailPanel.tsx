@@ -72,8 +72,8 @@ export function FeedbackDetailPanel({
         ? '⌚ Zegarek'
         : '✏️ Tekst'
 
-  const watchData = fb.watch_data as { avgHR?: number; maxHR?: number; distance?: number } | null
-  const watchDataPresent = !!(watchData?.avgHR || watchData?.maxHR || watchData?.distance)
+  const watchData = fb.watch_data as { avgHR?: number; maxHR?: number; distance?: number; elevation?: number; pace?: string } | null
+  const watchDataPresent = !!(watchData?.avgHR || watchData?.maxHR || watchData?.distance || watchData?.elevation || watchData?.pace)
 
   // Strava / session actuals
   const hasStrava = !!session?.linked_strava_activity_id
@@ -198,18 +198,11 @@ export function FeedbackDetailPanel({
             <div className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>Dane z urządzenia</div>
             {watchDataPresent && (
               <div className="flex flex-wrap gap-3 mb-3">
-                {([
-                  watchData?.avgHR ? ['Tętno śr.', `${watchData.avgHR} bpm`] : null,
-                  watchData?.maxHR ? ['Tętno max', `${watchData.maxHR} bpm`] : null,
-                  watchData?.distance ? ['Dystans', `${watchData.distance} km`] : null,
-                ] as Array<[string, string] | null>)
-                  .filter((x): x is [string, string] => x !== null)
-                  .map(([k, v]) => (
-                    <div key={k} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{k}</span>
-                      <span className="text-sm font-semibold">{v}</span>
-                    </div>
-                  ))}
+                {watchData?.distance != null && <MetricChip icon="📏" label="Dystans" value={`${watchData.distance} km`} />}
+                {watchData?.pace && <MetricChip icon="⏱" label="Tempo" value={`${watchData.pace} /km`} />}
+                {watchData?.avgHR != null && <MetricChip icon="❤️" label="Tętno śr." value={`${watchData.avgHR} bpm`} />}
+                {watchData?.maxHR != null && <MetricChip icon="💓" label="Tętno max" value={`${watchData.maxHR} bpm`} />}
+                {watchData?.elevation != null && <MetricChip icon="⛰️" label="Przewyższenie" value={`${watchData.elevation} m`} />}
               </div>
             )}
             {fb.watch_link && (
@@ -236,19 +229,19 @@ export function FeedbackDetailPanel({
             </div>
             <div className="flex flex-wrap gap-3">
               {sessionActuals?.distance != null && (
-                <MetricChip label="Dystans" value={`${(sessionActuals.distance / 1000).toFixed(1)} km`} />
+                <MetricChip icon="📏" label="Dystans" value={`${(sessionActuals.distance / 1000).toFixed(1)} km`} />
               )}
               {sessionActuals?.duration != null && (
-                <MetricChip label="Czas" value={formatDuration(sessionActuals.duration)} />
+                <MetricChip icon="🕐" label="Czas" value={formatDuration(sessionActuals.duration)} />
               )}
               {sessionActuals?.pace && (
-                <MetricChip label="Tempo" value={`${sessionActuals.pace} /km`} />
+                <MetricChip icon="⏱" label="Tempo" value={`${sessionActuals.pace} /km`} />
               )}
               {sessionActuals?.avgHr != null && (
-                <MetricChip label="Tętno śr." value={`${sessionActuals.avgHr} bpm`} />
+                <MetricChip icon="❤️" label="Tętno śr." value={`${sessionActuals.avgHr} bpm`} />
               )}
               {sessionActuals?.maxHr != null && (
-                <MetricChip label="Tętno max" value={`${sessionActuals.maxHr} bpm`} />
+                <MetricChip icon="💓" label="Tętno max" value={`${sessionActuals.maxHr} bpm`} />
               )}
             </div>
           </div>
@@ -323,9 +316,10 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   )
 }
 
-function MetricChip({ label, value }: { label: string; value: string }) {
+function MetricChip({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
+      <span className="text-xs" aria-hidden="true">{icon}</span>
       <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</span>
       <span className="text-sm font-semibold">{value}</span>
     </div>
