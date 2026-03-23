@@ -1,5 +1,6 @@
 'use client'
 
+import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { feedbackLabel } from '@/components/coach/FeedbackCard'
 import { parseFeedbackTranscript, timeAgo } from '@/lib/utils'
@@ -18,10 +19,11 @@ export function FeedbackSidebarItem({
   const label = feedbackLabel(parsed)
   const signalDot = fb.signal === 'green' ? '🟢' : fb.signal === 'yellow' ? '🟡' : '🔴'
   const preview = parsed.notes
-    ? parsed.notes.length > 60 ? parsed.notes.slice(0, 60) + '…' : parsed.notes
+    ? parsed.notes.length > 70 ? parsed.notes.slice(0, 70) + '…' : parsed.notes
     : parsed.voice
-      ? parsed.voice.length > 60 ? parsed.voice.slice(0, 60) + '…' : parsed.voice
+      ? parsed.voice.length > 70 ? parsed.voice.slice(0, 70) + '…' : parsed.voice
       : ''
+  const athleteName = fb.athletes?.name || 'Nieznany'
 
   return (
     <button
@@ -32,15 +34,23 @@ export function FeedbackSidebarItem({
         borderBottomColor: 'var(--border)',
       }}
       onClick={onSelect}
-      aria-label={`Feedback od ${fb.athletes?.name || 'Nieznany'}: ${label}`}
+      aria-label={`Feedback od ${athleteName}: ${label}`}
       aria-current={isSelected ? 'true' : undefined}
     >
-      <span className="text-sm mt-0.5 shrink-0" aria-hidden="true">{signalDot}</span>
+      <div className="relative shrink-0 mt-0.5">
+        <Avatar initials={fb.athletes?.avatar || '?'} size="sm" />
+        <span
+          className="absolute -bottom-0.5 -right-0.5 text-[10px] leading-none"
+          aria-hidden="true"
+        >
+          {signalDot}
+        </span>
+      </div>
       <div className="flex-1 min-w-0">
         {/* Row 1: name + time */}
         <div className="flex items-center justify-between gap-2">
           <span className={`text-sm truncate ${!fb.read ? 'font-bold' : 'font-medium'}`}>
-            {fb.athletes?.name ?? 'Nieznany'}
+            {athleteName}
           </span>
           <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>
             {timeAgo(fb.created_at)}
@@ -61,9 +71,15 @@ export function FeedbackSidebarItem({
             </span>
           )}
         </div>
-        {/* Row 3: preview */}
+        {/* Row 3: session title */}
+        {fb.training_sessions?.title && (
+          <div className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
+            🏃 {fb.training_sessions.title}
+          </div>
+        )}
+        {/* Row 4: preview */}
         {preview && (
-          <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-xs mt-0.5 truncate italic" style={{ color: 'var(--text-muted)' }}>
             &ldquo;{preview}&rdquo;
           </p>
         )}
