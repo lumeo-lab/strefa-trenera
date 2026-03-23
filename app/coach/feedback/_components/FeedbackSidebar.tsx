@@ -47,7 +47,7 @@ export function FeedbackSidebar({
 }) {
   return (
     <div
-      className="w-[520px] border-r flex flex-col shrink-0"
+      className="w-[600px] border-r flex flex-col shrink-0"
       style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}
     >
       {/* Header: search + all filters in one row */}
@@ -58,7 +58,7 @@ export function FeedbackSidebar({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Szukaj..."
             aria-label="Szukaj w feedbackach"
-            className="w-40 shrink-0 px-3 py-2 rounded-xl text-sm"
+            className="w-44 shrink-0 px-3 py-2 rounded-xl text-sm"
             style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
           />
           <SelectField
