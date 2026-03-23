@@ -91,6 +91,26 @@ The codebase now relies on a few feature-definition tables that must exist in Su
 
 If these migrations are missing in an environment, the related UI may still render but save flows will fail or silently fall back.
 
+### Coach Feedback page (master-detail)
+
+`/coach/feedback` uses a master-detail layout (like Chat):
+
+- `FeedbackClient.tsx` — orchestrator: state, filters, layout (`h-dvh` + `-mb-64` pattern from ChatClient)
+- `FeedbackSidebar.tsx` (460px) — scrollable list with search, filters (status/athlete/sort), bulk mark-read
+- `FeedbackSidebarItem.tsx` — compact row: avatar with signal dot overlay, athlete name, label, session title, preview
+- `FeedbackDetailPanel.tsx` — full detail of selected feedback with reply box at bottom
+
+Data flow:
+- `page.tsx` fetches feedbacks with joins (`athletes`, `training_sessions`) plus a **separate query** for `strava_activities` (joined via `linked_strava_activity_id` on training_sessions)
+- Strava data is merged into feedbacks as `strava_data` before passing to client
+- Detail panel shows Strava as preferred source for actuals (distance, time, pace, HR, elevation) with orange accent; falls back to `training_sessions` actuals when no Strava link
+
+Key behaviors:
+- Auto-select first feedback on load and filter change
+- Auto-mark-read after 800ms of viewing (like Chat)
+- `viewMode` persisted in localStorage (`chronological` | `urgency`); legacy `grouped` value auto-migrated
+- Reply form always accessible in dedicated bottom box
+
 ### Component decomposition pattern
 
 Large page components are split into:
@@ -201,3 +221,5 @@ When changing this area, follow the master plan first; the other documents are r
 - When adding coach-only summary UI (signals, hints, filters), prefer compact presentation and modals/drawers over large persistent boxes if the information is secondary
 - In coach `HistoryTab`, keep the main row compact and single-line where possible; push plan details and long descriptions into expandable rows
 - In coach `InsightsTab`, prefer segmented decision-support views and charts over one long dashboard stuffed with summary cards
+- For master-detail pages (Feedback, Chat), use the `sticky top-0 flex h-dvh flex-col overflow-hidden -mb-64` pattern with independent scroll on sidebar and detail panel
+- When displaying training actuals, prefer Strava data as source of truth when a linked activity exists; fall back to `training_sessions` actual fields otherwise
