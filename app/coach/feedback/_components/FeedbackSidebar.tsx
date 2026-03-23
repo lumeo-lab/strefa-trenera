@@ -15,8 +15,8 @@ import type { FeedbackWithPriority, Filter, ViewMode } from './types'
 function GroupSeparator({ label, count }: { label: string; count: number }) {
   return (
     <div
-      className="flex items-center gap-2 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider sticky top-0 z-10"
-      style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}
+      className="flex items-center gap-2 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider sticky top-0 z-10"
+      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}
     >
       <span>{label}</span>
       <span className="opacity-60">({count})</span>

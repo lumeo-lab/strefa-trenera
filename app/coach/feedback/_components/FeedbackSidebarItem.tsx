@@ -35,11 +35,19 @@ export const FeedbackSidebarItem = memo(function FeedbackSidebarItem({
   // Status: combine read + reply into one clear indicator
   const statusLabel = !fb.read ? 'Nowy' : !fb.coach_reply ? 'Brak odpowiedzi' : null
 
+  // Background: selected > unread (white/card) > answered (subtle dim)
+  const isDone = fb.read && !!fb.coach_reply
+  const bgColor = isSelected
+    ? 'rgba(255,92,27,0.08)'
+    : isDone
+      ? 'var(--bg-subtle)'
+      : 'var(--bg-card)'
+
   return (
     <button
       className="w-full flex items-start gap-2.5 px-3 py-3 text-left transition-all cursor-pointer border-b"
       style={{
-        background: isSelected ? 'rgba(255,92,27,0.08)' : undefined,
+        background: bgColor,
         borderLeft: `3px solid ${signalBorderColor}`,
         borderBottomColor: 'var(--border)',
       }}
@@ -47,7 +55,7 @@ export const FeedbackSidebarItem = memo(function FeedbackSidebarItem({
       aria-label={`Feedback od ${athleteName}: ${label}`}
       aria-current={isSelected ? 'true' : undefined}
     >
-      <div className="flex-1 min-w-0">
+      <div className={`flex-1 min-w-0 ${isDone ? 'opacity-60' : ''}`}>
         {/* Row 1: name + time */}
         <div className="flex items-center gap-1.5">
           <span className={`text-sm truncate flex-1 ${!fb.read ? 'font-bold' : 'font-medium'}`}>
