@@ -95,8 +95,8 @@ function scoreToLevel(score: number): PriorityLevel {
 
 const LEVEL_LABELS: Record<PriorityLevel, string> = {
   critical: 'Pilne',
-  high: 'Wysokie',
-  medium: 'Średnie',
+  high: 'Do sprawdzenia',
+  medium: 'Do wglądu',
   low: '',
 }
 

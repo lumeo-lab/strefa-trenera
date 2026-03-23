@@ -114,6 +114,14 @@ describe('getPriorityLabel', () => {
     expect(getPriorityLabel('critical')).toBe('Pilne')
   })
 
+  it('returns label for high', () => {
+    expect(getPriorityLabel('high')).toBe('Do sprawdzenia')
+  })
+
+  it('returns label for medium', () => {
+    expect(getPriorityLabel('medium')).toBe('Do wglądu')
+  })
+
   it('returns empty for low', () => {
     expect(getPriorityLabel('low')).toBe('')
   })
