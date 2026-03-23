@@ -136,149 +136,142 @@ export function FeedbackDetailPanel({
         </div>
       </div>
 
-      {/* Body — two-column on xl+, single column on smaller */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Body — feedback content + reply box below */}
+      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
         {statusMessage && (
-          <div className="px-6 pt-4">
-            <StatusMessage tone={statusMessage.tone} text={statusMessage.text} />
+          <StatusMessage tone={statusMessage.tone} text={statusMessage.text} />
+        )}
+
+        {/* ── Feedback content ── */}
+        {hasContent && (
+          <div className="rounded-xl p-5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="text-xs font-semibold uppercase tracking-wide mb-4" style={{ color: 'var(--text-muted)' }}>Feedback zawodnika</div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-8 gap-y-2">
+              {parsed.feeling && (
+                <FieldRow label="Samopoczucie">
+                  <span>{parsed.feeling}</span>
+                  <span className="ml-1" style={{ color: 'var(--text-muted)' }}>{FEELING_LABELS[parsed.feeling] ?? ''}</span>
+                </FieldRow>
+              )}
+              {parsed.rpe && <FieldRow label="RPE">{parsed.rpe}</FieldRow>}
+              {parsed.trainingType && <FieldRow label="Typ treningu">{parsed.trainingType}</FieldRow>}
+              {parsed.distance && <FieldRow label="Dystans">{parsed.distance}</FieldRow>}
+              {parsed.duration && <FieldRow label="Czas">{parsed.duration}</FieldRow>}
+              {parsed.intensity && <FieldRow label="Intensywność">{parsed.intensity}</FieldRow>}
+              {parsed.pain && (
+                <FieldRow label="Ból / problem">
+                  <span className="text-red-400">{parsed.pain}</span>
+                </FieldRow>
+              )}
+            </div>
+            {parsed.notes && (
+              <div className="pt-3 mt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                <div className="text-xs font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Notatka</div>
+                <p className="text-sm italic" style={{ color: 'var(--text-primary)' }}>&ldquo;{parsed.notes}&rdquo;</p>
+              </div>
+            )}
           </div>
         )}
 
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 px-6 py-6">
-          {/* ── Left column: feedback content (3/5) ── */}
-          <div className="xl:col-span-3 space-y-5">
-            {/* Parsed fields */}
-            {hasContent && (
-              <div className="rounded-xl p-4 space-y-2.5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className="text-xs font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>Dane feedbacku</div>
-                {parsed.feeling && (
-                  <FieldRow label="Samopoczucie">
-                    <span>{parsed.feeling}</span>
-                    <span className="ml-1" style={{ color: 'var(--text-muted)' }}>{FEELING_LABELS[parsed.feeling] ?? ''}</span>
-                  </FieldRow>
-                )}
-                {parsed.rpe && <FieldRow label="RPE">{parsed.rpe}</FieldRow>}
-                {parsed.trainingType && <FieldRow label="Typ treningu">{parsed.trainingType}</FieldRow>}
-                {parsed.distance && <FieldRow label="Dystans">{parsed.distance}</FieldRow>}
-                {parsed.duration && <FieldRow label="Czas">{parsed.duration}</FieldRow>}
-                {parsed.intensity && <FieldRow label="Intensywność">{parsed.intensity}</FieldRow>}
-                {parsed.pain && (
-                  <FieldRow label="Ból / problem">
-                    <span className="text-red-400">{parsed.pain}</span>
-                  </FieldRow>
-                )}
-                {parsed.notes && (
-                  <div className="pt-2.5 mt-1" style={{ borderTop: '1px solid var(--border)' }}>
-                    <div className="text-xs font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Notatka</div>
-                    <p className="text-sm italic" style={{ color: 'var(--text-primary)' }}>&ldquo;{parsed.notes}&rdquo;</p>
-                  </div>
-                )}
+        {/* Voice transcript */}
+        {parsed.voice && (
+          <div className="rounded-xl p-5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>🎤 Komentarz głosowy</div>
+            <p className="text-sm italic">&ldquo;{parsed.voice}&rdquo;</p>
+          </div>
+        )}
+
+        {/* Watch data + link */}
+        {(watchDataPresent || fb.watch_link) && (
+          <div className="rounded-xl p-5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>Dane z urządzenia</div>
+            {watchDataPresent && (
+              <div className="flex flex-wrap gap-3 mb-3">
+                {([
+                  watchData?.avgHR ? ['Tętno śr.', `${watchData.avgHR} bpm`] : null,
+                  watchData?.maxHR ? ['Tętno max', `${watchData.maxHR} bpm`] : null,
+                  watchData?.distance ? ['Dystans', `${watchData.distance} km`] : null,
+                ] as Array<[string, string] | null>)
+                  .filter((x): x is [string, string] => x !== null)
+                  .map(([k, v]) => (
+                    <div key={k} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{k}</span>
+                      <span className="text-sm font-semibold">{v}</span>
+                    </div>
+                  ))}
               </div>
             )}
-
-            {/* Voice transcript */}
-            {parsed.voice && (
-              <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>🎤 Komentarz głosowy</div>
-                <p className="text-sm italic">&ldquo;{parsed.voice}&rdquo;</p>
-              </div>
-            )}
-
-            {/* Watch link */}
             {fb.watch_link && (
               <a
                 href={fb.watch_link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl transition-opacity hover:opacity-80"
-                style={{ background: 'rgba(255,92,27,0.08)', color: '#FF5C1B', border: '1px solid rgba(255,92,27,0.2)' }}
+                className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-opacity hover:opacity-80"
+                style={{ background: 'rgba(255,92,27,0.08)', color: '#FF5C1B' }}
                 aria-label="Otwórz link do zegarka"
               >
-                ⌚ <span className="underline truncate">{fb.watch_link}</span>
-                <span className="shrink-0 ml-auto text-xs opacity-70">↗</span>
+                ⌚ <span className="underline">{fb.watch_link}</span>
+                <span className="text-xs opacity-70">↗</span>
               </a>
             )}
+          </div>
+        )}
 
-            {/* Empty left column fallback */}
-            {!hasContent && !parsed.voice && !fb.watch_link && (
-              <div className="rounded-xl p-4 text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Brak dodatkowych danych w tym feedbacku.</p>
-              </div>
-            )}
+        {/* Empty feedback fallback */}
+        {!hasContent && !parsed.voice && !watchDataPresent && !fb.watch_link && (
+          <div className="rounded-xl p-5 text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Brak dodatkowych danych w tym feedbacku.</p>
+          </div>
+        )}
+
+        {/* ── Reply section — separate box ── */}
+        <div className="rounded-xl p-5" style={{ background: 'var(--bg-card)', border: fb.coach_reply ? '1px solid rgba(46,204,113,0.3)' : '1px solid var(--border)' }}>
+          <div className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: fb.coach_reply && !isReplying ? '#2ECC71' : 'var(--text-muted)' }}>
+            {fb.coach_reply && !isReplying ? '✓ Odpowiedź trenera' : 'Odpowiedź trenera'}
           </div>
 
-          {/* ── Right column: actions + metrics (2/5) ── */}
-          <div className="xl:col-span-2 space-y-5">
-            {/* Watch sensor data */}
-            {watchDataPresent && (
-              <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Dane z zegarka</div>
-                <div className="grid grid-cols-1 gap-2">
-                  {([
-                    watchData?.avgHR ? ['Tętno śr.', `${watchData.avgHR} bpm`] : null,
-                    watchData?.maxHR ? ['Tętno max', `${watchData.maxHR} bpm`] : null,
-                    watchData?.distance ? ['Dystans', `${watchData.distance} km`] : null,
-                  ] as Array<[string, string] | null>)
-                    .filter((x): x is [string, string] => x !== null)
-                    .map(([k, v]) => (
-                      <div key={k} className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{k}</span>
-                        <span className="text-sm font-semibold">{v}</span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Coach reply (read-only) */}
-            {fb.coach_reply && !isReplying && (
-              <div className="rounded-xl p-4" style={{ background: 'rgba(46,204,113,0.08)', border: '1px solid rgba(46,204,113,0.2)' }}>
-                <div className="text-xs font-semibold mb-1.5" style={{ color: '#2ECC71' }}>Twoja odpowiedź</div>
-                <p className="text-sm">{fb.coach_reply}</p>
-              </div>
-            )}
-
-            {/* Reply form */}
-            <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>
-                {fb.coach_reply ? 'Odpowiedź' : 'Odpowiedz zawodnikowi'}
-              </div>
-              {isReplying ? (
-                <div className="space-y-2">
-                  {fb.coach_reply && (
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Edytujesz istniejącą odpowiedź.</p>
-                  )}
-                  <textarea
-                    value={replyText}
-                    onChange={(e) => onReplyChange(e.target.value)}
-                    placeholder="Napisz odpowiedź do zawodnika..."
-                    rows={4}
-                    className="w-full px-3 py-2 rounded-xl text-sm resize-none"
-                    style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                    autoFocus
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={onReplySubmit} disabled={!replyText.trim() || submitting}>
-                      {submitting ? 'Wysyłanie...' : 'Wyślij'}
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={onReplyCancel}>Anuluj</Button>
-                  </div>
-                </div>
-              ) : (
-                <Button variant="secondary" size="sm" onClick={onReplyStart} className="w-full">
-                  {fb.coach_reply ? '✏️ Edytuj odpowiedź' : '💬 Odpowiedz'}
-                </Button>
-              )}
+          {/* Existing reply display */}
+          {fb.coach_reply && !isReplying && (
+            <div className="mb-4">
+              <p className="text-sm">{fb.coach_reply}</p>
             </div>
+          )}
 
-            {/* Limit 200 info */}
-            {totalLoaded >= 200 && (
-              <div className="text-center text-xs py-3 rounded-xl" style={{ color: 'var(--text-muted)', background: 'var(--bg-subtle)' }}>
-                Wyświetlasz ostatnie 200 feedbacków.
+          {/* Reply form */}
+          {isReplying ? (
+            <div className="space-y-3">
+              {fb.coach_reply && (
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Edytujesz istniejącą odpowiedź. Zapisanie zastąpi poprzednią.</p>
+              )}
+              <textarea
+                value={replyText}
+                onChange={(e) => onReplyChange(e.target.value)}
+                placeholder="Napisz odpowiedź do zawodnika..."
+                rows={4}
+                className="w-full px-3 py-2 rounded-xl text-sm resize-none"
+                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={onReplySubmit} disabled={!replyText.trim() || submitting}>
+                  {submitting ? 'Wysyłanie...' : 'Wyślij'}
+                </Button>
+                <Button variant="secondary" size="sm" onClick={onReplyCancel}>Anuluj</Button>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <Button variant="secondary" size="sm" onClick={onReplyStart}>
+              {fb.coach_reply ? '✏️ Edytuj odpowiedź' : '💬 Napisz odpowiedź'}
+            </Button>
+          )}
         </div>
+
+        {/* Limit 200 info */}
+        {totalLoaded >= 200 && (
+          <div className="text-center text-xs py-3 rounded-xl" style={{ color: 'var(--text-muted)', background: 'var(--bg-subtle)' }}>
+            Wyświetlasz ostatnie 200 feedbacków. Starsze wpisy nie są widoczne.
+          </div>
+        )}
       </div>
     </div>
   )

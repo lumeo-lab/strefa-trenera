@@ -47,7 +47,7 @@ export function FeedbackSidebar({
 }) {
   return (
     <div
-      className="w-[380px] border-r flex flex-col shrink-0"
+      className="w-[440px] border-r flex flex-col shrink-0"
       style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}
     >
       {/* Header with filters */}
