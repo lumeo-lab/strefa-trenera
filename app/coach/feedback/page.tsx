@@ -15,20 +15,31 @@ export default async function FeedbackPage({
   const coachId = user?.id ?? ''
   const athleteParam = Array.isArray(params.athlete) ? params.athlete[0] : params.athlete
   const filterParam = Array.isArray(params.filter) ? params.filter[0] : params.filter
-  // Deep link params: view, sort, highlight are read client-side via useSearchParams
-  const { data: activeAthletes } = await supabase
+
+  const { data: activeAthletes, error: athletesError } = await supabase
     .from('athletes')
     .select('id')
     .eq('coach_id', coachId)
     .is('archived_at', null)
 
+  if (athletesError) {
+    return <FeedbackClient feedbacks={[]} totalCount={0} error="Nie udało się pobrać listy zawodników. Odśwież stronę." />
+  }
+
   const activeAthleteIds = (activeAthletes ?? []).map((athlete) => athlete.id)
 
   if (activeAthleteIds.length === 0) {
-    return <FeedbackClient feedbacks={[]} />
+    return <FeedbackClient feedbacks={[]} totalCount={0} noAthletes />
   }
 
-  const { data: feedbacks } = await supabase
+  // Count total feedbacks for pagination info (non-critical — fallback to loaded count if fails)
+  const { count: totalCount } = await supabase
+    .from('feedbacks')
+    .select('id', { count: 'exact', head: true })
+    .eq('coach_id', coachId)
+    .in('athlete_id', activeAthleteIds)
+
+  const { data: feedbacks, error: feedbacksError } = await supabase
     .from('feedbacks')
     .select(`
       *,
@@ -38,7 +49,11 @@ export default async function FeedbackPage({
     .eq('coach_id', coachId)
     .in('athlete_id', activeAthleteIds)
     .order('created_at', { ascending: false })
-    .limit(200)
+    .limit(50)
+
+  if (feedbacksError) {
+    return <FeedbackClient feedbacks={[]} totalCount={0} error="Nie udało się pobrać feedbacków. Odśwież stronę." />
+  }
 
   // Fetch Strava data for sessions that have a linked activity
   const stravaIds = (feedbacks ?? [])
@@ -77,6 +92,7 @@ export default async function FeedbackPage({
   return (
     <FeedbackClient
       feedbacks={enrichedFeedbacks}
+      totalCount={totalCount ?? enrichedFeedbacks.length}
       initialAthleteId={athleteParam ?? ''}
       initialFilter={filterParam ?? 'all'}
     />

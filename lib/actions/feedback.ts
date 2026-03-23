@@ -195,6 +195,69 @@ export async function markFeedbacksReadBulk(ids: string[]) {
   return { success: true }
 }
 
+export async function loadMoreFeedbacks(offset: number, limit = 50) {
+  limit = Math.min(Math.max(limit, 1), 100)
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: AUTH_ERROR }
+
+  const { data: activeAthletes } = await supabase
+    .from('athletes')
+    .select('id')
+    .eq('coach_id', user.id)
+    .is('archived_at', null)
+
+  const activeAthleteIds = (activeAthletes ?? []).map(a => a.id)
+  if (activeAthleteIds.length === 0) return { feedbacks: [] }
+
+  const { data: feedbacks, error } = await supabase
+    .from('feedbacks')
+    .select(`
+      *,
+      athletes(id, name, avatar),
+      training_sessions(id, title, linked_strava_activity_id, actual_distance, actual_duration, actual_pace, avg_hr, max_hr)
+    `)
+    .eq('coach_id', user.id)
+    .in('athlete_id', activeAthleteIds)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (error) return { error: error.message }
+
+  // Fetch Strava data
+  const stravaIds = (feedbacks ?? [])
+    .map(f => f.training_sessions?.linked_strava_activity_id)
+    .filter((id): id is number => id != null)
+
+  const uniqueStravaIds = [...new Set(stravaIds)]
+  let stravaMap = new Map<number, {
+    distance: number | null
+    moving_time: number | null
+    average_speed: number | null
+    average_heartrate: number | null
+    max_heartrate: number | null
+    total_elevation_gain: number | null
+  }>()
+
+  if (uniqueStravaIds.length > 0) {
+    const { data: stravaActivities } = await supabase
+      .from('strava_activities')
+      .select('strava_id, distance, moving_time, average_speed, average_heartrate, max_heartrate, total_elevation_gain')
+      .in('strava_id', uniqueStravaIds)
+    if (stravaActivities) {
+      stravaMap = new Map(stravaActivities.map(a => [a.strava_id, a]))
+    }
+  }
+
+  const enriched = (feedbacks ?? []).map(f => {
+    const stravaId = f.training_sessions?.linked_strava_activity_id
+    const strava = stravaId ? stravaMap.get(stravaId) ?? null : null
+    return { ...f, strava_data: strava }
+  })
+
+  return { feedbacks: enriched }
+}
+
 export async function replyFeedback(_: unknown, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
