@@ -75,6 +75,17 @@ export function FeedbackDetailPanel({
   const watchData = fb.watch_data as { avgHR?: number; maxHR?: number; distance?: number } | null
   const watchDataPresent = !!(watchData?.avgHR || watchData?.maxHR || watchData?.distance)
 
+  // Strava / session actuals
+  const hasStrava = !!session?.linked_strava_activity_id
+  const sessionActuals = session ? {
+    distance: session.actual_distance,
+    duration: session.actual_duration,
+    pace: session.actual_pace,
+    avgHr: session.avg_hr,
+    maxHr: session.max_hr,
+  } : null
+  const hasSessionActuals = !!(sessionActuals?.distance || sessionActuals?.duration || sessionActuals?.pace || sessionActuals?.avgHr || sessionActuals?.maxHr)
+
   return (
     <div className="flex-1 flex flex-col min-w-0" style={{ background: 'var(--bg-base)' }}>
       {/* Header */}
@@ -217,8 +228,34 @@ export function FeedbackDetailPanel({
           </div>
         )}
 
+        {/* Strava / session actuals */}
+        {hasSessionActuals && (
+          <div className="rounded-xl p-5" style={{ background: 'var(--bg-card)', border: hasStrava ? '1px solid rgba(252,82,0,0.3)' : '1px solid var(--border)' }}>
+            <div className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: hasStrava ? '#FC5200' : 'var(--text-muted)' }}>
+              {hasStrava ? '🔗 Dane ze Strava' : 'Dane z sesji treningowej'}
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {sessionActuals?.distance != null && (
+                <MetricChip label="Dystans" value={`${(sessionActuals.distance / 1000).toFixed(1)} km`} />
+              )}
+              {sessionActuals?.duration != null && (
+                <MetricChip label="Czas" value={formatDuration(sessionActuals.duration)} />
+              )}
+              {sessionActuals?.pace && (
+                <MetricChip label="Tempo" value={`${sessionActuals.pace} /km`} />
+              )}
+              {sessionActuals?.avgHr != null && (
+                <MetricChip label="Tętno śr." value={`${sessionActuals.avgHr} bpm`} />
+              )}
+              {sessionActuals?.maxHr != null && (
+                <MetricChip label="Tętno max" value={`${sessionActuals.maxHr} bpm`} />
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Empty feedback fallback */}
-        {!hasContent && !parsed.voice && !watchDataPresent && !fb.watch_link && (
+        {!hasContent && !parsed.voice && !watchDataPresent && !fb.watch_link && !hasSessionActuals && (
           <div className="rounded-xl p-5 text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Brak dodatkowych danych w tym feedbacku.</p>
           </div>
@@ -284,4 +321,20 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
       <span>{children}</span>
     </div>
   )
+}
+
+function MetricChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--bg-subtle)' }}>
+      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</span>
+      <span className="text-sm font-semibold">{value}</span>
+    </div>
+  )
+}
+
+function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = Math.round(minutes % 60)
+  if (h === 0) return `${m} min`
+  return m > 0 ? `${h}h ${m}min` : `${h}h`
 }

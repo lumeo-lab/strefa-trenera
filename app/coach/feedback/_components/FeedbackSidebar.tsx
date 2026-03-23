@@ -47,21 +47,20 @@ export function FeedbackSidebar({
 }) {
   return (
     <div
-      className="w-[440px] border-r flex flex-col shrink-0"
+      className="w-[520px] border-r flex flex-col shrink-0"
       style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}
     >
-      {/* Header with filters */}
+      {/* Header: search + all filters in one row */}
       <div className="px-3 py-3 border-b space-y-2" style={{ borderColor: 'var(--border)' }}>
-        <input
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Szukaj w feedbackach..."
-          aria-label="Szukaj w feedbackach"
-          className="w-full px-3 py-2 rounded-xl text-sm"
-          style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-        />
-
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <input
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Szukaj..."
+            aria-label="Szukaj w feedbackach"
+            className="w-40 shrink-0 px-3 py-2 rounded-xl text-sm"
+            style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+          />
           <SelectField
             value={filter}
             onChange={(value) => onFilterChange(value as Filter)}
@@ -73,7 +72,6 @@ export function FeedbackSidebar({
               </option>
             ))}
           </SelectField>
-
           <SelectField
             value={athleteFilter}
             onChange={(value) => onAthleteFilterChange(value)}
@@ -86,9 +84,6 @@ export function FeedbackSidebar({
               </option>
             ))}
           </SelectField>
-        </div>
-
-        <div className="flex items-center justify-between gap-2">
           <SelectField
             value={viewMode}
             onChange={(value) => onViewModeChange(value as ViewMode)}
@@ -97,27 +92,24 @@ export function FeedbackSidebar({
             <option value="chronological">Chronologicznie</option>
             <option value="urgency">Wg pilności</option>
           </SelectField>
-
-          <span
-            className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
-            style={{ background: 'rgba(255,92,27,0.1)', color: '#FF5C1B' }}
-          >
-            {feedbacks.length} {plural(feedbacks.length, 'wynik', 'wyniki', 'wyników')}
-          </span>
         </div>
 
         {filteredUnreadIds.length > 0 && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onBulkMarkRead(filteredUnreadIds)}
-            disabled={bulkMarking}
-            className="w-full"
-          >
-            {bulkMarking
-              ? 'Oznaczanie...'
-              : `Oznacz ${filteredUnreadIds.length} jako przeczytane`}
-          </Button>
+          <div className="flex items-center justify-between">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {feedbacks.length} {plural(feedbacks.length, 'wynik', 'wyniki', 'wyników')}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onBulkMarkRead(filteredUnreadIds)}
+              disabled={bulkMarking}
+            >
+              {bulkMarking
+                ? 'Oznaczanie...'
+                : `Oznacz ${filteredUnreadIds.length} jako przeczytane`}
+            </Button>
+          </div>
         )}
       </div>
 

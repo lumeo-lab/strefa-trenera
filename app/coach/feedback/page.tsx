@@ -33,7 +33,7 @@ export default async function FeedbackPage({
     .select(`
       *,
       athletes(id, name, avatar),
-      training_sessions(id, title)
+      training_sessions(id, title, linked_strava_activity_id, actual_distance, actual_duration, actual_pace, avg_hr, max_hr)
     `)
     .eq('coach_id', coachId)
     .in('athlete_id', activeAthleteIds)
