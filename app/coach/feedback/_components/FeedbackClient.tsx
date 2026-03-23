@@ -12,6 +12,15 @@ import { FeedbackSidebar } from './FeedbackSidebar'
 import { FeedbackDetailPanel } from './FeedbackDetailPanel'
 import type { FeedbackRow } from '@/lib/supabase/database.types'
 
+export type StravaData = {
+  distance: number | null
+  moving_time: number | null
+  average_speed: number | null
+  average_heartrate: number | null
+  max_heartrate: number | null
+  total_elevation_gain: number | null
+}
+
 export type FeedbackWithJoins = FeedbackRow & {
   athletes: { id: string; name: string; avatar: string } | null
   training_sessions: {
@@ -24,6 +33,7 @@ export type FeedbackWithJoins = FeedbackRow & {
     avg_hr: number | null
     max_hr: number | null
   } | null
+  strava_data: StravaData | null
 }
 
 type Filter = 'all' | 'today' | 'unread' | 'needs_action' | 'needs_reply'

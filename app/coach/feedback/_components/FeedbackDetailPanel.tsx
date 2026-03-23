@@ -75,16 +75,25 @@ export function FeedbackDetailPanel({
   const watchData = fb.watch_data as { avgHR?: number; maxHR?: number; distance?: number; elevation?: number; pace?: string } | null
   const watchDataPresent = !!(watchData?.avgHR || watchData?.maxHR || watchData?.distance || watchData?.elevation || watchData?.pace)
 
-  // Strava / session actuals
-  const hasStrava = !!session?.linked_strava_activity_id
-  const sessionActuals = session ? {
-    distance: session.actual_distance,
+  // Strava is preferred source when available, fallback to session actuals
+  const strava = fb.strava_data
+  const hasStrava = !!strava
+  const actuals = hasStrava ? {
+    distance: strava.distance != null ? strava.distance / 1000 : null, // m → km
+    duration: strava.moving_time != null ? strava.moving_time / 60 : null, // s → min
+    pace: strava.average_speed && strava.average_speed > 0 ? formatPace(strava.average_speed) : null,
+    avgHr: strava.average_heartrate,
+    maxHr: strava.max_heartrate,
+    elevation: strava.total_elevation_gain,
+  } : session ? {
+    distance: session.actual_distance != null ? session.actual_distance / 1000 : null,
     duration: session.actual_duration,
     pace: session.actual_pace,
     avgHr: session.avg_hr,
     maxHr: session.max_hr,
+    elevation: null as number | null,
   } : null
-  const hasSessionActuals = !!(sessionActuals?.distance || sessionActuals?.duration || sessionActuals?.pace || sessionActuals?.avgHr || sessionActuals?.maxHr)
+  const hasActuals = !!(actuals?.distance || actuals?.duration || actuals?.pace || actuals?.avgHr || actuals?.maxHr || actuals?.elevation)
 
   return (
     <div className="flex-1 flex flex-col min-w-0" style={{ background: 'var(--bg-base)' }}>
@@ -221,34 +230,37 @@ export function FeedbackDetailPanel({
           </div>
         )}
 
-        {/* Strava / session actuals */}
-        {hasSessionActuals && (
+        {/* Session / Strava actuals */}
+        {hasActuals && (
           <div className="rounded-xl p-5" style={{ background: 'var(--bg-card)', border: hasStrava ? '1px solid rgba(252,82,0,0.3)' : '1px solid var(--border)' }}>
             <div className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: hasStrava ? '#FC5200' : 'var(--text-muted)' }}>
-              {hasStrava ? '🔗 Dane ze Strava' : 'Dane z sesji treningowej'}
+              {hasStrava ? '🔗 Dane ze Strava' : '🏃 Dane z sesji treningowej'}
             </div>
             <div className="flex flex-wrap gap-3">
-              {sessionActuals?.distance != null && (
-                <MetricChip icon="📏" label="Dystans" value={`${(sessionActuals.distance / 1000).toFixed(1)} km`} />
+              {actuals?.distance != null && (
+                <MetricChip icon="📏" label="Dystans" value={`${actuals.distance.toFixed(1)} km`} />
               )}
-              {sessionActuals?.duration != null && (
-                <MetricChip icon="🕐" label="Czas" value={formatDuration(sessionActuals.duration)} />
+              {actuals?.duration != null && (
+                <MetricChip icon="🕐" label="Czas" value={formatDuration(actuals.duration)} />
               )}
-              {sessionActuals?.pace && (
-                <MetricChip icon="⏱" label="Tempo" value={`${sessionActuals.pace} /km`} />
+              {actuals?.pace && (
+                <MetricChip icon="⏱" label="Tempo" value={`${actuals.pace} /km`} />
               )}
-              {sessionActuals?.avgHr != null && (
-                <MetricChip icon="❤️" label="Tętno śr." value={`${sessionActuals.avgHr} bpm`} />
+              {actuals?.avgHr != null && (
+                <MetricChip icon="❤️" label="Tętno śr." value={`${actuals.avgHr} bpm`} />
               )}
-              {sessionActuals?.maxHr != null && (
-                <MetricChip icon="💓" label="Tętno max" value={`${sessionActuals.maxHr} bpm`} />
+              {actuals?.maxHr != null && (
+                <MetricChip icon="💓" label="Tętno max" value={`${actuals.maxHr} bpm`} />
+              )}
+              {actuals?.elevation != null && (
+                <MetricChip icon="⛰️" label="Przewyższenie" value={`${Math.round(actuals.elevation)} m`} />
               )}
             </div>
           </div>
         )}
 
         {/* Empty feedback fallback */}
-        {!hasContent && !parsed.voice && !watchDataPresent && !fb.watch_link && !hasSessionActuals && (
+        {!hasContent && !parsed.voice && !watchDataPresent && !fb.watch_link && !hasActuals && (
           <div className="rounded-xl p-5 text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Brak dodatkowych danych w tym feedbacku.</p>
           </div>
@@ -331,4 +343,11 @@ function formatDuration(minutes: number): string {
   const m = Math.round(minutes % 60)
   if (h === 0) return `${m} min`
   return m > 0 ? `${h}h ${m}min` : `${h}h`
+}
+
+function formatPace(avgSpeedMs: number): string {
+  const paceSecondsPerKm = 1000 / avgSpeedMs
+  const min = Math.floor(paceSecondsPerKm / 60)
+  const sec = Math.round(paceSecondsPerKm % 60)
+  return `${min}:${sec.toString().padStart(2, '0')}`
 }
