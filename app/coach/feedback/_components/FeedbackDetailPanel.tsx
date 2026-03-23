@@ -304,66 +304,62 @@ export function FeedbackDetailPanel({
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Brak dodatkowych danych w tym feedbacku.</p>
             </div>
           )}
-        </div>
-      </div>
 
-      {/* ── Sticky reply composer ── */}
-      <div
-        className="shrink-0 border-t px-6 py-4"
-        style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}
-      >
-        <div className="max-w-3xl mx-auto">
-          {/* Existing reply display */}
-          {fb.coach_reply && !isReplying && (
-            <div className="flex items-start gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold mb-1" style={{ color: '#2ECC71' }}>✓ Odpowiedź trenera</div>
-                <p className="text-sm line-clamp-2">{fb.coach_reply}</p>
-              </div>
-              <Button variant="secondary" size="sm" onClick={onReplyStart}>✏️ Edytuj</Button>
-            </div>
-          )}
+          {/* ── Reply section — inline, directly after content ── */}
+          <div className="rounded-xl p-5" style={{ background: 'var(--bg-card)', border: fb.coach_reply && !isReplying ? '1px solid rgba(46,204,113,0.3)' : '1px solid var(--border)' }}>
+            {/* Existing reply display */}
+            {fb.coach_reply && !isReplying && (
+              <>
+                <div className="text-xs font-semibold mb-2" style={{ color: '#2ECC71' }}>✓ Odpowiedź trenera</div>
+                <p className="text-sm mb-3">{fb.coach_reply}</p>
+                <Button variant="secondary" size="sm" onClick={onReplyStart}>✏️ Edytuj odpowiedź</Button>
+              </>
+            )}
 
-          {/* Reply form */}
-          {isReplying ? (
-            <div className="space-y-2">
-              {fb.coach_reply && (
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Edytujesz istniejącą odpowiedź.</p>
-              )}
-              {/* Templates */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {REPLY_TEMPLATES.map((t) => (
-                  <button
-                    key={t.label}
-                    onClick={() => onReplyChange(t.text)}
-                    className="text-[11px] px-2 py-1 rounded-lg cursor-pointer transition-colors"
-                    style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-                  >
-                    {t.label}
-                  </button>
-                ))}
+            {/* Reply form */}
+            {isReplying ? (
+              <div className="space-y-2">
+                {fb.coach_reply && (
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Edytujesz istniejącą odpowiedź.</p>
+                )}
+                {/* Templates */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {REPLY_TEMPLATES.map((t) => (
+                    <button
+                      key={t.label}
+                      onClick={() => onReplyChange(t.text)}
+                      className="text-[11px] px-2 py-1 rounded-lg cursor-pointer transition-colors"
+                      style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={replyText}
+                  onChange={(e) => onReplyChange(e.target.value)}
+                  placeholder="Napisz odpowiedź do zawodnika..."
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-xl text-sm resize-none"
+                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                  autoFocus
+                />
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={onReplySubmit} disabled={!replyText.trim() || submitting}>
+                    {submitting ? 'Wysyłanie...' : 'Wyślij'}
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={onReplyCancel}>Anuluj</Button>
+                </div>
               </div>
-              <textarea
-                value={replyText}
-                onChange={(e) => onReplyChange(e.target.value)}
-                placeholder="Napisz odpowiedź do zawodnika..."
-                rows={3}
-                className="w-full px-3 py-2 rounded-xl text-sm resize-none"
-                style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                autoFocus
-              />
-              <div className="flex items-center gap-2">
-                <Button size="sm" onClick={onReplySubmit} disabled={!replyText.trim() || submitting}>
-                  {submitting ? 'Wysyłanie...' : 'Wyślij'}
+            ) : !fb.coach_reply ? (
+              <>
+                <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>Odpowiedź trenera</div>
+                <Button variant="secondary" size="sm" onClick={onReplyStart} className="w-full">
+                  💬 Napisz odpowiedź
                 </Button>
-                <Button variant="secondary" size="sm" onClick={onReplyCancel}>Anuluj</Button>
-              </div>
-            </div>
-          ) : !fb.coach_reply ? (
-            <Button variant="secondary" size="sm" onClick={onReplyStart} className="w-full">
-              💬 Napisz odpowiedź
-            </Button>
-          ) : null}
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
